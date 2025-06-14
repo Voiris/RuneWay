@@ -1,0 +1,79 @@
+# Комментарий. Файл: main.rnway
+
+# Объявляем переменную (тип задаётся автоматически)
+let var = "Hello, World";
+
+# Выводим содержимое var
+print(var);
+
+# Блок кода, который не исполнится и не будет скомпилирован, т.к. не используется
+{
+  print(var);
+}
+
+# Цикл i от 0 включительно до 4 не включая 4
+for i in 0..4 {
+  print(i);
+}
+
+# Цикл i от 0 включительно до 4 включительно
+for i in 0...4 {
+  print(i);
+}
+
+# Функция (аргументы статически типизированны)
+act output(s: string) {
+  print(s);
+}
+
+# Класс
+class User {
+  let name: string;
+  let surname: string;
+
+  # Метод-инициатор (тип для self указывать не надо)
+  new (self, name: string, surname: string) {
+    self.name = name;
+    self.surname = surname;
+  }
+
+  # Обычный метод без return
+  act say(self, message: string) {
+    print(f"{self} > {message}");
+  }
+
+  # Особый параметр, можно задать через prop/property
+  prop full_name {
+    # Геттер. Ещё вариант: get (self) => self.surname + " " + self.name
+    get (self) {
+      return self.name + " " + self.surname;
+    }
+    set (self, full_name: string) {
+      # Обработка ошибок
+      try {
+        # Разделение массива, полученного от split на переменные
+        self.name, self.surname = full_name.split(" ");
+        return true;
+      } catch (Exception as e) {
+        print("Caught exception: " + e);
+        return false;
+      }
+    }
+  }
+}
+
+# Создать объект класса User
+let user1 = User("Ivan", "Ivanovich");
+
+# Получение обычного параметра
+print(user1.name)
+
+# Изменения обычного параметра
+user1.name = "Peter"
+
+# Получение особого параметра
+print(user1.full_name)
+
+# Изменения особого параметра (setter)
+user1.full_name = "Bob Brown"
+user1.full_name.set("Tony Stark")
