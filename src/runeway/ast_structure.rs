@@ -3,13 +3,21 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     // Types
     Integer(i64),
     Float(f64),
     String(String),
     Boolean(bool),
+    List(Vec<Box<Expr>>),
+    FString(Vec<FStringExpr>),
+
+    Iterator {
+        start: Box<Expr>,
+        end: Box<Expr>,
+        step: Option<Box<Expr>>,
+    },
     Null,
 
     // Operations
@@ -38,8 +46,39 @@ impl Expr {
             Expr::Float(f) => Value::Float(*f),
             Expr::String(s) => Value::String(s.clone()),
             Expr::Boolean(b) => Value::Boolean(*b),
-            Expr::Null => Value::Null,
+            Expr::FString(fs) => {
+                let mut string = String::new();
 
+                for fs_expr in fs {
+                    match fs_expr {
+                        FStringExpr::Expr(expr) => string.push_str(&expr.evaluate(env.clone()).to_string()),
+                        FStringExpr::String(s) => string.push_str(&s),
+                    }
+                }
+
+                Value::String(string)
+            }
+            Expr::Iterator { start, end, step } => {
+                Value::Iterator {
+                    start: Box::new(start.evaluate(Rc::clone(&env))),
+                    end: Box::new(end.evaluate(Rc::clone(&env))),
+                    step: if let Some(step) = step {
+                        Box::new(step.evaluate(Rc::clone(&env)))
+                    } else {
+                        Box::new(Value::Integer(1))
+                    },
+                }
+            }
+            Expr::Null => Value::Null,
+            Expr::List(l) => {
+                let mut list = Vec::new();
+
+                for e in l {
+                    list.push(Box::new(e.evaluate(Rc::clone(&env))));
+                }
+
+                Value::List(list)
+            }
             Expr::Expr(expr) => expr.evaluate(Rc::clone(&env)),
             Expr::Variable(name) => env
                 .borrow()
@@ -48,9 +87,16 @@ impl Expr {
             Expr::UnaryOperation { operator, operand } => {
                 let val = operand.evaluate(env);
                 match (operator, val) {
+                    // Unary negative
                     (UnaryOperator::Neg, Value::Integer(i)) => Value::Integer(-i),
                     (UnaryOperator::Neg, Value::Float(f)) => Value::Float(-f),
+
+                    // Unary not
                     (UnaryOperator::Not, Value::Boolean(b)) => Value::Boolean(!b),
+                    (UnaryOperator::Not, Value::Null) => Value::Boolean(true),
+                    (UnaryOperator::Not, Value::Integer(i)) => Value::Boolean(!(i != 0)),
+                    (UnaryOperator::Not, Value::Float(i)) => Value::Boolean(!(i != 0.0)),
+
                     _ => panic!("Неверная унарная операция"),
                 }
             }
@@ -93,8 +139,16 @@ impl Expr {
                     (Value::Boolean(a), Value::Boolean(b), BinaryOperator::And) => Value::Boolean(a && b),
                     (Value::Boolean(a), Value::Boolean(b), BinaryOperator::Or) => Value::Boolean(a || b),
 
-                    // String concatenation
+                    // String concatenation and equalisation
                     (Value::String(a), Value::String(b), BinaryOperator::Add) => Value::String(a + &b),
+                    (Value::String(a), b, BinaryOperator::Add) => Value::String(a + &(b.to_string())),
+
+                    (Value::String(a), Value::String(b), BinaryOperator::Eq) => Value::Boolean(a == b),
+                    (Value::String(a), Value::String(b), BinaryOperator::NotEq) => Value::Boolean(a != b),
+                    (Value::String(a), Value::String(b), BinaryOperator::Gt) => Value::Boolean(a > b),
+                    (Value::String(a), Value::String(b), BinaryOperator::GtEq) => Value::Boolean(a >= b),
+                    (Value::String(a), Value::String(b), BinaryOperator::Lt) => Value::Boolean(a < b),
+                    (Value::String(a), Value::String(b), BinaryOperator::LtEq) => Value::Boolean(a <= b),
 
                     _ => panic!("Недопустимая бинарная операция"),
                 }
@@ -114,11 +168,18 @@ impl Expr {
                     "str" => {
                         Value::String(args.first().unwrap().to_string())
                     }
+                    "bool" => {
+                        Value::Boolean(args.first().unwrap().to_bool())
+                    }
+                    "list" => {
+                        Value::List(args.first().unwrap().to_list())
+                    }
 
                     _ => {
                         if env.borrow().contains(act) {
                             let parent_env = Rc::clone(&env);
-                            let local_env = Rc::new(RefCell::new(Environment::new_enclosed(parent_env)));
+                            let local_env =
+                                Rc::new(RefCell::new(Environment::new_enclosed(parent_env)));
                             let action = env.borrow().get(&act).unwrap();
 
                             match action {
@@ -135,7 +196,12 @@ impl Expr {
                                                 result = expr.evaluate(Rc::clone(&local_env));
                                             }
                                             _ => {
-                                                stmt.execute(Rc::clone(&local_env));
+                                                match stmt.execute(Rc::clone(&local_env)) {
+                                                    ControlFlow::Return(value) => {
+                                                        result = value;
+                                                    }
+                                                    _ => {}
+                                                }
                                             }
                                         }
                                     }
@@ -154,13 +220,26 @@ impl Expr {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum FStringExpr {
+    String(String),
+    Expr(Expr),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Integer(i64),
     Float(f64),
     String(String),
     Boolean(bool),
+    List(Vec<Box<Value>>),
+    Iterator {
+        start: Box<Value>,
+        end: Box<Value>,
+        step: Box<Value>,
+    },
     Null,
+
     Action {
         parameters: Vec<String>,
         body: Vec<Box<Statement>>,
@@ -176,10 +255,65 @@ impl Value {
             Value::Float(f) => f.to_string(),
             Value::String(s) => s.to_string(),
             Value::Boolean(b) => b.to_string(),
+            Value::List(l) =>
+                format!(
+                    "[{}]",
+                    l.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(", ")
+                ),
+            Value::Iterator { start, end, step } => {
+                format!("Iterator({}..{}::{})", start.to_string(), end.to_string(), step.to_string())
+            }
             Value::Null => "null".to_string(),
+
             Value::Action { parameters: _, body: _ } => format!("{:?}", self),
 
             Value::Unit => "<Unit>".to_string(),
+        }
+    }
+
+    fn to_bool(&self) -> bool {
+        match self {
+            Value::Boolean(b) => *b,
+            Value::Integer(i) => *i != 0,
+            Value::Float(f) => *f != 0.0,
+            Value::String(s) => !s.is_empty(),
+            Value::List(l) => !l.is_empty(),
+            Value::Null => false,
+
+            Value::Iterator { start: _, end: _, step: _ } => true,
+            Value::Action { parameters: _, body: _ } => true,
+
+            Value::Unit => false,
+        }
+    }
+
+    fn to_list(&self) -> Vec<Box<Value>> {
+        match self {
+            Value::String(s) => {
+                let mut list = Vec::new();
+
+                for c in s.chars() {
+                    list.push(Box::new(Value::String(c.to_string())));
+                }
+
+                list
+            },
+            Value::Iterator { start, end, step } => {
+                match (*start.clone(), *end.clone(), *step.clone()) {
+                    (Value::Integer(start), Value::Integer(end), Value::Integer(step)) => {
+                        if step <= 0 {
+                            return Vec::new()
+                        }
+
+                        (start..end)
+                            .step_by(step as usize)
+                            .map(|i| Box::new(Value::Integer(i)) )
+                            .collect()
+                    }
+                    _ => panic!("Неправильные переменные для итерации")
+                }
+            },
+            t => panic!("Невозможно преобразовать {:?} в список", t),
         }
     }
 
@@ -194,7 +328,7 @@ impl fmt::Display for Value {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOperator {
     // Arithmetic
     Add, // +
@@ -233,13 +367,13 @@ impl BinaryOperator {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
     Neg,  // -a
     Not,  // !a (not a)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Let {
         name: String,
@@ -253,13 +387,19 @@ pub enum Statement {
     Return(Expr),
     If {
         condition: Expr,
-        then_branch: Box<Statement>,
-        else_branch: Option<Box<Statement>>,
+        then_branch: Vec<Box<Statement>>,
+        else_branch: Option<Vec<Box<Statement>>>,
     },
     While {
-        condition: Box<Expr>,
-        body: Box<Statement>,
+        condition: Expr,
+        body: Vec<Box<Statement>>,
     },
+    For {
+        variable: String,
+        iterable: Expr,
+        body: Vec<Box<Statement>>,
+    },
+    Break,
     Act {
         name: String,
         parameters: Vec<String>,
@@ -268,24 +408,141 @@ pub enum Statement {
 }
 
 impl Statement {
-    fn execute(&self, env: Rc<RefCell<Environment>>) {
+    //noinspection DuplicatedCode
+    fn execute(&self, env: Rc<RefCell<Environment>>) -> ControlFlow {
         match self {
             Statement::Let { name, value } => {
                 let val = value.evaluate(Rc::clone(&env));
                 env.borrow_mut().set(name.clone(), val);
+                ControlFlow::Nothing
             }
             Statement::Act { name, parameters, body } => {
-                env.borrow_mut().set(name.clone(), Value::Action { parameters: parameters.clone(), body: body.clone() })
+                env.borrow_mut().set(name.clone(), Value::Action { parameters: parameters.clone(), body: body.clone() });
+                ControlFlow::Nothing
             }
             Statement::Assign { name, value } => {
-                env.borrow_mut().set(name.clone(), value.evaluate(Rc::clone(&env)));
+                let value = value.evaluate(Rc::clone(&env));
+                env.borrow_mut().set(name.clone(), value);
+                ControlFlow::Nothing
+            }
+            Statement::If { condition, then_branch, else_branch } => {
+                let mut result = ControlFlow::Nothing;
+                if condition.evaluate(Rc::clone(&env)).to_bool() {
+                    for stmt in then_branch {
+                        if stmt.is(&Statement::Break) {
+                            result = ControlFlow::Break;
+                            break;
+                        }
+                        match stmt.execute(Rc::clone(&env)) {
+                            ControlFlow::Return(value) => result = ControlFlow::Return(value),
+                            _ => {}
+                        }
+                    }
+                } else {
+                    if else_branch.is_some() {
+                        for stmt in else_branch.clone().unwrap() {
+                            if stmt.is(&Statement::Break) {
+                                result = ControlFlow::Break;
+                                break;
+                            }
+                            match stmt.execute(Rc::clone(&env)) {
+                                ControlFlow::Return(value) => result = ControlFlow::Return(value),
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+
+                result
+            }
+            Statement::While { condition, body } => {
+                let mut result = ControlFlow::Nothing;
+                'outer: while condition.evaluate(Rc::clone(&env)).to_bool()  {
+                    for stmt in body.iter() {
+                        let cf = stmt.execute(Rc::clone(&env));
+                        match cf {
+                            ControlFlow::Break => break 'outer,
+                            ControlFlow::Return(value) => {
+                                result = ControlFlow::Return(value);
+                                break 'outer;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                result
+            }
+            Statement::For { variable, iterable, body } => {
+                let local_env = Rc::new(RefCell::new(Environment::new_enclosed(Rc::clone(&env))));
+
+                let iterable = iterable.evaluate(Rc::clone(&local_env));
+
+                let mut result = ControlFlow::Nothing;
+
+                let list = match iterable {
+                    Value::List(list) => {
+                        let list = list.clone();
+                        list
+                    }
+                    Value::Iterator { start, end, step } => {
+                        match (*start, *end, *step) {
+                            (Value::Integer(start), Value::Integer(end), Value::Integer(step)) => {
+                                (start..end).step_by(usize::try_from(step).unwrap())
+                                    .map(|i| Box::new(Value::Integer(i))).collect::<Vec<_>>()
+                            }
+                            _ => panic!("Cannot iterate over non-integer or not-float values"),
+                        }
+                    }
+                    _ => panic!("Value {:?} is not iterable", iterable),
+                };
+
+                'outer: for value in list.iter() {
+                    local_env.borrow_mut().set(variable.clone(), *value.clone());
+
+                    for stmt in body.iter() {
+                        let cf = stmt.execute(Rc::clone(&local_env));
+                        match cf {
+                            ControlFlow::Break => break 'outer,
+                            ControlFlow::Return(value) => {
+                                result = ControlFlow::Return(value);
+                                break 'outer;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                result
             }
             Statement::Expr(expr) => {
                 expr.evaluate(env);
+                ControlFlow::Nothing
+            }
+            Statement::Return(expr) => {
+                ControlFlow::Return(expr.evaluate(Rc::clone(&env)))
             }
 
             _ => panic!("Cannot execute statement: {:?}", self),
         }
+    }
+
+    fn is(&self, other: &Statement) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum ControlFlow {
+    Break,
+    Continue,
+    Nothing,
+    Return(Value),
+}
+
+impl ControlFlow {
+    fn is(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
     }
 }
 

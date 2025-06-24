@@ -1,4 +1,4 @@
-use crate::runeway::ast_structure::BinaryOperator;
+use crate::runeway::ast_structure::{BinaryOperator, UnaryOperator};
 use crate::runeway::lexer::Token::EOF;
 
 
@@ -9,6 +9,14 @@ pub enum Token {
     StringLiteral(String),
     IntegerLiteral(i64),
     FloatLiteral(f64),
+
+    // FStrings
+    FStringStart,                       // f"
+    FStringLiteral(String),
+    FStringExprStart,                   // {
+    FStringExprSubcommand(Vec<Token>),  // :TOKENS}
+    FStringExprEnd,                     // }
+    FStringEnd,                         // "
 
     // Keywords
     Let,
@@ -84,6 +92,8 @@ pub enum Token {
     // Other
     Comma,        // ,
     Dot,          // .
+    Colon,        // :
+    DoubleColon,  // ::
     Semicolon,    // ;
     AtSymbol,     // @
 
@@ -125,6 +135,14 @@ impl Token {
             _ => None,
         }
     }
+
+    pub fn to_unary_operator(&self) -> Option<UnaryOperator> {
+        match self {
+            Token::Not | Token::Bang => Some(UnaryOperator::Not),
+            Token::Minus => Some(UnaryOperator::Neg),
+            _ => None,
+        }
+    }
 }
 
 struct LexerProcess {
@@ -134,7 +152,7 @@ struct LexerProcess {
 }
 
 impl LexerProcess {
-    pub fn new(input: &str) -> LexerProcess {
+    pub fn new(input: String) -> LexerProcess {
         Self {
             chars: input.chars().collect(),
             pos: 0,
@@ -176,18 +194,25 @@ impl LexerProcess {
     //     self.chars[self.pos.checked_add_signed(start_offset)?..=self.pos.checked_add_signed(end_offset)?].iter().collect()
     // }
 
-    fn lex_string_literal(&mut self) -> Token {
+    fn lex_string_literal(&mut self, is_format_string: bool) -> Token {
         let mut value = String::new();
         let mut terminated = false;
 
         if let Some(&quote) = self.peek() {
+            if is_format_string {
+                value.push(quote)
+            }
+
             self.forward();
 
             while let Some(&char) = self.peek() {
-                if quote == char {
+                if !is_format_string && quote == char {
                     terminated = true;
                     self.forward();
                     break
+                } else if is_format_string && (char == '{' || char == '"') {
+                    terminated = true;
+                    break;
                 } else {
                     value.push(char);
                     self.forward();
@@ -205,9 +230,13 @@ impl LexerProcess {
     }
 
     //noinspection DuplicatedCode
-    fn lex_number_literal(&mut self) -> Token {
+    fn lex_number_literal(&mut self, is_negative: bool) -> Token {
         let mut string_number = String::new();
         let mut is_float = false;
+
+        if is_negative {
+            string_number.push('-')
+        }
 
         // Number before dot or integer
         while let Some(&c) = self.peek() {
@@ -314,6 +343,209 @@ impl LexerProcess {
         token
     }
 
+    fn lex_format_string(&mut self) -> Vec<Token> {
+        self.forward(); self.forward();
+
+        let mut tokens = vec![Token::FStringStart];
+
+        while !self.peek_is('"') {
+            if self.peek_is('{') {
+                self.forward();
+                tokens.push(Token::FStringExprStart);
+                while !self.peek_is('}') {
+                    if self.peek_is(':') {
+                        self.forward();
+                        let mut subcommand = Vec::new();
+                        while !self.peek_is('}') {
+                            subcommand.extend(self.lex_primary());
+                        }
+                        tokens.push(Token::FStringExprSubcommand(subcommand));
+                    } else {
+                        tokens.extend(self.lex_primary());
+                    }
+                }
+
+                self.forward();
+                tokens.push(Token::FStringExprEnd);
+            } else {
+                let Token::StringLiteral(string) = self.lex_string_literal(true) else {
+                    panic!("Expected string literal")
+                };
+
+                tokens.push(Token::FStringLiteral(string));
+            }
+        }
+        tokens.push(Token::FStringEnd);
+        self.forward();
+
+        tokens
+    }
+
+    fn lex_primary(&mut self) -> Vec<Token> {
+        let mut tokens = Vec::new();
+
+        match self.peek().unwrap() {
+            '=' => {
+                self.forward();
+                match self.peek().unwrap() {
+                    '>' => {
+                        self.forward();
+                        tokens.push(Token::DoubleArrow);
+                    }
+                    '=' => {
+                        self.forward();
+                        tokens.push(Token::EqualEqual);
+                    }
+
+                    _ => tokens.push(Token::Equal),
+                }
+            }
+            '>' => {
+                self.forward();
+                match self.peek().unwrap() {
+                    '=' => {
+                        self.forward();
+                        tokens.push(Token::GreaterEqual);
+                    }
+
+                    _ => tokens.push(Token::Greater),
+                }
+            }
+            '<' => {
+                self.forward();
+                match self.peek().unwrap() {
+                    '=' => {
+                        self.forward();
+                        tokens.push(Token::LessEqual);
+                    }
+
+                    _ => tokens.push(Token::Less),
+                }
+            }
+            '-' => {
+                self.forward();
+                match self.peek().unwrap() {
+                    '>' => {
+                        self.forward();
+                        tokens.push(Token::Arrow)
+                    }
+                    '=' => {
+                        self.forward();
+                        tokens.push(Token::MinusEqual)
+                    }
+                    '0'..='9' => {
+                        tokens.push(self.lex_number_literal(true))
+                    }
+
+                    _ => tokens.push(Token::Minus)
+                }
+            }
+            '+' => {
+                self.forward();
+                match self.peek().unwrap() {
+                    '=' => {
+                        self.forward();
+                        tokens.push(Token::PlusEqual)
+                    }
+
+                    _ => tokens.push(Token::Plus)
+                }
+            }
+            '*' => {
+                self.forward();
+                match self.peek().unwrap() {
+                    '*' => {
+                        self.forward();
+                        match self.peek().unwrap() {
+                            '=' => {
+                                self.forward();
+                                tokens.push(Token::DoubleAsteriskEqual)
+                            }
+
+                            _ => tokens.push(Token::DoubleAsterisk)
+                        }
+                    }
+                    '=' => {
+                        self.forward();
+                        tokens.push(Token::AsteriskEqual)
+                    }
+
+                    _ => tokens.push(Token::Asterisk)
+                }
+            }
+            '/' => {
+                self.forward();
+                match self.peek().unwrap() {
+                    '/' => {
+                        while self.has_forward() {
+                            self.forward();
+                            if self.peek_is('\n') {
+                                break;
+                            }
+                        }
+                    }
+                    '*' => {
+                        while self.has_forward() {
+                            self.forward();
+                            if self.peek_is('*') && self.peek_offset_is('/', 1) {
+                                self.forward(); self.forward();
+                                break;
+                            }
+                        }
+                    }
+                    '=' => {
+                        self.forward();
+                        tokens.push(Token::SlashEqual)
+                    }
+
+                    _ => tokens.push(Token::Slash)
+                }
+            }
+            '.' => {
+                self.forward();
+                tokens.push(Token::Dot);
+            },
+            '0'..='9' => {
+                tokens.push(self.lex_number_literal(false))
+            }
+            'a'..='z' | 'A'..='Z' | '_' => {
+                if self.peek_offset_is('"', 1) {
+                    tokens.extend(self.lex_format_string())
+                } else {
+                    tokens.push(self.lex_ident_and_keyword())
+                }
+            }
+            '[' => {
+                tokens.push(Token::LBracket);
+                self.forward();
+            },
+            ']' => {
+                tokens.push(Token::RBracket);
+                self.forward();
+            },
+            '!' => {
+                self.forward();
+                if self.peek_is('=') {
+                    self.forward();
+                    tokens.push(Token::NotEqual);
+                } else {
+                    tokens.push(Token::Bang);
+                }
+            },
+            '%' => {
+                tokens.push(Token::Percent);
+                self.forward();
+            },
+            // Code structure
+            '"' => {
+                tokens.push(self.lex_string_literal(false));
+            }
+            _ => panic!("Lexer founded unexpected character: {}", self.peek().unwrap().to_string())
+        }
+
+        tokens
+    }
+
     //noinspection DuplicatedCode
     pub fn tokenize(&mut self) -> Vec<Token> {
         let mut tokens: Vec<Token> = Vec::new();
@@ -330,127 +562,14 @@ impl LexerProcess {
                 }
 
                 // Multiple char tokens
-                '=' => {
+                ':' => {
                     self.forward();
-                    match self.peek().unwrap() {
-                        '>' => {
-                            self.forward();
-                            tokens.push(Token::DoubleArrow);
-                        }
-                        '=' => {
-                            self.forward();
-                            tokens.push(Token::EqualEqual);
-                        }
-
-                        _ => tokens.push(Token::Equal),
-                    }
-                }
-                '>' => {
-                    self.forward();
-                    match self.peek().unwrap() {
-                        '=' => {
-                            self.forward();
-                            tokens.push(Token::EqualEqual);
-                        }
-
-                        _ => tokens.push(Token::Equal),
-                    }
-                }
-                '-' => {
-                    self.forward();
-                    match self.peek().unwrap() {
-                        '>' => {
-                            self.forward();
-                            tokens.push(Token::Arrow);
-                        }
-                        '=' => {
-                            self.forward();
-                            tokens.push(Token::MinusEqual);
-                        }
-
-                        _ => tokens.push(Token::Minus),
-                    }
-                }
-                '+' => {
-                    self.forward();
-                    match self.peek().unwrap() {
-                        '=' => {
-                            self.forward();
-                            tokens.push(Token::PlusEqual);
-                        }
-
-                        _ => tokens.push(Token::Plus),
-                    }
-                }
-                '*' => {
-                    self.forward();
-                    match self.peek().unwrap() {
-                        '*' => {
-                            self.forward();
-                            match self.peek().unwrap() {
-                                '=' => {
-                                    self.forward();
-                                    tokens.push(Token::DoubleAsteriskEqual);
-                                }
-
-                                _ => tokens.push(Token::DoubleAsterisk),
-                            }
-                        }
-                        '=' => {
-                            self.forward();
-                            tokens.push(Token::AsteriskEqual);
-                        }
-
-                        _ => tokens.push(Token::Asterisk),
-                    }
-                }
-                '/' => {
-                    self.forward();
-                    match self.peek().unwrap() {
-                        '/' => {
-                            while self.has_forward() {
-                                self.forward();
-                                if self.peek_is('\n') {
-                                    break;
-                                }
-                            }
-                        }
-                        '*' => {
-                            while self.has_forward() {
-                                self.forward();
-                                if self.peek_is('*') && self.peek_offset_is('/', 1) {
-                                    self.forward(); self.forward();
-                                    break;
-                                }
-                            }
-                        }
-                        '=' => {
-                            self.forward();
-                            tokens.push(Token::SlashEqual);
-                        }
-
-                        _ => tokens.push(Token::Slash),
-                    }
-                }
-                '.' => {
-                    if let Some(&next) = self.peek_offset(1) {
-                        if next.is_ascii_digit() {
-                            tokens.push(self.lex_number_literal())
-                        } else {
-                            self.forward();
-                            tokens.push(Token::Dot);
-                        }
-                    } else {
+                    if self.peek_is(':') {
                         self.forward();
-                        tokens.push(Token::Dot);
+                        tokens.push(Token::DoubleColon);
+                    } else {
+                        tokens.push(Token::Colon);
                     }
-                },
-                '0'..='9' => {
-                    tokens.push(self.lex_number_literal())
-                }
-
-                'a'..='z' | 'A'..='Z' | '_' => {
-                    tokens.push(self.lex_ident_and_keyword())
                 }
 
                 // Single char tokens
@@ -470,14 +589,6 @@ impl LexerProcess {
                     tokens.push(Token::RBrace);
                     self.forward();
                 },
-                '[' => {
-                    tokens.push(Token::LBracket);
-                    self.forward();
-                },
-                ']' => {
-                    tokens.push(Token::RBracket);
-                    self.forward();
-                },
                 ',' => {
                     tokens.push(Token::Comma);
                     self.forward();
@@ -490,19 +601,10 @@ impl LexerProcess {
                     tokens.push(Token::AtSymbol);
                     self.forward();
                 },
-                '!' => {
-                    tokens.push(Token::Bang);
-                    self.forward();
-                },
-
-                // Code structure
-                '"' | '\'' => {
-                    tokens.push(self.lex_string_literal());
-                }
 
                 // UnexpectedCharacter
                 _ => {
-                    panic!("Lexer founded unexpected character: {}", char.to_string())
+                    tokens.extend(self.lex_primary());
                 }
             }
         }
@@ -513,6 +615,6 @@ impl LexerProcess {
     }
 }
 
-pub fn tokenize(input: &str) -> Vec<Token> {
+pub fn tokenize(input: String) -> Vec<Token> {
     LexerProcess::new(input).tokenize()
 }

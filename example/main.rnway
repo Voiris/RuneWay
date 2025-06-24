@@ -1,1 +1,69 @@
-print("Hello, World!")
+/*
+let a;
+a = 0.0;
+let b = a;
+
+b = b + 3.0;
+
+print("b = " + str(b));
+
+print("b / 2.0 = " + str(b/2.0));
+
+let x = 0;
+
+// Action (aka. function)
+act check(y) {
+  return 0 == (y % 10);
+}
+
+act foo(y) {
+  if y < 400 {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+while x < 1000 {
+  x = x + 1;
+  if x == 500 {
+    break;
+  } else if check(x) and foo(x) {
+    print(x);
+  }
+}
+
+print(2e-1 + 1e-1);  // 0.30000000000000004
+
+// print(1 != 2);
+
+act is_negative(a) {
+  act is_positive(b) {
+    return b > 0;
+  }
+
+  return !is_positive(a);
+}
+
+let s = str(is_negative(-5)) + " " + str(is_negative(1));
+
+print(s != "true false");
+
+print(!false); // true
+
+for i in 0..5::2 {
+  print(i);
+}
+
+for i in [1, "Hello", 4, 5, 3] {
+  print(i);
+}
+
+print("list(0..10::2) = " + str(list(0..10::2)));
+
+print("1 = " + 1);
+*/
+
+let x = 5;
+
+print(f"x = {"x":}");

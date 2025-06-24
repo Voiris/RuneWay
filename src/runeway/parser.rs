@@ -1,4 +1,4 @@
-use crate::runeway::ast_structure::{Module, Statement, Expr};
+use crate::runeway::ast_structure::{Module, Statement, Expr, Value, FStringExpr};
 use crate::runeway::lexer::Token;
 
 struct ParserProcess {
@@ -33,8 +33,24 @@ impl ParserProcess {
     }
 
     fn consume(&mut self, expected: &Token) -> bool {
-        if std::mem::discriminant(self.peek().unwrap()) == std::mem::discriminant(expected)  {
+        if self.peek_is(expected)  {
             self.forward();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn peek_is(&mut self, expected: &Token) -> bool {
+        if std::mem::discriminant(self.peek().unwrap()) == std::mem::discriminant(expected) {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn peek_offset_is(&mut self, expected: &Token, offset: isize) -> bool {
+        if std::mem::discriminant(self.peek_offset(offset).unwrap()) == std::mem::discriminant(expected) {
             true
         } else {
             false
@@ -45,7 +61,7 @@ impl ParserProcess {
         let mut statements: Vec<Statement> = Vec::new();
 
         while !matches!(self.peek(), Some(&Token::EOF)) {
-            // println!("Handling module statement: {:?}", self.peek());
+            println!("Handling module statement: {:?}", self.peek().unwrap());
             if let Some(statement) = self.parse_statement() {
                 statements.push(statement);
             } else {
@@ -57,10 +73,20 @@ impl ParserProcess {
     }
 
     fn parse_statement(&mut self) -> Option<Statement> {
+        println!("Handling statement: {:?}", self.peek().unwrap());
         match self.peek().unwrap() {
             Token::Let => self.parse_let(),
             Token::Act => self.parse_act(),
             Token::Return => self.parse_return(),
+            Token::If => self.parse_if(),
+            Token::While => self.parse_while(),
+            Token::For => self.parse_for(),
+            Token::Break => {
+                self.consume(&Token::Break);
+                self.consume(&Token::Semicolon);
+
+                Some(Statement::Break)
+            },
             Token::Identifier(_) => self.parse_expr_statement(),
             _ => None
         }
@@ -97,7 +123,6 @@ impl ParserProcess {
             Token::Identifier(name) => name.clone(),
             _ => return None,
         };
-        println!("{}", name);
 
         self.forward();
 
@@ -110,7 +135,6 @@ impl ParserProcess {
         loop {
             match self.peek().unwrap() {
                 Token::Identifier(param) => {
-                    println!("{}", param);
                     parameters.push(param.clone());
                     self.forward();
                     if self.consume(&Token::Comma) {
@@ -129,8 +153,6 @@ impl ParserProcess {
             }
         }
 
-        println!("{:?}", parameters);
-
         if !self.consume(&Token::LBrace) {
             return None;
         }
@@ -139,12 +161,6 @@ impl ParserProcess {
 
         while !self.consume(&Token::RBrace) {
             body.push(Box::new(self.parse_statement()?));
-        }
-
-        println!("body: {:?}", body);
-
-        if !self.consume(&Token::Semicolon) {
-            return None;
         }
 
         Some(Statement::Act { name, parameters, body })
@@ -162,28 +178,148 @@ impl ParserProcess {
         Some(Statement::Return(expr?))
     }
 
+    fn parse_if(&mut self) -> Option<Statement> {
+        self.consume(&Token::If);
+
+        let condition = self.parse_expr()?;
+
+        println!("condition: {:?}", condition);
+
+        if !self.consume(&Token::LBrace) {
+            return None;
+        }
+
+        let mut then_branch = Vec::new();
+
+        while !self.consume(&Token::RBrace) {
+            then_branch.push(Box::new(self.parse_statement()?));
+        }
+
+        println!("then_branch: {:?}", then_branch);
+
+        let statement = if self.consume(&Token::Else) {
+            let mut else_branch = Vec::new();
+
+            if self.peek() == Some(&Token::If) {
+                else_branch.push(Box::new(self.parse_if()?));
+            } else {
+                if !self.consume(&Token::LBrace) {
+                    return None;
+                }
+
+                while !self.consume(&Token::RBrace) {
+                    else_branch.push(Box::new(self.parse_statement()?));
+                }
+            }
+
+            println!("else_branch: {:?}", else_branch);
+
+            Some(Statement::If { condition, then_branch, else_branch: Some(else_branch) } )
+        } else {
+            Some(Statement::If { condition, then_branch, else_branch: None })
+        };
+
+        statement
+    }
+
+    fn parse_while(&mut self) -> Option<Statement> {
+        self.consume(&Token::While);
+
+        let condition = self.parse_expr()?;
+
+        println!("condition: {:?}", condition);
+
+        if !self.consume(&Token::LBrace) {
+            return None;
+        }
+
+        let mut body = Vec::new();
+
+        while !self.consume(&Token::RBrace) {
+            body.push(Box::new(self.parse_statement()?));
+        }
+
+        println!("body: {:?}", body);
+        Some(Statement::While { condition, body })
+    }
+
+    fn parse_for(&mut self) -> Option<Statement> {
+        self.consume(&Token::For);
+
+        match self.peek().unwrap() {
+            Token::Identifier(variable) => {
+                let variable = variable.clone();
+
+                println!("variable: {:?}", variable);
+
+                self.forward();
+                if !self.consume(&Token::In) {
+                    return None
+                }
+
+                let iterable = self.parse_expr()?;
+
+                println!("iterable: {:?}", iterable);
+
+                if !self.consume(&Token::LBrace) {
+                    return None
+                }
+
+                let mut body = Vec::new();
+
+                while !self.consume(&Token::RBrace) {
+                    body.push(Box::new(self.parse_statement()?));
+                }
+
+                println!("body: {:?}", body);
+
+                Some(Statement::For {
+                    variable,
+                    iterable,
+                    body,
+                })
+            }
+            _ => None,
+        }
+    }
+
+    fn parse_iterator(&mut self, start: Expr) -> Option<Expr> {
+        let end = self.parse_expr()?;
+
+        let step = if self.consume(&Token::DoubleColon) {
+            Some(Box::new(self.parse_expr()?))
+        } else {
+            None
+        };
+
+        Some(Expr::Iterator {
+            start: Box::new(start),
+            end: Box::new(end),
+            step,
+        })
+    }
+
     fn parse_expr_statement(&mut self) -> Option<Statement> {
         let expr = self.parse_expr()?;
 
-        match &expr {
+        let statement: Option<Statement> = match &expr {
             Expr::Variable(name) => {
                 if self.consume(&Token::Equal) {
                     let assignment = self.parse_expr()?;
 
-                    if !self.consume(&Token::Semicolon) {
-                        return None;
-                    }
-
-                    return Some(Statement::Assign { name: name.clone(), value: assignment });
+                    Some(Statement::Assign { name: name.clone(), value: assignment })
+                } else {
+                    Some(Statement::Expr(expr.clone()))
                 }
             }
-            _ => {}
-        }
+            _ => Some(Statement::Expr(expr.clone()))
+        };
 
         if !self.consume(&Token::Semicolon) {
             return None;
         }
-        Some(Statement::Expr(expr.clone()))
+
+        statement
     }
 
     fn parse_expr(&mut self) -> Option<Expr> {
@@ -191,7 +327,25 @@ impl ParserProcess {
     }
 
     fn parse_binary_expr(&mut self, min_precedence: u8) -> Option<Expr> {
+        let unary_operator = self.peek().unwrap().to_unary_operator();
+
+        if unary_operator.is_some() {
+            self.forward();
+            let operand = self.parse_expr()?;
+
+            return Some(Expr::UnaryOperation { operator: unary_operator.unwrap(), operand: Box::new(operand) })
+        }
+
         let mut left = self.parse_primary().unwrap();
+
+        if self.peek_is(&Token::Dot) && self.peek_offset_is(&Token::Dot, 1) {
+            self.forward(); self.forward();
+            let iter = self.parse_iterator(left.clone());
+
+            if let Some(iter) = iter {
+                return Some(iter)
+            }
+        }
 
         while let Some(operator_token) = self.peek().unwrap().to_binary_operator() {
             let precedence = operator_token.get_precedence();
@@ -200,14 +354,14 @@ impl ParserProcess {
                 break;
             }
 
-            let operator = operator_token;
+            let binary_operator = operator_token;
             self.forward(); // consume operator
 
             let right = self.parse_binary_expr(precedence + 1)?;
 
             left = Expr::BinaryOperation {
                 left_operand: Box::new(left),
-                operator,
+                operator: binary_operator,
                 right_operand: Box::new(right),
             };
         }
@@ -232,10 +386,43 @@ impl ParserProcess {
                 self.forward();
                 Some(Expr::Float(f))
             }
+            Token::FStringStart => {
+                self.forward();
+                let mut format_string = Vec::new();
+
+                while !self.consume(&Token::FStringEnd) {
+                    match self.peek().unwrap() {
+                        Token::FStringLiteral(s) => {
+                            format_string.push(FStringExpr::String(s.clone()));
+                            self.forward();
+                        },
+                        Token::FStringExprStart => {
+                            self.forward();
+                            format_string.push(FStringExpr::Expr(self.parse_expr()?));
+                            if !self.consume(&Token::FStringExprEnd) {
+                                panic!("Unclosed format string expression or multiple expressions");
+                            }
+                        }
+                        _ => println!("Invalid format string: {:?}", self.peek().unwrap())
+                    }
+                }
+
+                println!("format_string: {:?}", format_string);
+
+                Some(Expr::FString(format_string))
+            }
+            Token::True => {
+                self.forward();
+                Some(Expr::Boolean(true))
+            }
+            Token::False => {
+                self.forward();
+                Some(Expr::Boolean(false))
+            }
             Token::Null => {
                 self.forward();
                 Some(Expr::Null)
-            },
+            }
             Token::Identifier(identifier) => {
                 let identifier = identifier.clone();
                 self.forward();
@@ -249,6 +436,7 @@ impl ParserProcess {
                             self.consume(&Token::Comma);
                         }
                     }
+
                     Some(Expr::Call {
                         act: identifier,
                         arguments,
@@ -268,7 +456,25 @@ impl ParserProcess {
 
                 expr
             }
-            _ => None
+            Token::LBracket => {
+                self.forward();
+
+                let mut list = Vec::new();
+
+                while !self.consume(&Token::RBracket) {
+                    if let Some(expr) = self.parse_expr() {
+                        list.push(Box::new(expr));
+
+                        self.consume(&Token::Comma);
+                    }
+                }
+
+                Some(Expr::List(list))
+            }
+            token => {
+                println!("Unexpected token: {:?}", token);
+                None
+            },
         }
     }
 }
