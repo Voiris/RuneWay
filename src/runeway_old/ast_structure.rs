@@ -526,10 +526,6 @@ impl Statement {
             _ => panic!("Cannot execute statement: {:?}", self),
         }
     }
-
-    fn is(&self, other: &Statement) -> bool {
-        std::mem::discriminant(self) == std::mem::discriminant(other)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

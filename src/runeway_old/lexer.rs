@@ -1,5 +1,4 @@
 use crate::runeway::ast_structure::{BinaryOperator, UnaryOperator};
-use crate::runeway::lexer::Token::EOF;
 
 
 #[derive(PartialEq, Debug)]
@@ -609,7 +608,7 @@ impl LexerProcess {
             }
         }
 
-        tokens.push(EOF);
+        tokens.push(Token::EOF);
 
         tokens
     }

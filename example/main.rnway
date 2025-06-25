@@ -1,4 +1,4 @@
-/*
+
 let a;
 a = 0.0;
 let b = a;
@@ -15,7 +15,8 @@ let x = 0;
 act check(y) {
   return 0 == (y % 10);
 }
-
+/* Hello,
+   World! */
 act foo(y) {
   if y < 400 {
     return false;
@@ -62,8 +63,7 @@ for i in [1, "Hello", 4, 5, 3] {
 print("list(0..10::2) = " + str(list(0..10::2)));
 
 print("1 = " + 1);
-*/
 
 let x = 5;
 
-print(f"x = {"x":}");
+print(f"x = {x}");
