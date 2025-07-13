@@ -32,7 +32,28 @@ impl BinaryOperator {
             BinaryOperator::Eq | BinaryOperator::NotEq | BinaryOperator::Lt |
             BinaryOperator::LtEq | BinaryOperator::Gt | BinaryOperator::GtEq => 1,
             BinaryOperator::And | BinaryOperator::Or => 0,
-            _ => 255,
+            // _ => 255,
+        }
+    }
+
+    pub fn display(&self) -> &'static str {
+        match self {
+            BinaryOperator::Add => "+",
+            BinaryOperator::Sub => "-",
+            BinaryOperator::Mul => "*",
+            BinaryOperator::Div => "/",
+            BinaryOperator::Mod => "%",
+            BinaryOperator::Pow => "**",
+
+            BinaryOperator::Eq => "==",
+            BinaryOperator::NotEq => "!=",
+            BinaryOperator::Lt => "<",
+            BinaryOperator::LtEq => "<=",
+            BinaryOperator::Gt => ">",
+            BinaryOperator::GtEq => ">=",
+
+            BinaryOperator::And => "and",
+            BinaryOperator::Or => "or",
         }
     }
 }
@@ -41,4 +62,13 @@ impl BinaryOperator {
 pub enum UnaryOperator {
     Neg,  // -a
     Not,  // !a (not a)
+}
+
+impl UnaryOperator {
+    pub fn display(&self) -> &'static str {
+        match self {
+            UnaryOperator::Neg => "-",
+            UnaryOperator::Not => "!",
+        }
+    }
 }

@@ -31,8 +31,16 @@ pub enum Expr {
     Expr(Box<Expr>),
     Variable(String),
     Call {
-        act: String,
+        callee: Box<Expr>,
         arguments: Vec<Expr>,
+    },
+    GetAttr {
+        object: Box<Expr>,
+        field: String,
+    },
+    Slice {
+        object: Box<Expr>,
+        index: Box<Expr>,
     },
 }
 

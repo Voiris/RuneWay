@@ -1,6 +1,9 @@
+use crate::runeway::core::spanned::Spanned;
 use super::super::ast::operators::{BinaryOperator, UnaryOperator};
 
-#[derive(PartialEq, Debug)]
+pub type SpannedToken = Spanned<Token>;
+
+#[derive(PartialEq, Debug, Clone)]
 pub enum Token {
     // Code structure
     Identifier(String),
@@ -9,12 +12,8 @@ pub enum Token {
     FloatLiteral(f64),
 
     // FStrings
-    FStringStart,                       // f"
-    FStringLiteral(String),
-    FStringExprStart,                   // {
-    FStringExprSubcommand(Vec<Token>),  // :TOKENS}
-    FStringExprEnd,                     // }
-    FStringEnd,                         // "
+    FString(Vec<FStringPart>),
+    FStringExprEnd,
 
     // Keywords
     Let,
@@ -23,9 +22,6 @@ pub enum Token {
 
     // Classes
     Class,
-    Property,
-    Set,
-    Get,
 
     // Functions
     Act,
@@ -42,6 +38,11 @@ pub enum Token {
 
     True,
     False,
+
+    // Imports
+    Import,
+    As, // Alias
+    Get, // Selective
 
     // Loops
     For,
@@ -141,4 +142,10 @@ impl Token {
             _ => None,
         }
     }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum FStringPart {
+    StringLiteral(String),
+    Expr(Vec<SpannedToken>, Vec<SpannedToken>), // expr:subcommand
 }

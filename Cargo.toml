@@ -1,6 +1,12 @@
 [package]
-name = "RuneWay"
+name = "runeway"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "runeway"
+path = "src/main.rs"
+
 [dependencies]
+once_cell = "1.21.3"
+# rust_decimal = "1.37.2"

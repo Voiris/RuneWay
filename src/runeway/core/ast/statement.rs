@@ -27,9 +27,38 @@ pub enum Statement {
         body: Vec<Box<Statement>>,
     },
     Break,
+    Continue,
     Act {
         name: String,
         parameters: Vec<String>,
         body: Vec<Box<Statement>>,
+    },
+
+    Import {
+        path: String,
+        item: ImportItem,
     }
+}
+
+impl Statement {
+    pub fn is(&self, other: &Self) -> bool {
+        if std::mem::discriminant(self) == std::mem::discriminant(other) {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ImportItem {
+    All,
+    Selective(Vec<ImportSymbol>),
+    Alias(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportSymbol {
+    pub original: String,
+    pub alias: Option<String>
 }

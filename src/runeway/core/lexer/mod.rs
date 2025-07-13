@@ -1,9 +1,9 @@
 pub mod token;
 mod process;
 
-use self::token::Token;
+use crate::runeway::core::lexer::token::SpannedToken;
 use self::process::LexerProcess;
 
-pub fn tokenize(input: String) -> Vec<Token> {
+pub fn tokenize(input: String) -> Vec<SpannedToken> {
     LexerProcess::new(input).tokenize()
 }

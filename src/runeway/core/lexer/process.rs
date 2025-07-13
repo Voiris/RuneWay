@@ -1,28 +1,31 @@
-use super::token::Token;
+use crate::runeway::core::spanned::{Position, Span};
+use super::token::{Token, SpannedToken, FStringPart};
 
 pub struct LexerProcess {
     chars: Vec<char>,
     pos: usize,
     line: usize,
+    column: usize,
 }
 
 impl LexerProcess {
     pub fn new(input: String) -> LexerProcess {
         Self {
-            chars: input.chars().collect(),
+            chars: input.clone().chars().collect(),
             pos: 0,
             line: 1,
+            column: 1
         }
     }
 
-    fn forward(&mut self) -> Option<&char> {
-        self.pos += 1;
-        self.peek()
-    }
-
-    fn backward(&mut self) -> Option<&char> {
-        self.pos -= 1;
-        self.peek()
+    fn forward(&mut self) -> Option<char> {
+        self.pos += 1; self.column += 1;
+        let peek = self.peek().cloned();
+        if peek == Some('\n') {
+            self.line += 1;
+            self.column = 0;
+        }
+        peek
     }
 
     fn peek_offset(&self, offset: isize) -> Option<&char> {
@@ -45,47 +48,100 @@ impl LexerProcess {
         self.pos + 1 < self.chars.len()
     }
 
+    fn current_position(&self) -> Position {
+        Position::new(self.line, self.column)
+    }
+
+    fn current_point(&self) -> Span {
+        Span::new_point(self.line, self.column)
+    }
+
     // fn extract_substring(&self, start_offset: isize, end_offset: isize) -> Option<&str> {
     //     self.chars[self.pos.checked_add_signed(start_offset)?..=self.pos.checked_add_signed(end_offset)?].iter().collect()
     // }
 
-    fn lex_string_literal(&mut self, is_format_string: bool) -> Token {
+    fn lex_string_literal(&mut self, is_format_string: bool, is_raw: bool) -> SpannedToken {
+        let start = self.current_position();
+        let mut end = Position::new(0, 0);
         let mut value = String::new();
         let mut terminated = false;
 
         if let Some(&quote) = self.peek() {
-            if is_format_string {
-                value.push(quote)
+            if !is_format_string {
+                self.forward();
             }
-
-            self.forward();
 
             while let Some(&char) = self.peek() {
                 if !is_format_string && quote == char {
                     terminated = true;
+                    end = self.current_position();
                     self.forward();
                     break
                 } else if is_format_string && (char == '{' || char == '"') {
                     terminated = true;
+                    end = self.current_position();
                     break;
                 } else {
-                    value.push(char);
+                    if char == '\\' && !is_raw {
+                        self.forward();
+                        if let Some(c) = self.peek() {
+                            match c {
+                                'n' => value.push('\n'),
+                                'r' => value.push('\r'),
+                                't' => value.push('\t'),
+                                '\\' => value.push('\\'),
+                                '\'' => value.push('\''),
+                                '\"' => value.push('\"'),
+                                '0' => value.push('\0'),
+                                // UNICODE \uXXXX
+                                'u' => {
+                                    let mut hex = String::new();
+                                    for _ in 0..4 {
+                                        self.forward();
+                                        match self.peek() {
+                                            Some(c) if c.is_ascii_digit() => hex.push(*c),
+                                            Some(c) => panic!("Invalid unicode escape hex digit '{}'", c),
+                                            None => break,
+                                        }
+                                    }
+
+                                    let code_point = u32::from_str_radix(&hex, 16)
+                                        .expect("Failed to parse unicode escape hex");
+
+                                    if let Some(ch) = std::char::from_u32(code_point) {
+                                        value.push(ch);
+                                    } else {
+                                        panic!("Invalid Unicode code point: \\u{}", hex)
+                                    }
+                                }
+                                other => {
+                                    // Panic is temporary
+                                    panic!("Invalid escape sequence '\\{}'", other)
+                                }
+                            }
+                        }
+                    } else {
+                        value.push(char);
+                    }
                     self.forward();
                 }
             }
         } else {
             panic!("Founded unexpected character")
-        };
+        }
 
         if !terminated {
             panic!("Founded unterminated string")
         }
 
-        Token::StringLiteral(value)
+        SpannedToken::new(Token::StringLiteral(value), Span::new(start, end))
     }
 
     //noinspection DuplicatedCode
-    fn lex_number_literal(&mut self, is_negative: bool) -> Token {
+    fn lex_number_literal(&mut self, is_negative: bool) -> SpannedToken {
+        let start_line = self.line;
+        let start_column = self.column - (is_negative as usize);
+
         let mut string_number = String::new();
         let mut is_float = false;
 
@@ -155,14 +211,23 @@ impl LexerProcess {
             }
         }
 
-        if is_float {
+        let node = if is_float {
             Token::FloatLiteral(string_number.parse::<f64>().unwrap())
         } else {
             Token::IntegerLiteral(string_number.parse::<i64>().unwrap())
-        }
+        };
+
+        SpannedToken::new(
+            node,
+            Span::new(
+                Position::new(start_line, start_column),
+                Position::new(self.line, self.column - 1)
+            )
+        )
     }
 
-    fn lex_ident_and_keyword(&mut self) -> Token {
+    fn lex_ident_and_keyword(&mut self) -> SpannedToken {
+        let start = self.current_position();
         let mut ident = String::new();
         while let Some(&c) = self.peek() {
             if c.is_alphanumeric() || c == '_' {
@@ -191,146 +256,254 @@ impl LexerProcess {
             "for" => Token::For,
             "continue" => Token::Continue,
             "break" => Token::Break,
+            "import" => Token::Import,
+            "get" => Token::Get,
+            "as" => Token::As,
 
             _ => Token::Identifier(ident)
         };
 
-        token
+        SpannedToken::new(
+            token,
+            Span::new(
+                start,
+                Position::new(self.line, self.column - 1)
+            )
+        )
     }
 
-    fn lex_format_string(&mut self) -> Vec<Token> {
+    fn lex_format_string(&mut self, is_raw: bool) -> SpannedToken {
+        let start = self.current_position();
+
+        if is_raw { self.forward(); }
         self.forward(); self.forward();
 
-        let mut tokens = vec![Token::FStringStart];
+        let mut parts = vec![];
 
         while !self.peek_is('"') {
             if self.peek_is('{') {
                 self.forward();
-                tokens.push(Token::FStringExprStart);
+                let mut expr = Vec::new();
+                let mut subcommand = Vec::new();
                 while !self.peek_is('}') {
                     if self.peek_is(':') {
                         self.forward();
-                        let mut subcommand = Vec::new();
                         while !self.peek_is('}') {
                             subcommand.extend(self.lex_primary());
                         }
-                        tokens.push(Token::FStringExprSubcommand(subcommand));
                     } else {
-                        tokens.extend(self.lex_primary());
+                        expr.extend(self.lex_primary());
                     }
                 }
-
                 self.forward();
-                tokens.push(Token::FStringExprEnd);
+                parts.push(FStringPart::Expr(expr, subcommand));
             } else {
-                let Token::StringLiteral(string) = self.lex_string_literal(true) else {
+                let Token::StringLiteral(string) = self.lex_string_literal(true, is_raw).node else {
                     panic!("Expected string literal")
                 };
 
-                tokens.push(Token::FStringLiteral(string));
+                parts.push(FStringPart::StringLiteral(string));
             }
         }
-        tokens.push(Token::FStringEnd);
+        let end = self.current_position();
         self.forward();
 
-        tokens
+        SpannedToken::new(
+            Token::FString(parts),
+            Span::new(
+                start,
+                end
+            )
+        )
     }
 
-    fn lex_primary(&mut self) -> Vec<Token> {
+    //noinspection DuplicatedCode
+    fn lex_primary(&mut self) -> Vec<SpannedToken> {
         let mut tokens = Vec::new();
 
         match self.peek().unwrap() {
-            '=' => {
+            // Space and escape sequence
+            ' ' | '\t' | '\r' => {
                 self.forward();
-                match self.peek().unwrap() {
+            }
+            '\n' => {
+                self.forward();
+            }
+            // Multiple char tokens
+            ':' => {
+                let start_line = self.line;
+                let start_column = self.column;
+                self.forward();
+                if self.peek_is(':') {
+                    tokens.push(SpannedToken::new(Token::DoubleColon, Span::new(
+                        Position::new(start_line, start_column),
+                        self.current_position()
+                    )));
+                    self.forward();
+                } else {
+                    tokens.push(SpannedToken::new(Token::Colon, Span::new_point(start_line, start_column)));
+                }
+            }
+
+            // Single char tokens
+            '(' => {
+                tokens.push(SpannedToken::new(Token::LParen, self.current_point()));
+                self.forward();
+            },
+            ')' => {
+                tokens.push(SpannedToken::new(Token::RParen, self.current_point()));
+                self.forward();
+            },
+            '{' => {
+                tokens.push(SpannedToken::new(Token::LBrace, self.current_point()));
+                self.forward();
+            },
+            '}' => {
+                tokens.push(SpannedToken::new(Token::RBrace, self.current_point()));
+                self.forward();
+            },
+            ',' => {
+                tokens.push(SpannedToken::new(Token::Comma, self.current_point()));
+                self.forward();
+            },
+            ';' => {
+                tokens.push(SpannedToken::new(Token::Semicolon, self.current_point()));
+                self.forward();
+            },
+            '@' => {
+                tokens.push(SpannedToken::new(Token::AtSymbol, self.current_point()));
+                self.forward();
+            },
+            // Other
+            '=' => {
+                let start_line = self.line;
+                let start_column = self.column;
+                match self.forward().unwrap() {
                     '>' => {
+                        tokens.push(SpannedToken::new(Token::DoubleArrow, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position()
+                        )));
                         self.forward();
-                        tokens.push(Token::DoubleArrow);
                     }
                     '=' => {
+                        tokens.push(SpannedToken::new(Token::EqualEqual, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position()
+                        )));
                         self.forward();
-                        tokens.push(Token::EqualEqual);
                     }
 
-                    _ => tokens.push(Token::Equal),
+                    _ => tokens.push(SpannedToken::new(Token::Equal, Span::new_point(start_line, start_column))),
                 }
             }
             '>' => {
-                self.forward();
-                match self.peek().unwrap() {
+                let start_line = self.line;
+                let start_column = self.column;
+                match self.forward().unwrap() {
                     '=' => {
+                        tokens.push(SpannedToken::new(Token::GreaterEqual, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position()
+                        )));
                         self.forward();
-                        tokens.push(Token::GreaterEqual);
                     }
 
-                    _ => tokens.push(Token::Greater),
+                    _ => tokens.push(SpannedToken::new(Token::Greater, Span::new_point(self.line, self.column))),
                 }
             }
             '<' => {
-                self.forward();
-                match self.peek().unwrap() {
+                let start_line = self.line;
+                let start_column = self.column;
+                match self.forward().unwrap() {
                     '=' => {
+                        tokens.push(SpannedToken::new(Token::LessEqual, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position()
+                        )));
                         self.forward();
-                        tokens.push(Token::LessEqual);
                     }
 
-                    _ => tokens.push(Token::Less),
+                    _ => tokens.push(SpannedToken::new(Token::Less, Span::new_point(self.line, self.column))),
                 }
             }
             '-' => {
-                self.forward();
-                match self.peek().unwrap() {
+                let start_line = self.line;
+                let start_column = self.column;
+                match self.forward().unwrap() {
                     '>' => {
+                        tokens.push(SpannedToken::new(Token::Arrow, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position()
+                        )));
                         self.forward();
-                        tokens.push(Token::Arrow)
                     }
                     '=' => {
+                        tokens.push(SpannedToken::new(Token::MinusEqual, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position()
+                        )));
                         self.forward();
-                        tokens.push(Token::MinusEqual)
                     }
                     '0'..='9' => {
                         tokens.push(self.lex_number_literal(true))
                     }
 
-                    _ => tokens.push(Token::Minus)
+                    _ => tokens.push(SpannedToken::new(Token::Minus, Span::new_point(start_line, start_column)))
                 }
             }
             '+' => {
-                self.forward();
-                match self.peek().unwrap() {
+                let start_line = self.line;
+                let start_column = self.column;
+                match self.forward().unwrap() {
                     '=' => {
+                        tokens.push(SpannedToken::new(Token::PlusEqual, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position()
+                        )));
                         self.forward();
-                        tokens.push(Token::PlusEqual)
                     }
 
-                    _ => tokens.push(Token::Plus)
+                    _ => tokens.push(SpannedToken::new(Token::Plus, Span::new_point(start_line, start_column)))
                 }
             }
             '*' => {
-                self.forward();
-                match self.peek().unwrap() {
+                let start_line = self.line;
+                let start_column = self.column;
+                match self.forward().unwrap() {
                     '*' => {
-                        self.forward();
-                        match self.peek().unwrap() {
+                        let next_line = self.line;
+                        let next_column = self.column;
+                        match self.forward().unwrap() {
                             '=' => {
+                                tokens.push(SpannedToken::new(Token::DoubleAsteriskEqual, Span::new(
+                                    Position::new(start_line, start_column),
+                                    self.current_position()
+                                )));
                                 self.forward();
-                                tokens.push(Token::DoubleAsteriskEqual)
                             }
 
-                            _ => tokens.push(Token::DoubleAsterisk)
+                            _ => tokens.push(SpannedToken::new(Token::DoubleAsterisk, Span::new(
+                                Position::new(start_line, start_column),
+                                Position::new(next_line, next_column)
+                            )))
                         }
                     }
                     '=' => {
                         self.forward();
-                        tokens.push(Token::AsteriskEqual)
+                        tokens.push(SpannedToken::new(Token::AsteriskEqual, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position()
+                        )))
                     }
 
-                    _ => tokens.push(Token::Asterisk)
+                    _ => tokens.push(SpannedToken::new(Token::Asterisk, Span::new_point(start_line, start_column)))
                 }
             }
             '/' => {
-                self.forward();
-                match self.peek().unwrap() {
+                let start_line = self.line;
+                let start_column = self.column;
+                match self.forward().unwrap() {
                     '/' => {
                         while self.has_forward() {
                             self.forward();
@@ -349,122 +522,110 @@ impl LexerProcess {
                         }
                     }
                     '=' => {
+                        tokens.push(SpannedToken::new(Token::SlashEqual, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position()
+                        )));
                         self.forward();
-                        tokens.push(Token::SlashEqual)
                     }
 
-                    _ => tokens.push(Token::Slash)
+                    _ => tokens.push(SpannedToken::new(Token::Slash, Span::new_point(start_line, start_column)))
                 }
             }
             '.' => {
+                tokens.push(SpannedToken::new(Token::Dot, self.current_point()));
                 self.forward();
-                tokens.push(Token::Dot);
             },
             '0'..='9' => {
                 tokens.push(self.lex_number_literal(false))
             }
             'a'..='z' | 'A'..='Z' | '_' => {
-                if self.peek_offset_is('"', 1) {
-                    tokens.extend(self.lex_format_string())
+                if self.peek_is('f') && (
+                    self.peek_offset_is('"', 1) || self.peek_offset_is('"', 2)
+                ) {
+                    let is_raw = self.peek_offset_is('r', 1);
+                    if is_raw {
+                        self.forward();
+                    }
+                    tokens.push(self.lex_format_string(is_raw))
+                } else if self.peek_is('r') && (
+                    self.peek_offset_is('"', 1) || self.peek_offset_is('"', 2)
+                ) {
+                    let is_format_string = self.peek_offset_is('f', 1);
+                    self.forward();
+                    if is_format_string {
+                        self.forward();
+                        tokens.push(self.lex_format_string(true))
+                    } else {
+                        tokens.push(self.lex_string_literal(false, true))
+                    }
                 } else {
                     tokens.push(self.lex_ident_and_keyword())
                 }
             }
             '[' => {
-                tokens.push(Token::LBracket);
+                tokens.push(SpannedToken::new(Token::LBracket, self.current_point()));
                 self.forward();
             },
             ']' => {
-                tokens.push(Token::RBracket);
+                tokens.push(SpannedToken::new(Token::RBracket, self.current_point()));
                 self.forward();
             },
             '!' => {
-                self.forward();
-                if self.peek_is('=') {
-                    self.forward();
-                    tokens.push(Token::NotEqual);
-                } else {
-                    tokens.push(Token::Bang);
+                let start_line = self.line;
+                let start_column = self.column;
+                match self.forward().unwrap() {
+                    '=' => {
+                        tokens.push(SpannedToken::new(Token::NotEqual, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position(),
+                        )));
+                        self.forward();
+                    }
+                    _ => tokens.push(SpannedToken::new(Token::Bang, Span::new_point(start_line, start_column)))
                 }
             },
             '%' => {
-                tokens.push(Token::Percent);
-                self.forward();
+                let start_line = self.line;
+                let start_column = self.column;
+                match self.forward().unwrap() {
+                    '=' => {
+                        tokens.push(SpannedToken::new(Token::PercentEqual, Span::new(
+                            Position::new(start_line, start_column),
+                            self.current_position()
+                        )));
+                        self.forward();
+                    }
+                    _ => tokens.push(SpannedToken::new(Token::Percent, Span::new_point(start_line, start_column)))
+                }
             },
             // Code structure
             '"' => {
-                tokens.push(self.lex_string_literal(false));
+                tokens.push(self.lex_string_literal(false, false));
             }
-            _ => panic!("Lexer founded unexpected character: {}", self.peek().unwrap().to_string())
+            _ => panic!(
+                "Lexer founded unexpected character: {} @ {}:{}",
+                self.peek().unwrap().to_string(),
+                self.line,
+                self.column
+            )
         }
 
         tokens
     }
 
     //noinspection DuplicatedCode
-    pub fn tokenize(&mut self) -> Vec<Token> {
-        let mut tokens: Vec<Token> = Vec::new();
+    pub fn tokenize(&mut self) -> Vec<SpannedToken> {
+        let mut tokens: Vec<SpannedToken> = Vec::new();
 
         while let Some(&char) = self.peek() {
-            match char {
-                // Space and escape sequence
-                ' ' | '\t' | '\r' => {
-                    self.forward();
-                }
-                '\n' => {
-                    self.line += 1;
-                    self.forward();
-                }
-
-                // Multiple char tokens
-                ':' => {
-                    self.forward();
-                    if self.peek_is(':') {
-                        self.forward();
-                        tokens.push(Token::DoubleColon);
-                    } else {
-                        tokens.push(Token::Colon);
-                    }
-                }
-
-                // Single char tokens
-                '(' => {
-                    tokens.push(Token::LParen);
-                    self.forward();
-                },
-                ')' => {
-                    tokens.push(Token::RParen);
-                    self.forward();
-                },
-                '{' => {
-                    tokens.push(Token::LBrace);
-                    self.forward();
-                },
-                '}' => {
-                    tokens.push(Token::RBrace);
-                    self.forward();
-                },
-                ',' => {
-                    tokens.push(Token::Comma);
-                    self.forward();
-                },
-                ';' => {
-                    tokens.push(Token::Semicolon);
-                    self.forward();
-                },
-                '@' => {
-                    tokens.push(Token::AtSymbol);
-                    self.forward();
-                },
-
-                // UnexpectedCharacter
-                _ => {
-                    tokens.extend(self.lex_primary());
-                }
-            }
+            tokens.extend(self.lex_primary());
         }
 
-        tokens.push(Token::EOF);
+        tokens.push(SpannedToken::new(
+            Token::EOF,
+            self.current_point()
+        ));
 
         tokens
     }

@@ -1,0 +1,10 @@
+/* Example hello world script */
+
+// Define entry function
+act main() {
+  // Print "Hello, world!" to console
+  println("Hello, world!");
+
+  // Return exit code (Not necessary)
+  return 0;
+}
