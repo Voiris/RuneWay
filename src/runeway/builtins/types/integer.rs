@@ -3,30 +3,21 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use once_cell::unsync::Lazy;
-use crate::runeway::builtins::types::{RNWBoolean, RNWFloat};
+use crate::runeway::builtins::types::{RNWBoolean, RNWDict, RNWFloat, RNWNullType};
 use crate::runeway::core::ast::operators::BinaryOperator;
-use crate::runeway::executor::runtime::types::{RNWObject, RNWRegisteredNativeMethod};
-use crate::runeway::executor::runtime::types::RNWObjectRef;
+use crate::runeway::runtime::types::{register_cast, RNWMethod, RNWObject, RNWRegisteredNativeMethod, RNWType};
+use crate::runeway::runtime::types::RNWObjectRef;
 use crate::runeway::builtins::types::string::RNWString;
+use crate::runeway::core::errors::RWResult;
 
 #[derive(Debug, Clone)]
 pub struct RNWInteger {
     pub value: i64,
 }
 
-fn native_int_to_string(this: RNWObjectRef, _: &[RNWObjectRef]) -> RNWObjectRef {
-    RNWString::new((*this).borrow().value().downcast_ref::<i64>().unwrap().to_string())
-}
-
 thread_local! {
-    static INTEGER_NATIVE_METHODS: Lazy<RefCell<HashMap<&'static str, RNWRegisteredNativeMethod>>> = Lazy::new(|| {
+    static INTEGER_NATIVE_FIELDS: Lazy<RefCell<HashMap<&'static str, RNWObjectRef>>> = Lazy::new(|| {
         let mut map = HashMap::new();
-
-        map.insert("to_string", RNWRegisteredNativeMethod::new(
-            "int.to_string".to_string(),
-            Rc::new(native_int_to_string),
-            vec![TypeId::of::<RNWInteger>()]
-        ));
 
         RefCell::new(map)
     });
@@ -63,8 +54,8 @@ impl RNWObject for RNWInteger {
         self
     }
 
-    fn method(&self, name: &str) -> Option<RNWRegisteredNativeMethod> {
-        INTEGER_NATIVE_METHODS.with(
+    fn field(&self, name: &str) -> Option<RNWObjectRef> {
+        INTEGER_NATIVE_FIELDS.with(
             |methods| methods.borrow().get(name).cloned()
         )
     }
@@ -122,3 +113,15 @@ impl RNWObject for RNWInteger {
         }
     }
 }
+
+pub(super) fn register() -> Rc<RefCell<RNWType>> {
+    register_cast::<RNWInteger, RNWString>(|obj| {
+        Ok(RNWString::new(obj.display()))
+    });
+    register_cast::<RNWInteger, RNWBoolean>(|obj| {
+        Ok(RNWBoolean::new(obj.as_any().downcast_ref::<RNWInteger>().unwrap().value != 0))
+    });
+
+    RNWType::new::<RNWInteger>(RNWInteger::type_name())
+}
+

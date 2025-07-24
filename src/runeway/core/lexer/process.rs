@@ -1,4 +1,4 @@
-use crate::runeway::core::spanned::{Position, Span};
+use std::ops::Range;
 use super::token::{Token, SpannedToken, FStringPart};
 
 pub struct LexerProcess {
@@ -48,12 +48,8 @@ impl LexerProcess {
         self.pos + 1 < self.chars.len()
     }
 
-    fn current_position(&self) -> Position {
-        Position::new(self.line, self.column)
-    }
-
-    fn current_point(&self) -> Span {
-        Span::new_point(self.line, self.column)
+    fn current_point(&self) -> Range<usize> {
+        self.pos..(self.pos+1)
     }
 
     // fn extract_substring(&self, start_offset: isize, end_offset: isize) -> Option<&str> {
@@ -61,8 +57,8 @@ impl LexerProcess {
     // }
 
     fn lex_string_literal(&mut self, is_format_string: bool, is_raw: bool) -> SpannedToken {
-        let start = self.current_position();
-        let mut end = Position::new(0, 0);
+        let start = self.pos;
+        let mut end = 0;
         let mut value = String::new();
         let mut terminated = false;
 
@@ -74,12 +70,12 @@ impl LexerProcess {
             while let Some(&char) = self.peek() {
                 if !is_format_string && quote == char {
                     terminated = true;
-                    end = self.current_position();
+                    end = self.pos;
                     self.forward();
                     break
                 } else if is_format_string && (char == '{' || char == '"') {
                     terminated = true;
-                    end = self.current_position();
+                    end = self.pos;
                     break;
                 } else {
                     if char == '\\' && !is_raw {
@@ -134,13 +130,12 @@ impl LexerProcess {
             panic!("Founded unterminated string")
         }
 
-        SpannedToken::new(Token::StringLiteral(value), Span::new(start, end))
+        SpannedToken::new(Token::StringLiteral(value), start..end)
     }
 
     //noinspection DuplicatedCode
     fn lex_number_literal(&mut self, is_negative: bool) -> SpannedToken {
-        let start_line = self.line;
-        let start_column = self.column - (is_negative as usize);
+        let start = self.pos;
 
         let mut string_number = String::new();
         let mut is_float = false;
@@ -219,15 +214,13 @@ impl LexerProcess {
 
         SpannedToken::new(
             node,
-            Span::new(
-                Position::new(start_line, start_column),
-                Position::new(self.line, self.column - 1)
-            )
+            start..self.pos
         )
     }
 
     fn lex_ident_and_keyword(&mut self) -> SpannedToken {
-        let start = self.current_position();
+        let start = self.pos;
+
         let mut ident = String::new();
         while let Some(&c) = self.peek() {
             if c.is_alphanumeric() || c == '_' {
@@ -265,15 +258,12 @@ impl LexerProcess {
 
         SpannedToken::new(
             token,
-            Span::new(
-                start,
-                Position::new(self.line, self.column - 1)
-            )
+            start..(self.pos - 1)
         )
     }
 
     fn lex_format_string(&mut self, is_raw: bool) -> SpannedToken {
-        let start = self.current_position();
+        let start = self.pos;
 
         if is_raw { self.forward(); }
         self.forward(); self.forward();
@@ -305,15 +295,12 @@ impl LexerProcess {
                 parts.push(FStringPart::StringLiteral(string));
             }
         }
-        let end = self.current_position();
+        let end = self.pos;
         self.forward();
 
         SpannedToken::new(
             Token::FString(parts),
-            Span::new(
-                start,
-                end
-            )
+            start..end
         )
     }
 
@@ -331,17 +318,13 @@ impl LexerProcess {
             }
             // Multiple char tokens
             ':' => {
-                let start_line = self.line;
-                let start_column = self.column;
+                let start = self.pos;
                 self.forward();
                 if self.peek_is(':') {
-                    tokens.push(SpannedToken::new(Token::DoubleColon, Span::new(
-                        Position::new(start_line, start_column),
-                        self.current_position()
-                    )));
+                    tokens.push(SpannedToken::new(Token::DoubleColon, start..self.pos));
                     self.forward();
                 } else {
-                    tokens.push(SpannedToken::new(Token::Colon, Span::new_point(start_line, start_column)));
+                    tokens.push(SpannedToken::new(Token::Colon, start..start));
                 }
             }
 
@@ -376,133 +359,95 @@ impl LexerProcess {
             },
             // Other
             '=' => {
-                let start_line = self.line;
-                let start_column = self.column;
+                let start = self.pos;
                 match self.forward().unwrap() {
                     '>' => {
-                        tokens.push(SpannedToken::new(Token::DoubleArrow, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position()
-                        )));
+                        tokens.push(SpannedToken::new(Token::DoubleArrow, start..self.pos));
                         self.forward();
                     }
                     '=' => {
-                        tokens.push(SpannedToken::new(Token::EqualEqual, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position()
-                        )));
+                        tokens.push(SpannedToken::new(Token::EqualEqual, start..self.pos));
                         self.forward();
                     }
 
-                    _ => tokens.push(SpannedToken::new(Token::Equal, Span::new_point(start_line, start_column))),
+                    _ => tokens.push(SpannedToken::new(Token::Equal, start..start)),
                 }
             }
             '>' => {
-                let start_line = self.line;
-                let start_column = self.column;
+                let start = self.pos;
                 match self.forward().unwrap() {
                     '=' => {
-                        tokens.push(SpannedToken::new(Token::GreaterEqual, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position()
-                        )));
+                        tokens.push(SpannedToken::new(Token::GreaterEqual, start..self.pos));
                         self.forward();
                     }
 
-                    _ => tokens.push(SpannedToken::new(Token::Greater, Span::new_point(self.line, self.column))),
+                    _ => tokens.push(SpannedToken::new(Token::Greater, start..start)),
                 }
             }
             '<' => {
-                let start_line = self.line;
-                let start_column = self.column;
+                let start = self.pos;
                 match self.forward().unwrap() {
                     '=' => {
-                        tokens.push(SpannedToken::new(Token::LessEqual, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position()
-                        )));
+                        tokens.push(SpannedToken::new(Token::LessEqual, start..self.pos));
                         self.forward();
                     }
 
-                    _ => tokens.push(SpannedToken::new(Token::Less, Span::new_point(self.line, self.column))),
+                    _ => tokens.push(SpannedToken::new(Token::Less, start..start)),
                 }
             }
             '-' => {
-                let start_line = self.line;
-                let start_column = self.column;
+                let start = self.pos;
                 match self.forward().unwrap() {
                     '>' => {
-                        tokens.push(SpannedToken::new(Token::Arrow, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position()
-                        )));
+                        tokens.push(SpannedToken::new(Token::Arrow, start..self.pos));
                         self.forward();
                     }
                     '=' => {
-                        tokens.push(SpannedToken::new(Token::MinusEqual, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position()
-                        )));
+                        tokens.push(SpannedToken::new(Token::MinusEqual, start..self.pos));
                         self.forward();
                     }
                     '0'..='9' => {
                         tokens.push(self.lex_number_literal(true))
                     }
 
-                    _ => tokens.push(SpannedToken::new(Token::Minus, Span::new_point(start_line, start_column)))
+                    _ => tokens.push(SpannedToken::new(Token::Minus, start..start))
                 }
             }
             '+' => {
-                let start_line = self.line;
-                let start_column = self.column;
+                let start = self.pos;
                 match self.forward().unwrap() {
                     '=' => {
-                        tokens.push(SpannedToken::new(Token::PlusEqual, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position()
-                        )));
+                        tokens.push(SpannedToken::new(Token::PlusEqual, start..self.pos));
                         self.forward();
                     }
 
-                    _ => tokens.push(SpannedToken::new(Token::Plus, Span::new_point(start_line, start_column)))
+                    _ => tokens.push(SpannedToken::new(Token::Plus, start..start))
                 }
             }
             '*' => {
-                let start_line = self.line;
-                let start_column = self.column;
+                let start = self.pos;
                 match self.forward().unwrap() {
                     '*' => {
-                        let next_line = self.line;
-                        let next_column = self.column;
+                        let next = self.pos;
                         match self.forward().unwrap() {
                             '=' => {
-                                tokens.push(SpannedToken::new(Token::DoubleAsteriskEqual, Span::new(
-                                    Position::new(start_line, start_column),
-                                    self.current_position()
-                                )));
+                                tokens.push(SpannedToken::new(Token::DoubleAsteriskEqual, start..self.pos));
                                 self.forward();
                             }
 
-                            _ => tokens.push(SpannedToken::new(Token::DoubleAsterisk, Span::new(
-                                Position::new(start_line, start_column),
-                                Position::new(next_line, next_column)
-                            )))
+                            _ => tokens.push(SpannedToken::new(Token::DoubleAsterisk, start..next))
                         }
                     }
                     '=' => {
                         self.forward();
-                        tokens.push(SpannedToken::new(Token::AsteriskEqual, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position()
-                        )))
+                        tokens.push(SpannedToken::new(Token::AsteriskEqual, start..self.pos))
                     }
 
-                    _ => tokens.push(SpannedToken::new(Token::Asterisk, Span::new_point(start_line, start_column)))
+                    _ => tokens.push(SpannedToken::new(Token::Asterisk, start..start))
                 }
             }
             '/' => {
-                let start_line = self.line;
-                let start_column = self.column;
+                let start = self.pos;
                 match self.forward().unwrap() {
                     '/' => {
                         while self.has_forward() {
@@ -522,14 +467,11 @@ impl LexerProcess {
                         }
                     }
                     '=' => {
-                        tokens.push(SpannedToken::new(Token::SlashEqual, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position()
-                        )));
+                        tokens.push(SpannedToken::new(Token::SlashEqual, start..self.pos));
                         self.forward();
                     }
 
-                    _ => tokens.push(SpannedToken::new(Token::Slash, Span::new_point(start_line, start_column)))
+                    _ => tokens.push(SpannedToken::new(Token::Slash, start..start))
                 }
             }
             '.' => {
@@ -572,31 +514,23 @@ impl LexerProcess {
                 self.forward();
             },
             '!' => {
-                let start_line = self.line;
-                let start_column = self.column;
+                let start = self.pos;
                 match self.forward().unwrap() {
                     '=' => {
-                        tokens.push(SpannedToken::new(Token::NotEqual, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position(),
-                        )));
+                        tokens.push(SpannedToken::new(Token::NotEqual, start..self.pos));
                         self.forward();
                     }
-                    _ => tokens.push(SpannedToken::new(Token::Bang, Span::new_point(start_line, start_column)))
+                    _ => tokens.push(SpannedToken::new(Token::Bang, start..start)),
                 }
             },
             '%' => {
-                let start_line = self.line;
-                let start_column = self.column;
+                let start = self.pos;
                 match self.forward().unwrap() {
                     '=' => {
-                        tokens.push(SpannedToken::new(Token::PercentEqual, Span::new(
-                            Position::new(start_line, start_column),
-                            self.current_position()
-                        )));
+                        tokens.push(SpannedToken::new(Token::PercentEqual, start..self.pos));
                         self.forward();
                     }
-                    _ => tokens.push(SpannedToken::new(Token::Percent, Span::new_point(start_line, start_column)))
+                    _ => tokens.push(SpannedToken::new(Token::Percent, start..start)),
                 }
             },
             // Code structure

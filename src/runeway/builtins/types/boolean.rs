@@ -4,27 +4,18 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use once_cell::sync::Lazy;
 use crate::runeway::core::ast::operators::{BinaryOperator, UnaryOperator};
-use crate::runeway::executor::runtime::types::{RNWRegisteredNativeMethod, RNWObject, RNWObjectRef};
-use crate::runeway::builtins::types::RNWString;
+use crate::runeway::runtime::types::{RNWRegisteredNativeMethod, RNWObject, RNWObjectRef, RNWMethod, register_cast, RNWType};
+use crate::runeway::builtins::types::{RNWNullType, RNWString};
+use crate::runeway::core::errors::{RWResult, RuneWayError};
 
 #[derive(Debug, Clone)]
 pub struct RNWBoolean {
     value: bool
 }
 
-fn native_bool_to_string(this: RNWObjectRef, _: &[RNWObjectRef]) -> RNWObjectRef {
-    RNWString::new((*this).borrow().value().downcast_ref::<bool>().unwrap().to_string())
-}
-
 thread_local! {
-    static BOOLEAN_NATIVE_METHODS: Lazy<RefCell<HashMap<&'static str, RNWRegisteredNativeMethod>>> = Lazy::new(|| {
+    static BOOLEAN_NATIVE_FIELDS: Lazy<RefCell<HashMap<&'static str, RNWObjectRef>>> = Lazy::new(|| {
         let mut map = HashMap::new();
-
-        map.insert("to_string", RNWRegisteredNativeMethod::new(
-            "bool.to_string".to_string(),
-            Rc::new(native_bool_to_string),
-            vec![TypeId::of::<RNWBoolean>()]
-        ));
 
         RefCell::new(map)
     });
@@ -60,8 +51,9 @@ impl RNWObject for RNWBoolean {
         self
     }
 
-    fn method(&self, name: &str) -> Option<RNWRegisteredNativeMethod> {
-        BOOLEAN_NATIVE_METHODS.with(
+    //noinspection DuplicatedCode
+    fn field(&self, name: &str) -> Option<RNWObjectRef> {
+        BOOLEAN_NATIVE_FIELDS.with(
             |methods| methods.borrow().get(name).cloned()
         )
     }
@@ -96,4 +88,12 @@ impl RNWObject for RNWBoolean {
             _ => None,
         }
     }
+}
+
+pub(super) fn register() -> Rc<RefCell<RNWType>> {
+    register_cast::<RNWBoolean, RNWString>(|obj| {
+        Ok(RNWString::new(obj.display()))
+    });
+
+    RNWType::new::<RNWBoolean>(RNWBoolean::type_name())
 }

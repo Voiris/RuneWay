@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use once_cell::unsync::Lazy;
-use crate::runeway::executor::runtime::environment::EnvRef;
+use crate::runeway::runtime::environment::EnvRef;
 
 type StdLibLoader = fn() -> EnvRef;
 

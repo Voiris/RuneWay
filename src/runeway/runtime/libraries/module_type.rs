@@ -2,8 +2,9 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
-use crate::runeway::executor::runtime::environment::EnvRef;
-use crate::runeway::executor::runtime::types::{RNWObject, RNWObjectRef, RNWRegisteredNativeFunction};
+use crate::runeway::builtins::types::{RNWInteger, RNWString};
+use crate::runeway::runtime::environment::EnvRef;
+use crate::runeway::runtime::types::{register_cast, RNWObject, RNWObjectRef, RNWRegisteredNativeFunction, RNWType};
 
 #[derive(Clone)]
 pub struct RNWModule {
@@ -28,6 +29,10 @@ impl RNWModule {
     pub fn type_name() -> &'static str {
         "module"
     }
+
+    pub fn is_type_equals(other: RNWObjectRef) -> bool {
+        std::any::TypeId::of::<Self>() == other.borrow().as_any().type_id()
+    }
 }
 
 impl RNWObject for RNWModule {
@@ -44,16 +49,14 @@ impl RNWObject for RNWModule {
     fn as_object(&self) -> &dyn RNWObject { self }
 
     fn field(&self, name: &str) -> Option<RNWObjectRef> {
-        match self.env.borrow().get_variable(name) {
-            Ok(value) => Some(value),
-            Err(err) => panic!("{}", err),
-        }
+        self.env.borrow().get_variable(name)
     }
+}
 
-    fn function(&self, name: &str) -> Option<RNWRegisteredNativeFunction> {
-        match self.env.borrow().get_function(name) {
-            Ok(func) => Some((*func).clone()),
-            Err(err) => panic!("{}", err),
-        }
-    }
+pub fn register() -> Rc<RefCell<RNWType>> {
+    register_cast::<RNWModule, RNWString>(|obj| {
+        Ok(RNWString::new(obj.display()))
+    });
+
+    RNWType::new::<RNWModule>(RNWModule::type_name())
 }

@@ -1,3 +1,4 @@
+use crate::runeway::core::spanned::Spanned;
 use super::operators::{BinaryOperator, UnaryOperator};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -7,45 +8,50 @@ pub enum Expr {
     Float(f64),
     String(String),
     Boolean(bool),
-    List(Vec<Box<Expr>>),
+    List(Vec<Box<SpannedExpr>>),
+    Tuple(Vec<Box<SpannedExpr>>),
+    // Set(Vec<Box<SpannedExpr>>),
+    Dict(Vec<(Box<SpannedExpr>, Box<SpannedExpr>)>),
     FString(Vec<FStringExpr>),
 
     Iterator {
-        start: Box<Expr>,
-        end: Box<Expr>,
-        step: Option<Box<Expr>>,
+        start: Box<SpannedExpr>,
+        end: Box<SpannedExpr>,
+        step: Option<Box<SpannedExpr>>,
     },
     Null,
 
     // Operations
     BinaryOperation {
-        left_operand: Box<Expr>,
+        left_operand: Box<SpannedExpr>,
         operator: BinaryOperator,
-        right_operand: Box<Expr>
+        right_operand: Box<SpannedExpr>
     },
     UnaryOperation {
         operator: UnaryOperator,
-        operand: Box<Expr>
+        operand: Box<SpannedExpr>
     },
 
-    Expr(Box<Expr>),
+    Expr(Box<SpannedExpr>),
     Variable(String),
     Call {
-        callee: Box<Expr>,
-        arguments: Vec<Expr>,
+        callee: Box<SpannedExpr>,
+        arguments: Vec<SpannedExpr>,
     },
     GetAttr {
-        object: Box<Expr>,
+        object: Box<SpannedExpr>,
         field: String,
     },
     Slice {
-        object: Box<Expr>,
-        index: Box<Expr>,
+        object: Box<SpannedExpr>,
+        index: Box<SpannedExpr>,
     },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FStringExpr {
     String(String),
-    Expr(Expr),
+    Expr(SpannedExpr),
 }
+
+pub type SpannedExpr = Spanned<Expr>;

@@ -1,0 +1,15 @@
+act fib(x) {
+    if x <= 1 {
+        return x;
+    }
+    let a = 0;
+    let b = 1;
+    let i = 2;
+    while i <= x {
+        let c = a + b;
+        a = b;
+        b = c;
+        i += 1;
+    }
+    return b;
+}

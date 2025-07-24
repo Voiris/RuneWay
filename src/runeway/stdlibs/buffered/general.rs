@@ -1,75 +1,71 @@
 use std::any::TypeId;
+use std::io::{stdout, BufWriter, Stdout, Write};
 use std::rc::Rc;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 use once_cell::sync::OnceCell;
 use crate::runeway::builtins::types::{RNWNullType, RNWString};
-use crate::runeway::executor::runtime::types::{RNWObjectRef, RNWRegisteredNativeFunction};
+use crate::runeway::core::errors::RWResult;
+use crate::runeway::runtime::types::{RNWFunction, RNWObjectRef, RNWRegisteredNativeFunction};
 
-static BUFFER: OnceCell<Arc<RwLock<String>>> = OnceCell::new();
+static BUFFER: OnceCell<Arc<Mutex<BufWriter<Stdout>>>> = OnceCell::new();
 
-fn get_buffer() -> Arc<RwLock<String>> {
-    BUFFER.get_or_init(|| Arc::new(RwLock::new(String::new()))).clone()
+fn get_buffer() -> Arc<Mutex<BufWriter<Stdout>>> {
+    BUFFER.get_or_init(|| Arc::new(Mutex::new(BufWriter::new(stdout())))).clone()
 }
 
-pub fn push_buffer(s: impl AsRef<str>) {
-    let lock = get_buffer();
-    let mut buffer = lock.write().unwrap();
-    buffer.push_str(s.as_ref());
+pub fn native_buffered_print(args: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
+    let borrow = args[0].borrow();
+    let string = borrow.value().downcast_ref::<String>().unwrap();
+    let buffer = get_buffer();
+    let mut guard = buffer.lock().unwrap();
+
+    guard.write(&string.as_bytes()).unwrap();
+
+    Ok(RNWNullType::new())
 }
 
-pub fn clear_buffer() {
-    let lock = get_buffer();
-    let mut buffer = lock.write().unwrap();
-    buffer.clear();
+pub fn native_buffered_println(args: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
+    let borrow = args[0].borrow();
+    let string = format!("{}\n", borrow.value().downcast_ref::<String>().unwrap());
+    let buffer = get_buffer();
+    let mut guard = buffer.lock().unwrap();
+
+    guard.write(&string.as_bytes()).unwrap();
+
+    Ok(RNWNullType::new())
 }
 
-pub fn read_buffer() -> String {
-    let lock = get_buffer();
-    let buffer = lock.read().unwrap();
-    buffer.clone()
-}
+pub fn native_buffered_flush(_: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
+    let buffer = get_buffer();
+    let mut guard = buffer.lock().unwrap();
 
-pub fn native_buffered_print(args: &[RNWObjectRef]) -> RNWObjectRef {
-    push_buffer(args[0].borrow().value().downcast_ref::<String>().unwrap());
+    guard.flush().unwrap();
 
-    RNWNullType::new()
-}
-
-pub fn native_buffered_println(args: &[RNWObjectRef]) -> RNWObjectRef {
-    push_buffer(format!("{}\n", args[0].borrow().value().downcast_ref::<String>().unwrap()));
-
-    RNWNullType::new()
-}
-
-pub fn native_buffered_flush(_: &[RNWObjectRef]) -> RNWObjectRef {
-    print!("{}", read_buffer());
-    clear_buffer();
-
-    RNWNullType::new()
+    Ok(RNWNullType::new())
 }
 
 // Future: buffered.show() -> string
 
-pub fn register_native_buffered_print() -> RNWRegisteredNativeFunction {
-    RNWRegisteredNativeFunction::new(
-        "print".to_owned(),
+pub fn register_native_buffered_print() -> RNWObjectRef {
+    RNWFunction::new(RNWRegisteredNativeFunction::new(
+        "buffered.print".to_owned(),
         Rc::new(native_buffered_print),
         vec![TypeId::of::<RNWString>()],
-    )
+    ))
 }
 
-pub fn register_native_buffered_println() -> RNWRegisteredNativeFunction {
-    RNWRegisteredNativeFunction::new(
-        "println".to_owned(),
+pub fn register_native_buffered_println() -> RNWObjectRef {
+    RNWFunction::new(RNWRegisteredNativeFunction::new(
+        "buffered.println".to_owned(),
         Rc::new(native_buffered_println),
         vec![TypeId::of::<RNWString>()],
-    )
+    ))
 }
 
-pub fn register_native_buffered_flush() -> RNWRegisteredNativeFunction {
-    RNWRegisteredNativeFunction::new(
-        "flush".to_owned(),
+pub fn register_native_buffered_flush() -> RNWObjectRef {
+    RNWFunction::new(RNWRegisteredNativeFunction::new(
+        "buffered.flush".to_owned(),
         Rc::new(native_buffered_flush),
         vec![],
-    )
+    ))
 }

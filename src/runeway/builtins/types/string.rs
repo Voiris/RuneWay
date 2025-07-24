@@ -1,61 +1,68 @@
 use std::any::{Any, TypeId};
 use std::cell::{RefCell};
 use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::rc::Rc;
 use once_cell::sync::Lazy;
 use crate::runeway::core::ast::operators::BinaryOperator;
-use crate::runeway::executor::runtime::types::{
-    RNWObject, RNWRegisteredNativeMethod, RNWObjectRef};
-use crate::runeway::builtins::types::{RNWFloat, RNWInteger};
+use crate::runeway::runtime::types::{RNWObject, RNWRegisteredNativeMethod, RNWObjectRef, RNWMethod, register_cast, RNWType};
+use crate::runeway::builtins::types::{RNWBoolean, RNWDict, RNWFloat, RNWInteger, RNWList, RNWNullType};
+use crate::runeway::core::errors::RWResult;
 
 #[derive(Debug, Clone)]
 pub struct RNWString {
     pub value: String,
 }
 
-fn native_string_to_int(this: RNWObjectRef, _: &[RNWObjectRef]) -> RNWObjectRef {
-    RNWInteger::new(
+fn native_string_to_int(this: RNWObjectRef, _: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
+    Ok(RNWInteger::new(
             (*this).borrow().value().downcast_ref::<String>().unwrap().parse::<i64>().unwrap()
-    )
+    ))
 }
 
-fn native_string_to_float(this: RNWObjectRef, _: &[RNWObjectRef]) -> RNWObjectRef {
-    RNWFloat::new(
+fn native_string_to_float(this: RNWObjectRef, _: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
+    Ok(RNWFloat::new(
         (*this).borrow().value().downcast_ref::<String>().unwrap().parse::<f64>().unwrap()
-    )
+    ))
 }
 
-fn native_string_to_string(this: RNWObjectRef, _: &[RNWObjectRef]) -> RNWObjectRef {
-    this.clone()
+fn native_string_to_list(this: RNWObjectRef, _: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
+    let mut vec = Vec::new();
+    let borrow = this.borrow();
+    let string = borrow.value().downcast_ref::<String>().unwrap().clone();
+    for c in string.chars() {
+        vec.push(RNWString::new(c));
+    }
+    Ok(RNWList::new(&vec))
 }
 
 thread_local! {
-    static STRING_NATIVE_METHODS: Lazy<RefCell<HashMap<&'static str, RNWRegisteredNativeMethod>>> = Lazy::new(|| {
+    static STRING_NATIVE_FIELDS: Lazy<RefCell<HashMap<&'static str, RNWObjectRef>>> = Lazy::new(|| {
         let mut map = HashMap::new();
 
-        map.insert("to_int", RNWRegisteredNativeMethod::new(
+        map.insert("to_int", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "string.to_int".to_string(),
             Rc::new(native_string_to_int),
             vec![TypeId::of::<RNWString>()]
-        ));
-        map.insert("to_float", RNWRegisteredNativeMethod::new(
+        )));
+        map.insert("to_float", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "string.to_float".to_string(),
             Rc::new(native_string_to_float),
             vec![TypeId::of::<RNWString>()]
-        ));
-        map.insert("to_string", RNWRegisteredNativeMethod::new(
-            "string.to_string".to_string(),
-            Rc::new(native_string_to_string),
+        )));
+        map.insert("to_list", RNWMethod::new(RNWRegisteredNativeMethod::new(
+            "string.to_list".to_string(),
+            Rc::new(native_string_to_list),
             vec![TypeId::of::<RNWString>()]
-        ));
+        )));
 
         RefCell::new(map)
     });
 }
 
 impl RNWString {
-    pub fn new(value: String) -> RNWObjectRef {
-        Rc::new(RefCell::new(Self { value }))
+    pub fn new(value: impl ToString) -> RNWObjectRef {
+        Rc::new(RefCell::new(Self { value: value.to_string() }))
     }
 
     pub fn type_name() -> &'static str { "string" }
@@ -85,8 +92,9 @@ impl RNWObject for RNWString {
         self
     }
 
-    fn method(&self, name: &str) -> Option<RNWRegisteredNativeMethod> {
-        STRING_NATIVE_METHODS.with(
+    //noinspection DuplicatedCode
+    fn field(&self, name: &str) -> Option<RNWObjectRef> {
+        STRING_NATIVE_FIELDS.with(
             |methods| methods.borrow().get(name).cloned()
         )
     }
@@ -100,7 +108,45 @@ impl RNWObject for RNWString {
                     other.borrow().value().downcast_ref::<String>().unwrap()
                 )))
             }
+            (BinaryOperator::Eq, "string") => {
+                Some(RNWBoolean::new(
+                    self.value == *other
+                        .borrow().value().downcast_ref::<String>().unwrap()
+                ))
+            }
+            (BinaryOperator::NotEq, "string") => {
+                Some(RNWBoolean::new(
+                    self.value != *other
+                        .borrow().value().downcast_ref::<String>().unwrap()
+                ))
+            }
             _ => None
         }
     }
+}
+
+pub(super) fn register() -> Rc<RefCell<RNWType>> {
+    register_cast::<RNWString, RNWInteger>(|obj| {
+        Ok(RNWInteger::new(
+            obj.value().downcast_ref::<String>().unwrap().parse::<i64>()?
+        ))
+    });
+    register_cast::<RNWString, RNWFloat>(|obj| {
+        Ok(RNWFloat::new(
+            obj.value().downcast_ref::<String>().unwrap().parse::<f64>()?
+        ))
+    });
+    register_cast::<RNWString, RNWList>(|obj| {
+        let mut vec = Vec::new();
+        let string = obj.value().downcast_ref::<String>().unwrap();
+        for c in string.chars() {
+            vec.push(RNWString::new(c));
+        }
+        Ok(RNWList::new(&vec))
+    });
+    register_cast::<RNWString, RNWBoolean>(|obj| {
+        Ok(RNWBoolean::new(!obj.as_any().downcast_ref::<RNWString>().unwrap().value.is_empty()))
+    });
+
+    RNWType::new::<RNWString>(RNWString::type_name())
 }

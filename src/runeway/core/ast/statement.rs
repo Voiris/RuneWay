@@ -1,37 +1,39 @@
-use super::expression::Expr;
+use std::ops::Range;
+use crate::runeway::core::spanned::Spanned;
+use super::expression::{Expr, SpannedExpr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Let {
         name: String,
-        value: Expr,
+        value: SpannedExpr,
     },
     Assign {
         name: String,
-        value: Expr,
+        value: SpannedExpr,
     },
-    Expr(Expr),
-    Return(Expr),
+    Expr(SpannedExpr),
+    Return(SpannedExpr),
     If {
-        condition: Expr,
-        then_branch: Vec<Box<Statement>>,
-        else_branch: Option<Vec<Box<Statement>>>,
+        condition: SpannedExpr,
+        then_branch: Vec<Box<SpannedStatement>>,
+        else_branch: Option<Vec<Box<SpannedStatement>>>,
     },
     While {
-        condition: Expr,
-        body: Vec<Box<Statement>>,
+        condition: SpannedExpr,
+        body: Vec<Box<SpannedStatement>>,
     },
     For {
         variable: String,
-        iterable: Expr,
-        body: Vec<Box<Statement>>,
+        iterable: SpannedExpr,
+        body: Vec<Box<SpannedStatement>>,
     },
     Break,
     Continue,
     Act {
         name: String,
         parameters: Vec<String>,
-        body: Vec<Box<Statement>>,
+        body: Vec<Box<SpannedStatement>>,
     },
 
     Import {
@@ -60,5 +62,7 @@ pub enum ImportItem {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportSymbol {
     pub original: String,
-    pub alias: Option<String>
+    pub alias: Option<String>,
 }
+
+pub type SpannedStatement = Spanned<Statement>;

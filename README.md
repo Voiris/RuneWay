@@ -29,10 +29,11 @@
 ### 🧩 Standard Library
 - [x] Module System (Imports)
 - [x] std::buffered (demo)
+- [x] std::http
+- [x] std::json
 - [ ] std::random
 - [ ] std::math
 - [ ] std::files
-- [ ] std::net
 - [ ] std::time
 
 ### 🔩 OOP

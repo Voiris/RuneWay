@@ -1,11 +1,59 @@
+import "./fib" as fib;
 import "std::buffered" as buffered;
 import "std::buffered" get VERSION as buf_v, VERSION;
+import "std::http" as http;
+import "std::json" as json;
+// import "std::buffered" get *;
+
+act is_negative(a) {
+  println(a);
+  act is_positive() {
+    return a >= 0;
+  }
+  return not is_positive();
+}
 
 act main() {
-  buffered.println(buffered.VERSION);
+  let i = 4;
+  let s = cast(i, string);
+  println(s, type(s) == string);
+
+  // println(json.dump(json.load(http.get_("https://postman-echo.com/get?foo=bar"))));
+  // println(http.post("https://postman-echo.com/post", {"foo": 2}));
+
+  println(cast("string", list));
+
+  if null {} else {
+    println("null");
+  }
+
+  let a = {"2": "1"};
+
+  println(a);
+
+  a.insert("a", "2");
+
+  println(a.get_("a"));
+
+  println(fib.fib(40));
+
+  let a = (1, 2, 3);
+  println(a);
+  println(a[2]);
+
+  buffered.print(buffered.VERSION);
+  buffered.print("\t\t");
   buffered.println(VERSION);
-  buffered.print(buf_v);
+  buffered.println(buf_v);
   buffered.flush();
+
+  let x;
+
+  for i in [1, 2, 3].iter() {
+    x = i;
+  }
+
+  println(x);
 
   let x = 0;
   while x < 10 {
@@ -13,24 +61,8 @@ act main() {
     if x == 2 or x == 5 {
       continue;
     }
-    println(x.to_string());
+    println(x);
   }
-}
-
-act fib(x) {
-    if x <= 1 {
-        return x;
-    }
-    let a = 0;
-    let b = 1;
-    let i = 2;
-    while i <= x {
-        let c = a + b;
-        a = b;
-        b = c;
-        i += 1;
-    }
-    return b;
 }
 
 act square(a) {
@@ -40,31 +72,31 @@ act square(a) {
 act main1() {
   let x;
 
-  println(x.to_string());
+  println(x);
 
   x = 3;
 
-  println(x.to_string());
+  println(x);
 
   // Hello, world!
   print("Hello,\r1\t1 world!\n\u0207\n");
 
   x /= 2 + 4;
 
-  println(x.to_string());
+  println(x);
 
   println(f"{x}");
 
-  println(square(5).to_string());
+  println(square(5));
 
   let is_working = true;
   let is_not_working = !is_working;
 
-  println(is_not_working.to_string());
+  println(is_not_working);
 
   let a = 0;
   while a < 3 {
-    println(a.to_string());
+    println(a);
     a += 1;
     if a == 2 {
       break;
@@ -76,26 +108,24 @@ act main1() {
   println(f"{l}\n  len={l.len()}\n  is_empty={l.is_empty()}");
 
   for item in l.iter() {
-    print(item.to_string());
+    print(item);
   }
 
-  println("");
 
   for i in 1..10 {
-    print(i.to_string());
+    print(i);
   }
 
   println("");
 
   for i in 1..10::2 {
-    print(i.to_string());
+    print(i);
   }
 
   println("");
 
-  println(43e-32.to_string());
-  println(15e21.to_string());
-
-  /* Goodbye,
-     world! */
+  println(43e-32);
+  println(15e21);
 }
+/* Goodbye,
+   world! */

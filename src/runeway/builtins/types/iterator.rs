@@ -3,8 +3,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use once_cell::unsync::Lazy;
-use crate::runeway::builtins::types::{RNWBoolean, RNWInteger, RNWNullType};
-use crate::runeway::executor::runtime::types::{RNWObject, RNWObjectRef, RNWRegisteredNativeMethod};
+use crate::runeway::builtins::types::{RNWBoolean, RNWDict, RNWFloat, RNWInteger, RNWNullType, RNWString};
+use crate::runeway::core::errors::RWResult;
+use crate::runeway::runtime::types::{register_cast, RNWMethod, RNWObject, RNWObjectRef, RNWRegisteredNativeMethod, RNWType};
 
 #[derive(Debug, Clone)]
 enum RNWIteratorKind {
@@ -114,14 +115,14 @@ impl RNWIterator {
     }
 }
 
-fn native_iterator_next(this: RNWObjectRef, _: &[RNWObjectRef]) -> RNWObjectRef {
+fn native_iterator_next(this: RNWObjectRef, _: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
     let mut borrow = this.borrow_mut();
     let iter = borrow.as_any_mut().downcast_mut::<RNWIterator>().unwrap();
 
-    iter.next()
+    Ok(iter.next())
 }
 
-fn native_iterator_reset(this: RNWObjectRef, _: &[RNWObjectRef]) -> RNWObjectRef {
+fn native_iterator_reset(this: RNWObjectRef, _: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
     let mut borrow = this.borrow_mut();
     let iter = borrow.as_any_mut().downcast_mut::<RNWIterator>().unwrap();
 
@@ -129,35 +130,35 @@ fn native_iterator_reset(this: RNWObjectRef, _: &[RNWObjectRef]) -> RNWObjectRef
 
     drop(borrow);
 
-    RNWNullType::new()
+    Ok(RNWNullType::new())
 }
 
-fn native_iterator_is_infinite(this: RNWObjectRef, _: &[RNWObjectRef]) -> RNWObjectRef {
+fn native_iterator_is_infinite(this: RNWObjectRef, _: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
     let mut borrow = this.borrow_mut();
     let iter = borrow.as_any_mut().downcast_mut::<RNWIterator>().unwrap();
 
-    RNWBoolean::new(iter.is_infinite())
+    Ok(RNWBoolean::new(iter.is_infinite()))
 }
 
 thread_local! {
-    static ITERATOR_NATIVE_METHODS: Lazy<RefCell<HashMap<&'static str, RNWRegisteredNativeMethod>>> = Lazy::new(|| {
+    static ITERATOR_NATIVE_FIELDS: Lazy<RefCell<HashMap<&'static str, RNWObjectRef>>> = Lazy::new(|| {
         let mut map = HashMap::new();
 
-        map.insert("next", RNWRegisteredNativeMethod::new(
+        map.insert("next", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "iterator.next".to_string(),
             Rc::new(native_iterator_next),
             vec![TypeId::of::<RNWIterator>()]
-        ));
-        map.insert("reset", RNWRegisteredNativeMethod::new(
+        )));
+        map.insert("reset", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "iterator.reset".to_string(),
             Rc::new(native_iterator_reset),
             vec![TypeId::of::<RNWIterator>()]
-        ));
-        map.insert("is_infinite", RNWRegisteredNativeMethod::new(
+        )));
+        map.insert("is_infinite", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "iterator.is_infinite".to_string(),
             Rc::new(native_iterator_is_infinite),
             vec![TypeId::of::<RNWIterator>()]
-        ));
+        )));
 
         RefCell::new(map)
     })
@@ -174,9 +175,13 @@ impl RNWObject for RNWIterator {
     fn as_object(&self) -> &dyn RNWObject { self }
 
     //noinspection DuplicatedCode
-    fn method(&self, name: &str) -> Option<RNWRegisteredNativeMethod> {
-        ITERATOR_NATIVE_METHODS.with(|iter| {
+    fn field(&self, name: &str) -> Option<RNWObjectRef> {
+        ITERATOR_NATIVE_FIELDS.with(|iter| {
             iter.borrow().get(name).cloned()
         })
     }
+}
+
+pub(super) fn register() -> Rc<RefCell<RNWType>> {
+    RNWType::new::<RNWIterator>(RNWIterator::type_name())
 }

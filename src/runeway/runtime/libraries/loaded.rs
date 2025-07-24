@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use once_cell::unsync::Lazy;
-use crate::runeway::executor::runtime::environment::EnvRef;
+use crate::runeway::runtime::environment::EnvRef;
 
 thread_local! {
     static LOADED_LIBS: Lazy<RefCell<HashMap<String, EnvRef>>> = Lazy::new(|| {

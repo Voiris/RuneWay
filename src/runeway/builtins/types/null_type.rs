@@ -3,25 +3,17 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use once_cell::unsync::Lazy;
-use crate::runeway::builtins::types::RNWString;
-use crate::runeway::executor::runtime::types::{RNWObject, RNWObjectRef, RNWRegisteredNativeMethod};
+use crate::runeway::builtins::types::{RNWBoolean, RNWDict, RNWList, RNWString};
+use crate::runeway::core::ast::operators::{BinaryOperator, UnaryOperator};
+use crate::runeway::core::errors::{RWResult, RuneWayError};
+use crate::runeway::runtime::types::{register_cast, RNWMethod, RNWObject, RNWObjectRef, RNWRegisteredNativeMethod, RNWType};
 
 #[derive(Debug, Clone)]
 pub struct RNWNullType;
 
-fn native_null_to_string(_: RNWObjectRef, _: &[RNWObjectRef]) -> RNWObjectRef {
-    RNWString::new(RNWNullType.display())
-}
-
 thread_local! {
-    static NULL_TYPE_NATIVE_METHODS: Lazy<RefCell<HashMap<&'static str, RNWRegisteredNativeMethod>>> = Lazy::new(|| {
+    static NULL_TYPE_NATIVE_FIELDS: Lazy<RefCell<HashMap<&'static str, RNWObjectRef>>> = Lazy::new(|| {
         let mut map = HashMap::new();
-
-        map.insert("to_string", RNWRegisteredNativeMethod::new(
-            "int.to_string".to_string(),
-            Rc::new(native_null_to_string),
-            vec![TypeId::of::<RNWNullType>()]
-        ));
 
         RefCell::new(map)
     });
@@ -36,7 +28,7 @@ impl RNWNullType {
         std::any::TypeId::of::<Self>() == other.borrow().as_any().type_id()
     }
 
-    pub fn type_name() -> &'static str { "NullType" }
+    pub fn type_name() -> &'static str { "null_type" }
 }
 
 impl RNWObject for RNWNullType {
@@ -58,9 +50,54 @@ impl RNWObject for RNWNullType {
     }
 
     //noinspection DuplicatedCode
-    fn method(&self, name: &str) -> Option<RNWRegisteredNativeMethod> {
-        NULL_TYPE_NATIVE_METHODS.with(|m| {
+    fn field(&self, name: &str) -> Option<RNWObjectRef> {
+        NULL_TYPE_NATIVE_FIELDS.with(|m| {
             m.borrow().get(name).cloned()
         })
     }
+
+    fn unary_operation(&self, unary_operator: UnaryOperator) -> Option<RNWObjectRef> {
+        match unary_operator {
+            UnaryOperator::Not => Some(RNWBoolean::new(true)),
+            _ => None,
+        }
+    }
+
+    //noinspection DuplicatedCode
+    fn binary_operation(&self, other: RNWObjectRef, binary_operator: BinaryOperator) -> Option<RNWObjectRef> {
+        let result = if Self::is_type_equals(&other) {
+            match binary_operator {
+                BinaryOperator::Eq => {
+                    RNWBoolean::new(true)
+                }
+                BinaryOperator::NotEq => {
+                    RNWBoolean::new(false)
+                }
+                _ => return None
+            }
+        } else {
+            match binary_operator {
+                BinaryOperator::Eq => {
+                    RNWBoolean::new(false)
+                }
+                BinaryOperator::NotEq => {
+                    RNWBoolean::new(true)
+                }
+                _ => return None
+            }
+        };
+
+        Some(result)
+    }
+}
+
+pub(super) fn register() -> Rc<RefCell<RNWType>> {
+    register_cast::<RNWNullType, RNWString>(|obj| {
+        Ok(RNWString::new(obj.display()))
+    });
+    register_cast::<RNWNullType, RNWBoolean>(|obj| {
+        Ok(RNWBoolean::new(false))
+    });
+
+    RNWType::new::<RNWNullType>(RNWNullType::type_name())
 }
