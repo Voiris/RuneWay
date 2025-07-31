@@ -1,7 +1,7 @@
+use crate::runeway::runtime::environment::EnvRef;
+use once_cell::unsync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use once_cell::unsync::Lazy;
-use crate::runeway::runtime::environment::EnvRef;
 
 type StdLibLoader = fn() -> EnvRef;
 
@@ -18,7 +18,5 @@ pub fn register_stdlib(name: &'static str, loader: StdLibLoader) {
 }
 
 pub fn get_stdlib(name: impl AsRef<str>) -> Option<StdLibLoader> {
-    STD_LIBS_REGISTRY.with(|reg| {
-        reg.borrow().get(name.as_ref()).cloned()
-    })
+    STD_LIBS_REGISTRY.with(|reg| reg.borrow().get(name.as_ref()).cloned())
 }

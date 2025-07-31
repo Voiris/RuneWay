@@ -1,9 +1,11 @@
-use std::collections::HashMap;
-use ariadne::{Color, Fmt};
-use serde_json::{json, Value};
-use crate::runeway::builtins::types::{RNWBoolean, RNWDict, RNWFloat, RNWInteger, RNWList, RNWNullType, RNWString};
+use crate::runeway::builtins::types::{
+    RNWBoolean, RNWDict, RNWFloat, RNWInteger, RNWList, RNWNullType, RNWString,
+};
 use crate::runeway::core::errors::{RWResult, RuneWayError, RuneWayErrorKind};
 use crate::runeway::runtime::types::RNWObjectRef;
+use colored::*;
+use serde_json::{json, Value};
+use std::collections::HashMap;
 
 pub fn serde_evaluate(value: Value) -> RNWObjectRef {
     match value {
@@ -60,7 +62,10 @@ pub fn serde_serialize(object: RNWObjectRef) -> RWResult<Value> {
         }
 
         Ok(json!(vec))
-    } else if let Some(obj) = borrow.value().downcast_ref::<HashMap<String, RNWObjectRef>>() {
+    } else if let Some(obj) = borrow
+        .value()
+        .downcast_ref::<HashMap<String, RNWObjectRef>>()
+    {
         let mut map = HashMap::new();
 
         for (k, v) in obj.iter() {
@@ -70,11 +75,10 @@ pub fn serde_serialize(object: RNWObjectRef) -> RWResult<Value> {
         Ok(json!(map))
     } else {
         Err(
-            RuneWayError::new(RuneWayErrorKind::Runtime(Some("TypeError".to_string())))
-                .with_message(format!(
-                    "Cannot serialize type: {}",
-                    borrow.type_name().fg(Color::BrightYellow)
-                ))
+            RuneWayError::new(RuneWayErrorKind::type_error()).with_message(format!(
+                "Cannot serialize type: {}",
+                borrow.type_name().bright_yellow()
+            )),
         )
     }
 }

@@ -1,5 +1,5 @@
-use crate::runeway::core::spanned::Spanned;
 use super::super::ast::operators::{BinaryOperator, UnaryOperator};
+use crate::runeway::core::spanned::Spanned;
 
 pub type SpannedToken = Spanned<Token>;
 
@@ -9,6 +9,7 @@ pub enum Token {
     Identifier(String),
     StringLiteral(String),
     IntegerLiteral(i64),
+    UIntegerLiteral(u64),
     FloatLiteral(f64),
 
     // FStrings
@@ -18,9 +19,11 @@ pub enum Token {
     Let,
     In,
     Null,
+    Assert,
 
     // Classes
     Class,
+    Static,
 
     // Functions
     Act,
@@ -40,7 +43,7 @@ pub enum Token {
 
     // Imports
     Import,
-    As, // Alias
+    As,  // Alias
     Get, // Selective
 
     // Loops
@@ -65,7 +68,7 @@ pub enum Token {
     DoubleAsterisk, // **
     Slash,          // /
     // TildeSlash,     // ~/
-    Percent,        // %
+    Percent, // %
 
     // Compound assignment operators
     PlusEqual,           // +=
@@ -76,24 +79,24 @@ pub enum Token {
     PercentEqual,        // %=
 
     // Arrows
-    Arrow,        // ->
-    DoubleArrow,  // =>
+    Arrow,       // ->
+    DoubleArrow, // =>
 
     // Brackets
-    LParen,       // (
-    RParen,       // )
-    LBrace,       // {
-    RBrace,       // }
-    LBracket,     // [
-    RBracket,     // ]
+    LParen,   // (
+    RParen,   // )
+    LBrace,   // {
+    RBrace,   // }
+    LBracket, // [
+    RBracket, // ]
 
     // Other
-    Comma,        // ,
-    Dot,          // .
-    Colon,        // :
-    DoubleColon,  // ::
-    Semicolon,    // ;
-    AtSymbol,     // @
+    Comma,       // ,
+    Dot,         // .
+    Colon,       // :
+    DoubleColon, // ::
+    Semicolon,   // ;
+    AtSymbol,    // @
 
     // Comments
     // DoubleSlash, // //
@@ -107,7 +110,7 @@ pub enum Token {
     // TripleDoubleQuote, // """
 
     // Special
-    EOF
+    EOF,
 }
 
 impl Token {
@@ -148,14 +151,16 @@ impl std::fmt::Display for Token {
         let string = match self {
             Token::StringLiteral(s) => format!("\"{}\"", s),
             Token::Identifier(s) => format!("`{}`", s),
-            Token::IntegerLiteral(i) => format!("`{}`", i),
-            Token::FloatLiteral(f) => format!("`{}`", f),
+            Token::IntegerLiteral(i) => format!("`{}i`", i),
+            Token::UIntegerLiteral(u) => format!("`{}u`", u),
+            Token::FloatLiteral(f) => format!("`{}f`", f),
             Token::FString(s) => format!("`{:?}`", s),
 
             Token::Let => "`let`".to_string(),
             Token::In => "`in`".to_string(),
             Token::Null => "`null`".to_string(),
             Token::Class => "`class`".to_string(),
+            Token::Static => "`static`".to_string(),
             Token::Act => "`act`".to_string(),
             Token::Return => "`return`".to_string(),
             Token::If => "`if`".to_string(),
@@ -173,6 +178,7 @@ impl std::fmt::Display for Token {
             Token::While => "`while`".to_string(),
             Token::Break => "`break`".to_string(),
             Token::Continue => "`continue`".to_string(),
+            Token::Assert => "`assert`".to_string(),
             Token::EOF => "EOF".to_string(),
             Token::Equal => "`=`".to_string(),
             Token::EqualEqual => "`==`".to_string(),

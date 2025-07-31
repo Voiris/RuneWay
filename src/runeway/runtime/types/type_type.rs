@@ -1,36 +1,60 @@
-use std::any::{Any, TypeId};
+use crate::assign_rnw_type_id;
+use crate::runeway::builtins::types::{RNWBoolean, RNWString};
+use crate::runeway::core::ast::operators::BinaryOperator;
+use crate::runeway::core::errors::RWResult;
+use crate::runeway::runtime::types::base_type::RNWTypeId;
+use crate::runeway::runtime::types::{register_cast, type_obj_from_id, RNWObject, RNWObjectRef};
+use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use once_cell::unsync::Lazy;
-use crate::runeway::builtins::types::{RNWBoolean, RNWDict, RNWNullType, RNWString};
-use crate::runeway::core::ast::operators::BinaryOperator;
-use crate::runeway::core::errors::{RWResult, RuneWayError};
-use crate::runeway::runtime::types::{register_cast, type_obj_from_id, RNWMethod, RNWObject, RNWObjectRef, RNWRegisteredNativeMethod};
 
 #[derive(Debug, Clone)]
 pub struct RNWType {
-    pub type_id: TypeId,
+    pub rnw_type_id: RNWTypeId,
     pub type_name: &'static str,
+    fields: Option<Rc<HashMap<String, RNWObjectRef>>>,
 }
 
 impl RNWType {
-    pub fn new<T: 'static>(type_name: &'static str) -> Rc<RefCell<RNWType>> {
+    pub fn new(rnw_type_id: RNWTypeId, type_name: &'static str) -> Rc<RefCell<RNWType>> {
         Rc::new(RefCell::new(Self {
-            type_id: TypeId::of::<T>(),
-            type_name
+            rnw_type_id,
+            type_name,
+            fields: None,
+        }))
+    }
+
+    pub fn new_with_fields(
+        rnw_type_id: RNWTypeId,
+        type_name: &'static str,
+        fields: HashMap<String, RNWObjectRef>,
+    ) -> Rc<RefCell<RNWType>> {
+        Rc::new(RefCell::new(Self {
+            rnw_type_id,
+            type_name,
+            fields: Some(Rc::new(fields)),
         }))
     }
 
     pub fn is_type_equals(other: &RNWObjectRef) -> bool {
-        TypeId::of::<Self>() == other.borrow().as_any().type_id()
+        Self::rnw_type_id() == other.borrow().rnw_type_id()
     }
 
-    pub fn type_name() -> &'static str { "type" }
+    pub fn type_name() -> &'static str {
+        "type"
+    }
+
+    assign_rnw_type_id!();
 }
 
 impl RNWObject for RNWType {
-    fn type_name(&self) -> &'static str { Self::type_name() }
+    fn rnw_type_id(&self) -> RNWTypeId {
+        Self::rnw_type_id()
+    }
+    fn type_name(&self) -> &'static str {
+        Self::type_name()
+    }
     fn display(&self) -> String {
         format!("<{} {}>", Self::type_name(), self.type_name)
     }
@@ -43,24 +67,29 @@ impl RNWObject for RNWType {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-    fn as_object(&self) -> &dyn RNWObject {
-        self
+
+    fn get_attr(&self, name: &str) -> Option<RNWObjectRef> {
+        if let Some(fields) = self.fields.clone() {
+            fields.get(name).cloned()
+        } else {
+            None
+        }
     }
 
     //noinspection DuplicatedCode
-    fn binary_operation(&self, other: RNWObjectRef, binary_operator: BinaryOperator) -> Option<RNWObjectRef> {
+    fn binary_operation(
+        &self,
+        other: RNWObjectRef,
+        binary_operator: BinaryOperator,
+    ) -> Option<RNWObjectRef> {
         let result = if let Some(other) = other.borrow().as_any().downcast_ref::<Self>() {
             match binary_operator {
-                BinaryOperator::Eq => {
-                    RNWBoolean::new(self.type_id == other.type_id)
-                }
-                BinaryOperator::NotEq => {
-                    RNWBoolean::new(self.type_id != other.type_id)
-                }
-                _ => return None
+                BinaryOperator::Eq => RNWBoolean::new(self.rnw_type_id == other.rnw_type_id),
+                BinaryOperator::NotEq => RNWBoolean::new(self.rnw_type_id != other.rnw_type_id),
+                _ => return None,
             }
         } else {
-            return None
+            return None;
         };
 
         Some(result)
@@ -71,8 +100,8 @@ impl RNWObject for RNWType {
 
         let type_obj = {
             let obj_borrow = obj.borrow();
-            let obj_type_id = obj_borrow.as_any().type_id();
-            type_obj_from_id(&obj_type_id)
+            let obj_type_id = obj_borrow.rnw_type_id();
+            type_obj_from_id(obj_type_id)
         };
 
         Some(Ok(type_obj))
@@ -80,9 +109,9 @@ impl RNWObject for RNWType {
 }
 
 pub fn register_type_class() -> Rc<RefCell<RNWType>> {
-    register_cast::<RNWType, RNWString>(|obj| {
+    register_cast(RNWType::rnw_type_id(), RNWString::rnw_type_id(), |obj| {
         Ok(RNWString::new(obj.display()))
     });
 
-    RNWType::new::<RNWType>(RNWType::type_name())
+    RNWType::new(RNWType::rnw_type_id(), RNWType::type_name())
 }

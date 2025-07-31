@@ -1,9 +1,9 @@
-use std::ops::{Add, Range};
+use std::ops::Range;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Spanned<T> {
     pub node: T,
-    pub span: Range<usize>
+    pub span: Range<usize>,
 }
 
 impl<T> Spanned<T> {

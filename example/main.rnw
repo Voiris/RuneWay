@@ -1,12 +1,36 @@
+// HELLO FROM RUNEWAY
+
 import "./fib" as fib;
 import "std::buffered" as buffered;
 import "std::buffered" get VERSION as buf_v, VERSION;
 import "std::http" as http;
 import "std::json" as json;
 // import "std::buffered" get *;
+import "std::random" as random;
+import "std::random" get Rng;
+import "std::itertools" as itertools;
+import "std::dynbox" get Box;
 
-act is_negative(a) {
-  println(a);
+
+class User {
+  act new(self, name) {
+    self.name = name;
+    self.age = 0u;
+
+    return self;
+  }
+
+  act set_age(self, age: uint) {
+    self.age = age;
+  }
+
+  act display(self) -> string {
+    return f"{self.name} @ {self.age}";
+  }
+}
+
+
+act is_negative(a: int) -> bool {
   act is_positive() {
     return a >= 0;
   }
@@ -14,32 +38,104 @@ act is_negative(a) {
 }
 
 act main() {
-  let i = 4;
-  let s = cast(i, string);
-  println(s, type(s) == string);
+  let a = 1;
+  let b = a;
 
-  // println(json.dump(json.load(http.get_("https://postman-echo.com/get?foo=bar"))));
-  // println(http.post("https://postman-echo.com/post", {"foo": 2}));
+  assert id(a) == id(b);
 
-  println(cast("string", list));
+  // Numbers
+  let i: int = 1i;   // Integer
+  let u: uint = 1u;  // Unsigned Integer
+  let f: float = 1f; // Float
 
-  if null {} else {
-    println("null");
+  assert type(i) == int;
+  assert type(u) == uint;
+  assert type(f) == float;
+
+  assert int.MIN == -9223372036854775808i;
+  assert int.MAX == 9223372036854775807i;
+  assert uint.MAX == 18446744073709551615u;
+  assert uint.MIN == 0u;
+  assert float.MIN == -179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f;
+  assert float.MAX == 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f;
+
+  let a = [true, false, false];
+
+  assert itertools.any(a) == true; // true
+  assert itertools.all(a) == false; // false
+
+  assert (1.0 + float.inf) == float.inf; // inf
+  assert cast(float.NaN + float.inf, string) == "NaN"; // NaN != NaN
+
+  let start = 1.0;
+  let end = 5.0;
+  let step = 0.5;
+
+  let x = start - step;
+
+  for i in start..end::step {
+    assert (x + step) == i;
+    x = i;
   }
 
-  let a = {"2": "1"};
+  assert random.positive() >= 0;
+  assert random.negative() < 0;
+  let rand_int = random.rand_int();
+  assert int.MIN <= rand_int and rand_int <= int.MAX;
+  let unit = random.unit();
+  assert 0.0 <= unit and unit < 1.0;
+  assert type(random.rand_bool()) == bool;
 
-  println(a);
+  let rng = Rng.from_seed(1);
 
-  a.insert("a", "2");
+  assert rng.positive() == 896195078756558479;
+  assert rng.negative() == -7220533974575229679;
+  assert rng.rand_int() == -8257888357294101655;
+  assert rng.unit() == 0.7358199857070912;
+  assert rng.rand_bool() == false;
 
-  println(a.get_("a"));
+  let l;
+  l = [3, 2, 1, 4];
+  l.sort();
+  assert itertools.iter_equal(l, [1, 2, 3, 4]);
 
-  println(fib.fib(40));
+  assert is_negative(-1);
+  assert !is_negative(1);
+
+  assert type(null) == null_type;
+  assert type(type) == type;
+
+  let i = 4;
+  let s = cast(i, string);
+  assert i == 4 and s == "4";
+  assert type(s) == string;
+
+  assert json.load(json.dump(1)) == 1;
+  assert json.load(json.dump("string")) == "string";
+  assert itertools.iter_equal(json.load(json.dump([1, 2, 3])), [1, 2, 3]);
+
+  // println(http.get_("https://postman-echo.com/get?foo=bar")); // GET REQUEST
+  // println(http.post("https://postman-echo.com/post", {"foo": 2})); // POST REQUEST
+
+  assert itertools.iter_equal(cast("string", list), ["s", "t", "r", "i", "n", "g"]);
+
+  assert !null;
+  assert null == null;
+
+  let a = {"2": 1};
+
+  a.insert("a", 2);
+
+  assert a["2"] == 1;
+  assert a["a"] == 2;
+
+  assert fib.fib(50) == 12586269025;
 
   let a = (1, 2, 3);
-  println(a);
-  println(a[2]);
+
+  assert a[0] == 1;
+  assert a[1] == 2;
+  assert a[2] == 3;
 
   buffered.print(buffered.VERSION);
   buffered.print("\t\t");
@@ -47,13 +143,13 @@ act main() {
   buffered.println(buf_v);
   buffered.flush();
 
-  let x;
+  let x: int;
 
   for i in [1, 2, 3].iter() {
     x = i;
   }
 
-  println(x);
+  assert x == 3;
 
   let x = 0;
   while x < 10 {
@@ -61,71 +157,39 @@ act main() {
     if x == 2 or x == 5 {
       continue;
     }
-    println(x);
   }
+  assert x == 10;
+
+  let x = 1;
+  if true {
+    let x = 2;
+  }
+  assert x == 1;
+
+  assert square(2) == 4;
+
+  // Hello, World!
+  print("Goodbye, \rHello, world!\n\t\u16B1 \U000016B1\n");
+
+  assert "\u16B1" == "\U000016B1";
+
+  assert true;
+  assert !!true;
+
+  let box = Box.new();
+  box.attr = 1;
+  assert box.attr == 1;
+
+  let user = User.new("Vector");
+  user.set_age(18u);
+
+  assert user.display() == "Vector @ 18";
+
+  assert is_instance(user, User);
 }
 
 act square(a) {
   return a ** 2;
-}
-
-act main1() {
-  let x;
-
-  println(x);
-
-  x = 3;
-
-  println(x);
-
-  // Hello, world!
-  print("Hello,\r1\t1 world!\n\u0207\n");
-
-  x /= 2 + 4;
-
-  println(x);
-
-  println(f"{x}");
-
-  println(square(5));
-
-  let is_working = true;
-  let is_not_working = !is_working;
-
-  println(is_not_working);
-
-  let a = 0;
-  while a < 3 {
-    println(a);
-    a += 1;
-    if a == 2 {
-      break;
-    }
-  }
-
-  let l = [1, 3, r"\"];
-
-  println(f"{l}\n  len={l.len()}\n  is_empty={l.is_empty()}");
-
-  for item in l.iter() {
-    print(item);
-  }
-
-
-  for i in 1..10 {
-    print(i);
-  }
-
-  println("");
-
-  for i in 1..10::2 {
-    print(i);
-  }
-
-  println("");
-
-  println(43e-32);
-  println(15e21);
 }
 /* Goodbye,
    world! */

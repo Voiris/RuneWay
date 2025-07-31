@@ -1,10 +1,11 @@
-use crate::runeway::core::spanned::Spanned;
 use super::operators::{BinaryOperator, UnaryOperator};
+use crate::runeway::core::spanned::Spanned;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     // Types
     Integer(i64),
+    UInteger(u64),
     Float(f64),
     String(String),
     Boolean(bool),
@@ -25,11 +26,11 @@ pub enum Expr {
     BinaryOperation {
         left_operand: Box<SpannedExpr>,
         operator: BinaryOperator,
-        right_operand: Box<SpannedExpr>
+        right_operand: Box<SpannedExpr>,
     },
     UnaryOperation {
         operator: UnaryOperator,
-        operand: Box<SpannedExpr>
+        operand: Box<SpannedExpr>,
     },
 
     Expr(Box<SpannedExpr>),
@@ -38,9 +39,13 @@ pub enum Expr {
         callee: Box<SpannedExpr>,
         arguments: Vec<SpannedExpr>,
     },
-    GetAttr {
+    AttributeAccess {
         object: Box<SpannedExpr>,
         field: String,
+    },
+    SetAttr {
+        object: Box<SpannedExpr>,
+        value: Box<SpannedExpr>,
     },
     Slice {
         object: Box<SpannedExpr>,

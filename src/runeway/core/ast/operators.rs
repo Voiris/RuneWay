@@ -10,12 +10,12 @@ pub enum BinaryOperator {
     // FloorDiv, // ~/
 
     // Equalising
-    Eq,     // ==
-    NotEq,  // !=
-    Lt,     // <
-    LtEq,   // <=
-    Gt,     // >
-    GtEq,   // >=
+    Eq,    // ==
+    NotEq, // !=
+    Lt,    // <
+    LtEq,  // <=
+    Gt,    // >
+    GtEq,  // >=
 
     // Logic
     And,
@@ -29,8 +29,12 @@ impl BinaryOperator {
             BinaryOperator::Mod => 4,
             BinaryOperator::Mul | BinaryOperator::Div => 3,
             BinaryOperator::Add | BinaryOperator::Sub => 2,
-            BinaryOperator::Eq | BinaryOperator::NotEq | BinaryOperator::Lt |
-            BinaryOperator::LtEq | BinaryOperator::Gt | BinaryOperator::GtEq => 1,
+            BinaryOperator::Eq
+            | BinaryOperator::NotEq
+            | BinaryOperator::Lt
+            | BinaryOperator::LtEq
+            | BinaryOperator::Gt
+            | BinaryOperator::GtEq => 1,
             BinaryOperator::And | BinaryOperator::Or => 0,
             // _ => 255,
         }
@@ -60,8 +64,8 @@ impl BinaryOperator {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOperator {
-    Neg,  // -a
-    Not,  // !a (not a)
+    Neg, // -a
+    Not, // !a (not a)
 }
 
 impl UnaryOperator {

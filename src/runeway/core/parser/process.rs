@@ -1,45 +1,50 @@
-use ariadne::Span;
+use super::super::ast::expression::{Expr, FStringExpr};
+use super::super::ast::statement::Statement;
+use super::super::lexer::token::{FStringPart, Token};
 use crate::runeway::core::ast::expression::SpannedExpr;
 use crate::runeway::core::ast::operators::BinaryOperator;
-use crate::runeway::core::ast::statement::{ImportItem, ImportSymbol, SpannedStatement};
+use crate::runeway::core::ast::statement::{
+    AnnotatedParameter, ImportItem, ImportSymbol, SpannedStatement,
+};
 use crate::runeway::core::errors::{RWResult, RuneWayError, RuneWayErrorKind};
 use crate::runeway::core::lexer::token::SpannedToken;
 use crate::runeway::core::spanned::Spanned;
-use super::super::lexer::token::{Token, FStringPart};
-use super::super::ast::statement::Statement;
-use super::super::ast::expression::{Expr, FStringExpr};
 
 pub struct ParserProcess {
     tokens: Vec<SpannedToken>,
+    filename: String,
     pos: usize,
 }
 
 impl ParserProcess {
-    pub fn new(tokens: Vec<SpannedToken>) -> ParserProcess {
+    pub fn new(tokens: Vec<SpannedToken>, filename: String) -> Self {
         ParserProcess {
             tokens,
-            pos: 0
+            filename,
+            pos: 0,
         }
     }
 
     fn peek_offset(&self, offset: isize) -> RWResult<&SpannedToken> {
-        match self.tokens.get(
-            match self.pos.checked_add_signed(offset) {
-                Some(i) => i,
-                None => panic!("Tokens position [usize] is overflow"),
-            }
-        ) {
+        match self.tokens.get(match self.pos.checked_add_signed(offset) {
+            Some(i) => i,
+            None => panic!("Tokens position [usize] is overflow"),
+        }) {
             Some(token) => Ok(token),
-            None => Err(RuneWayError::new(RuneWayErrorKind::Syntax)
-                .with_message("Unexpected EOF")),
+            None => {
+                Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                    .with_message("Unexpected EOF"))
+            }
         }
     }
 
     fn peek(&self) -> RWResult<&SpannedToken> {
         match self.tokens.get(self.pos) {
             Some(val) => Ok(val),
-            None => Err(RuneWayError::new(RuneWayErrorKind::Syntax)
-                .with_message("Unexpected EOF")),
+            None => {
+                Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                    .with_message("Unexpected EOF"))
+            }
         }
     }
 
@@ -58,7 +63,7 @@ impl ParserProcess {
         })
     }
 
-    fn consume_get(&mut self, expected: &Token) -> Result<Option<SpannedToken>, RuneWayError> {
+    fn consume_get(&mut self, expected: &Token) -> RWResult<Option<SpannedToken>> {
         let peek = self.peek()?.clone();
         if self.consume(expected)? {
             Ok(Some(peek))
@@ -73,45 +78,49 @@ impl ParserProcess {
             Ok(peek)
         } else {
             let peek = self.peek()?;
-            Err(
-                RuneWayError::new(RuneWayErrorKind::Syntax)
-                    .with_message("Unexpected token")
-                    .with_label("Expected `;`. Got this", &peek.span, None)
-            )
+            Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                .with_message("Unexpected token")
+                .with_label("Expected `;`. Got this", &peek.span, &self.filename))
         }
     }
 
     fn peek_is(&mut self, expected: &Token) -> RWResult<bool> {
-        Ok(if std::mem::discriminant(&self.peek()?.node) == std::mem::discriminant(expected) {
-            true
-        } else {
-            false
-        })
+        Ok(
+            if std::mem::discriminant(&self.peek()?.node) == std::mem::discriminant(expected) {
+                true
+            } else {
+                false
+            },
+        )
     }
 
     fn peek_offset_is(&mut self, expected: &Token, offset: isize) -> RWResult<bool> {
-        Ok(if std::mem::discriminant(&self.peek_offset(offset)?.node) == std::mem::discriminant(expected) {
-            true
-        } else {
-            false
-        })
+        Ok(
+            if std::mem::discriminant(&self.peek_offset(offset)?.node)
+                == std::mem::discriminant(expected)
+            {
+                true
+            } else {
+                false
+            },
+        )
     }
 
-    pub fn parse_full(&mut self) -> Result<Vec<SpannedStatement>, RuneWayError> {
+    pub fn parse_full(&mut self) -> RWResult<Vec<SpannedStatement>> {
         let mut statements: Vec<SpannedStatement> = Vec::new();
 
         while !self.peek_is(&Token::EOF)? {
             // println!("Handling module statement: {:?}", self.peek()?);
             match self.parse_statement()? {
                 Some(statement) => statements.push(statement),
-                None => return Ok(statements),
+                None => (),
             }
         }
 
         Ok(statements)
     }
 
-    fn parse_statement(&mut self) -> Result<Option<SpannedStatement>, RuneWayError> {
+    fn parse_statement(&mut self) -> RWResult<Option<SpannedStatement>> {
         // println!("Handling statement: {:?}", self.peek()?);
         match self.peek()?.node {
             Token::Let => Ok(Some(self.parse_let()?)),
@@ -126,25 +135,93 @@ impl ParserProcess {
                 self.consume_statement_end()?;
 
                 Ok(Some(SpannedStatement::new(Statement::Break, token.span)))
-            },
+            }
             Token::Continue => {
                 let token = self.consume_get(&Token::Continue)?.unwrap();
 
                 self.consume_statement_end()?;
 
                 Ok(Some(SpannedStatement::new(Statement::Continue, token.span)))
-            },
+            }
+            Token::Assert => {
+                let token = self.consume_get(&Token::Assert)?.unwrap();
+
+                let expr = self.parse_expr()?.clone();
+
+                self.consume_statement_end()?;
+
+                Ok(Some(SpannedStatement::new(
+                    Statement::Assert(expr.clone()),
+                    token.span.start..expr.span.end,
+                )))
+            }
             Token::Identifier(_) => Ok(Some(self.parse_expr_statement()?)),
-            Token::Semicolon => { self.forward()?; Ok(None) },
+            Token::Semicolon => {
+                self.forward()?;
+                Ok(None)
+            }
             Token::Import => Ok(Some(self.parse_import()?)),
+            Token::Class => Ok(Some(self.parse_class()?)),
             _ => {
                 let expr = self.parse_expr()?;
                 let stmt = Statement::Expr(expr.clone());
 
                 self.consume_statement_end()?;
                 Ok(Some(SpannedStatement::new(stmt, expr.span)))
-            },
+            }
         }
+    }
+
+    fn parse_class(&mut self) -> RWResult<SpannedStatement> {
+        let class_token = self.consume_get(&Token::Class)?.unwrap();
+
+        let peek = self.peek()?.clone();
+        let name = match peek.node {
+            Token::Identifier(name) => {
+                self.forward()?;
+                name
+            }
+            _ => {
+                return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                    .with_message("Unexpected token")
+                    .with_label("Expected identifier. Got this", &peek.span, &self.filename));
+            }
+        };
+
+        {
+            let peek = self.peek()?;
+            match &peek.node {
+                Token::LBrace => (),
+                _ => {
+                    return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                        .with_message("Unexpected token")
+                        .with_label("Expected identifier. Got this", &peek.span, &self.filename));
+                }
+            }
+        }
+        self.forward()?;
+
+        let mut statements = Vec::new();
+
+        let rbrace = loop {
+            let peek = self.peek()?;
+            match peek.node {
+                Token::RBrace => break peek.clone(),
+                _ => match self.parse_statement()? {
+                    Some(statement) => statements.push(Box::new(statement)),
+                    None => (),
+                },
+            }
+        };
+        self.forward()?;
+
+        Ok(SpannedStatement::new(
+            Statement::Class {
+                name,
+                body: statements,
+            },
+            class_token.span.start..rbrace.span.end,
+        ))
     }
 
     fn parse_import(&mut self) -> RWResult<SpannedStatement> {
@@ -153,11 +230,15 @@ impl ParserProcess {
         let peek = self.peek()?;
         let path = match &peek.node {
             Token::StringLiteral(val) => val.clone(),
-            _ => return Err(
-                RuneWayError::new(RuneWayErrorKind::Syntax)
+            _ => {
+                return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
                     .with_message("Unexpected token")
-                    .with_label("Expected string literal. Got this", &peek.span, None)
-            )
+                    .with_label(
+                        "Expected string literal. Got this",
+                        &peek.span,
+                        &self.filename,
+                    ));
+            }
         };
 
         self.forward()?;
@@ -170,19 +251,23 @@ impl ParserProcess {
                 let result = match &peek.node {
                     Token::Identifier(alias) => Statement::Import {
                         path,
-                        item: ImportItem::Alias(alias.clone())
+                        item: ImportItem::Alias(alias.clone()),
                     },
-                    _ => return Err(
-                        RuneWayError::new(RuneWayErrorKind::Syntax)
+                    _ => {
+                        return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
                             .with_message("Unexpected token")
-                            .with_label("Expected alias identifier. Got this", &peek.span, None)
-                    )
+                            .with_label(
+                                "Expected alias identifier. Got this",
+                                &peek.span,
+                                &self.filename,
+                            ));
+                    }
                 };
 
                 self.forward()?;
 
                 result
-            },
+            }
             Token::Get => {
                 self.forward()?;
 
@@ -197,7 +282,7 @@ impl ParserProcess {
                                     Token::Identifier(alias) => {
                                         self.forward()?;
                                         Some(alias)
-                                    },
+                                    }
                                     token => panic!("Expected identifier, got {:?}", token),
                                 }
                             } else {
@@ -209,10 +294,13 @@ impl ParserProcess {
                             self.forward()?;
                             let semicolon = self.consume_statement_end()?;
                             return Ok(SpannedStatement::new(
-                                Statement::Import { path, item: ImportItem::All },
+                                Statement::Import {
+                                    path,
+                                    item: ImportItem::All,
+                                },
                                 import_token.span.start..semicolon.span.start,
-                            ))
-                        },
+                            ));
+                        }
                         token => panic!("Expected identifier or `*`, got {:?}", token),
                     }
 
@@ -221,14 +309,20 @@ impl ParserProcess {
                     }
                 }
 
-                Statement::Import { path, item: ImportItem::Selective(selective) }
-            },
+                Statement::Import {
+                    path,
+                    item: ImportItem::Selective(selective),
+                }
+            }
             token => panic!("Expected `as` or `get`, got {:?}", token),
         };
 
         let semicolon = self.consume_statement_end()?;
 
-        Ok(SpannedStatement::new(result, import_token.span.start..semicolon.span.start))
+        Ok(SpannedStatement::new(
+            result,
+            import_token.span.start..semicolon.span.start,
+        ))
     }
 
     fn parse_let(&mut self) -> RWResult<SpannedStatement> {
@@ -239,26 +333,36 @@ impl ParserProcess {
             self.forward()?;
             name
         } else {
-            return Err(
-                RuneWayError::new(RuneWayErrorKind::Syntax)
-                    .with_message("Unexpected token")
-                    .with_label("Expected identifier. Got this", &self.peek()?.span, None)
-            )
+            return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                .with_message("Unexpected token")
+                .with_label(
+                    "Expected identifier. Got this",
+                    &self.peek()?.span,
+                    &self.filename,
+                ));
         };
+
+        let annotation = self.parse_annotation(&Token::Colon)?;
 
         let value: SpannedExpr = if !self.consume(&Token::Equal)? {
             let semicolon = self.consume_statement_end()?;
-            SpannedExpr::new(Expr::Null, let_token.span.start..semicolon.span.start)
+            return Ok(SpannedStatement::new(
+                Statement::LetVoid { name, annotation },
+                let_token.span.start..semicolon.span.start,
+            ));
         } else {
-            let mut expr = self.parse_expr()?;
+            let expr = self.parse_expr()?;
             self.consume_statement_end()?;
             expr
         };
 
-
         Ok(SpannedStatement::new(
-            Statement::Let {name, value: value.clone() },
-            let_token.span.start..value.span.end
+            Statement::Let {
+                name,
+                value: value.clone(),
+                annotation,
+            },
+            let_token.span.start..value.span.end,
         ))
     }
 
@@ -268,21 +372,23 @@ impl ParserProcess {
 
         let name = match &self.peek()?.node {
             Token::Identifier(name) => name.clone(),
-            _ => return Err(
-                RuneWayError::new(RuneWayErrorKind::Syntax)
+            _ => {
+                return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
                     .with_message("Unexpected token")
-                    .with_label("Expected identifier. Got this", &self.peek()?.span, None)
-            )
+                    .with_label(
+                        "Expected identifier. Got this",
+                        &self.peek()?.span,
+                        &self.filename,
+                    ));
+            }
         };
 
         self.forward()?;
 
         if !self.consume(&Token::LParen)? {
-            return Err(
-                RuneWayError::new(RuneWayErrorKind::Syntax)
-                    .with_message("Unexpected token")
-                    .with_label("Expected `(`. Got this", &self.peek()?.span, None)
-            )
+            return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                .with_message("Unexpected token")
+                .with_label("Expected `(`. Got this", &self.peek()?.span, &self.filename));
         }
 
         let mut parameters = Vec::new();
@@ -290,39 +396,77 @@ impl ParserProcess {
         loop {
             match &self.peek()?.node {
                 Token::Identifier(param) => {
-                    parameters.push(param.clone());
+                    let param_name = param.clone();
                     self.forward()?;
+
+                    let annotation = self.parse_annotation(&Token::Colon)?;
+
+                    parameters.push(AnnotatedParameter {
+                        name: param_name,
+                        annotation,
+                    });
+
                     if self.consume(&Token::Comma)? {
                         continue;
                     } else if self.consume(&Token::RParen)? {
                         break;
                     } else {
-                        // TODO: cursor on open (
-                        return Err(
-                            RuneWayError::new(RuneWayErrorKind::Syntax)
-                                .with_message("Founded not closed bracket")
-                                .with_label("Expected `)`. Got this", &self.peek()?.span, None)
-                        )
+                        return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                            .with_message("Founded not closed bracket")
+                            .with_label(
+                                "Expected `)` or `,` or `:`. Got this",
+                                &self.peek()?.span,
+                                &self.filename,
+                            ));
                     }
-                },
+                }
                 Token::RParen => {
                     self.forward()?;
                     break;
                 }
-                _ => return Err(
-                    RuneWayError::new(RuneWayErrorKind::Syntax)
+                _ => {
+                    return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
                         .with_message("Founded not closed bracket")
-                        .with_label("Expected `)`. Got this", &self.peek()?.span, None)
-                )
+                        .with_label("Expected `)`. Got this", &self.peek()?.span, &self.filename));
+                }
             }
         }
+
+        let return_annotation = self.parse_annotation(&Token::Arrow)?;
 
         let body = self.parse_body()?;
 
         Ok(SpannedStatement::new(
-            Statement::Act { name, parameters, body: body.node },
-            act_token.span.start..body.span.end
+            Statement::Act {
+                name,
+                parameters,
+                return_annotation,
+                body: body.node,
+            },
+            act_token.span.start..body.span.end,
         ))
+    }
+
+    fn parse_annotation(&mut self, annotation_token: &Token) -> RWResult<Option<Spanned<String>>> {
+        if self.consume(annotation_token)? {
+            let peek = self.peek()?.clone();
+            if let Token::Identifier(annotation) = peek.node {
+                let annotation = annotation.clone();
+                let span = peek.span;
+                self.forward()?;
+                Ok(Some(Spanned::new(annotation, span)))
+            } else {
+                Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                    .with_message("Unexpected token")
+                    .with_label(
+                        "Expected identifier. Got this",
+                        &self.peek()?.span,
+                        &self.filename,
+                    ))
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     fn parse_return(&mut self) -> RWResult<SpannedStatement> {
@@ -332,7 +476,10 @@ impl ParserProcess {
 
         self.consume_statement_end()?;
 
-        Ok(SpannedStatement::new(Statement::Return(expr.clone()), return_token.span.start..expr.span.end))
+        Ok(SpannedStatement::new(
+            Statement::Return(expr.clone()),
+            return_token.span.start..expr.span.end,
+        ))
     }
 
     fn parse_if(&mut self) -> RWResult<SpannedStatement> {
@@ -341,23 +488,21 @@ impl ParserProcess {
         let condition = self.parse_expr()?;
 
         if !self.consume(&Token::LBrace)? {
-            return Err(
-                RuneWayError::new(RuneWayErrorKind::Syntax)
-                    .with_message("Founded not closed bracket")
-                    .with_label("Expected `}`. Got this", &self.peek()?.span, None)
-            )
+            return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                .with_message("Founded not closed bracket")
+                .with_label("Expected `}`. Got this", &self.peek()?.span, &self.filename));
         }
 
         let mut then_branch = Vec::new();
 
-        let mut rbrace = loop {
+        let rbrace = loop {
             match self.consume_get(&Token::RBrace)? {
-                Some(brace) => { break brace },
-                None => ()
+                Some(brace) => break brace,
+                None => (),
             }
             match self.parse_statement()? {
                 Some(statement) => then_branch.push(Box::new(statement)),
-                None => ()
+                None => (),
             }
         };
 
@@ -376,13 +521,21 @@ impl ParserProcess {
             };
 
             SpannedStatement::new(
-                Statement::If { condition, then_branch, else_branch: Some(else_branch) },
-                if_token.span.start..end
+                Statement::If {
+                    condition,
+                    then_branch,
+                    else_branch: Some(else_branch),
+                },
+                if_token.span.start..end,
             )
         } else {
             SpannedStatement::new(
-                Statement::If { condition, then_branch, else_branch: None },
-                if_token.span.start..rbrace.span.end
+                Statement::If {
+                    condition,
+                    then_branch,
+                    else_branch: None,
+                },
+                if_token.span.start..rbrace.span.end,
             )
         })
     }
@@ -395,8 +548,11 @@ impl ParserProcess {
         let body = self.parse_body()?;
 
         Ok(SpannedStatement::new(
-            Statement::While { condition, body: body.node },
-            while_token.span.start..body.span.end
+            Statement::While {
+                condition,
+                body: body.node,
+            },
+            while_token.span.start..body.span.end,
         ))
     }
 
@@ -412,11 +568,13 @@ impl ParserProcess {
 
                 self.forward()?;
                 if !self.consume(&Token::In)? {
-                    return Err(
-                        RuneWayError::new(RuneWayErrorKind::Syntax)
-                            .with_message("Unexpected token")
-                            .with_label("Expected keyword `in`. Got this", &self.peek()?.span, None)
-                    )
+                    return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                        .with_message("Unexpected token")
+                        .with_label(
+                            "Expected keyword `in`. Got this",
+                            &self.peek()?.span,
+                            &self.filename,
+                        ));
                 }
 
                 let iterable = self.parse_expr()?;
@@ -428,14 +586,17 @@ impl ParserProcess {
                         variable,
                         iterable,
                         body: body.node,
-                    }, for_token.span.start..body.span.end
+                    },
+                    for_token.span.start..body.span.end,
                 ))
             }
-            _ => Err(
-                RuneWayError::new(RuneWayErrorKind::Syntax)
-                    .with_message("Unexpected token as target variable in `for` statement")
-                    .with_label("Expected identifier. Got this", &self.peek()?.span, None)
-            )
+            _ => Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                .with_message("Unexpected token as target variable in `for` statement")
+                .with_label(
+                    "Expected identifier. Got this",
+                    &self.peek()?.span,
+                    &self.filename,
+                )),
         }
     }
 
@@ -453,8 +614,22 @@ impl ParserProcess {
             Expr::Iterator {
                 start: Box::new(start),
                 end: Box::new(end),
-                step
-            }, span
+                step,
+            },
+            span,
+        ))
+    }
+
+    fn parse_set_attr(&mut self, obj: SpannedExpr) -> RWResult<SpannedExpr> {
+        let value = self.parse_expr()?;
+
+        let span = obj.span.start..value.span.end;
+        Ok(SpannedExpr::new(
+            Expr::SetAttr {
+                object: Box::new(obj),
+                value: Box::new(value),
+            },
+            span,
         ))
     }
 
@@ -462,11 +637,9 @@ impl ParserProcess {
         let start = match self.consume_get(&Token::LBrace)? {
             Some(lbrace) => lbrace.span.start,
             None => {
-                return Err(
-                    RuneWayError::new(RuneWayErrorKind::Syntax)
+                return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
                     .with_message("Unexpected token")
-                    .with_label("Expected `{`. Got this", & self.peek() ?.span, None)
-                )
+                    .with_label("Expected `{`. Got this", &self.peek()?.span, &self.filename));
             }
         };
 
@@ -480,23 +653,18 @@ impl ParserProcess {
                     break peek.span.end;
                 }
                 Token::EOF => {
-                    let span_point = statements.last().cloned().map_or_else(
-                        || start,
-                        |x: Box<SpannedStatement> | {(*x).span.end+1}
-                    );
-                    return Err(
-                        RuneWayError::new(RuneWayErrorKind::Syntax)
-                            .with_message("Founded not closed bracket")
-                            .with_label("Expected `}`",
-                                        &(span_point..span_point), None)
-                    )
+                    let span_point = statements
+                        .last()
+                        .cloned()
+                        .map_or_else(|| start, |x: Box<SpannedStatement>| (*x).span.end + 1);
+                    return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                        .with_message("Founded not closed bracket")
+                        .with_label("Expected `}`", &(span_point..span_point), &self.filename));
                 }
-                _ => {
-                    match self.parse_statement()? {
-                        Some(statement) => statements.push(Box::new(statement)),
-                        None => ()
-                    }
-                }
+                _ => match self.parse_statement()? {
+                    Some(statement) => statements.push(Box::new(statement)),
+                    None => (),
+                },
             }
         };
 
@@ -518,18 +686,22 @@ impl ParserProcess {
                             Statement::Assign {
                                 name: name.clone(),
                                 value,
-                            }, expr.span.start..end
+                            },
+                            expr.span.start..end,
                         )
-                    },
-                    Token::PlusEqual | Token::MinusEqual | Token::AsteriskEqual |
-                    Token::SlashEqual | Token::PercentEqual => {
+                    }
+                    Token::PlusEqual
+                    | Token::MinusEqual
+                    | Token::AsteriskEqual
+                    | Token::SlashEqual
+                    | Token::PercentEqual => {
                         let (operator, op_span) = match token.node {
                             Token::PlusEqual => (BinaryOperator::Add, token.span),
                             Token::MinusEqual => (BinaryOperator::Sub, token.span),
                             Token::AsteriskEqual => (BinaryOperator::Mul, token.span),
                             Token::SlashEqual => (BinaryOperator::Div, token.span),
                             Token::PercentEqual => (BinaryOperator::Mod, token.span),
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         };
                         self.forward()?;
                         let value = self.parse_expr()?;
@@ -543,15 +715,17 @@ impl ParserProcess {
                                         left_operand: Box::new(expr),
                                         right_operand: Box::new(value),
                                         operator,
-                                    }, op_span
-                                )
-                            }, start..end
+                                    },
+                                    op_span,
+                                ),
+                            },
+                            start..end,
                         )
-                    },
-                    _ => SpannedStatement::new(Statement::Expr(expr.clone()), expr.span)
+                    }
+                    _ => SpannedStatement::new(Statement::Expr(expr.clone()), expr.span),
                 }
             }
-            _ => SpannedStatement::new(Statement::Expr(expr.clone()), expr.span)
+            _ => SpannedStatement::new(Statement::Expr(expr.clone()), expr.span),
         };
 
         self.consume_statement_end()?;
@@ -576,39 +750,23 @@ impl ParserProcess {
             return Ok(SpannedExpr::new(
                 Expr::UnaryOperation {
                     operator: unary_operator.unwrap(),
-                    operand: Box::new(operand)
-                }, unary_operator_token.span.start..end
-            ))
+                    operand: Box::new(operand),
+                },
+                unary_operator_token.span.start..end,
+            ));
         }
 
         let mut left = self.parse_primary()?;
 
         if self.peek_is(&Token::Dot)? && self.peek_offset_is(&Token::Dot, 1)? {
-            self.forward()?; self.forward()?;
-            let iter = self.parse_iterator(left.clone());
-
-            if let Ok(iter) = iter {
-                return Ok(iter)
-            }
-        }
-
-        if self.peek_is(&Token::LBracket)? {
             self.forward()?;
-            let mut expr = self.parse_primary()?;
-            if !self.consume(&Token::RBracket)? {
-                return Err(
-                    RuneWayError::new(RuneWayErrorKind::Syntax)
-                        .with_message("Founded not closed bracket")
-                        .with_label("Expected `}`. Got this", &self.peek()?.span, None)
-                )
-            }
-            let span = left.span.start..expr.span.end;
-            return Ok(SpannedExpr::new(
-                Expr::Slice {
-                    object: Box::new(left),
-                    index: Box::new(expr)
-                }, span
-            ))
+            self.forward()?;
+            return self.parse_iterator(left.clone());
+        } else if matches!(left.node, Expr::AttributeAccess { .. })
+            && self.peek_is(&Token::Equal)?
+        {
+            self.forward()?;
+            return self.parse_set_attr(left.clone());
         }
 
         while let Some(operator_token) = self.peek()?.node.to_binary_operator() {
@@ -628,7 +786,8 @@ impl ParserProcess {
                     left_operand: Box::new(left),
                     operator: binary_operator,
                     right_operand: Box::new(right),
-                }, span
+                },
+                span,
             );
         }
 
@@ -636,7 +795,7 @@ impl ParserProcess {
     }
 
     //noinspection DuplicatedCode
-    fn parse_arguments(&mut self) -> Result<Vec<SpannedExpr>, RuneWayError> {
+    fn parse_arguments(&mut self) -> RWResult<Vec<SpannedExpr>> {
         let mut arguments = Vec::new();
 
         if self.consume(&Token::RParen)? {
@@ -645,7 +804,6 @@ impl ParserProcess {
 
         loop {
             let mut expr = self.parse_expr()?;
-            expr = self.parse_postfix(expr)?;
             arguments.push(expr);
 
             if self.consume(&Token::Comma)? {
@@ -653,11 +811,9 @@ impl ParserProcess {
             } else if self.consume(&Token::RParen)? {
                 break;
             } else {
-                return Err(
-                    RuneWayError::new(RuneWayErrorKind::Syntax)
-                        .with_message("Founded not closed bracket")
-                        .with_label("Expected `)`. Got this", &self.peek()?.span, None)
-                )
+                return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                    .with_message("Founded not closed bracket")
+                    .with_label("Expected `)`. Got this", &self.peek()?.span, &self.filename));
             }
         }
 
@@ -670,23 +826,34 @@ impl ParserProcess {
                 Token::Dot => {
                     self.forward()?;
 
-                    if self.peek_is(&Token::Dot)? {
-                        self.forward()?;
-                        expr = self.parse_iterator(expr.clone())?;
-                    } else if let Token::Identifier(field) = &self.peek()?.node {
-                        let start = expr.span.start;
-                        expr = SpannedExpr::new(Expr::GetAttr {
-                            object: Box::new(expr),
-                            field: field.clone()
-                        }, start..self.forward()?.span.end);
-                    } else {
-                        return Err(
-                            RuneWayError::new(RuneWayErrorKind::Syntax)
+                    let peek = self.peek()?;
+                    match &peek.node {
+                        Token::Dot => {
+                            self.forward()?;
+                            expr = self.parse_iterator(expr.clone())?;
+                        }
+                        Token::Identifier(field) => {
+                            let start = expr.span.start;
+                            expr = SpannedExpr::new(
+                                Expr::AttributeAccess {
+                                    object: Box::new(expr),
+                                    field: field.clone(),
+                                },
+                                start..peek.span.end,
+                            );
+                            self.forward()?;
+                        }
+                        _ => {
+                            return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
                                 .with_message("Unexpected token after `.`")
-                                .with_label("Expected identifier. Got this", &self.peek()?.span, None)
-                        )
+                                .with_label(
+                                    "Expected `.` or identifier. Got this",
+                                    &self.peek()?.span,
+                                    &self.filename,
+                                ));
+                        }
                     }
-                },
+                }
                 Token::LParen => {
                     self.forward()?;
 
@@ -695,27 +862,67 @@ impl ParserProcess {
                     expr = SpannedExpr::new(
                         Expr::Call {
                             callee: Box::new(expr),
-                            arguments: args
-                        }, span
+                            arguments: args,
+                        },
+                        span,
                     );
-                },
-                _ => return Ok(expr)
+                }
+                Token::LBracket => {
+                    self.forward()?;
+                    let in_bracket_expr = self.parse_primary()?;
+                    let end = {
+                        let peek = self.peek()?;
+                        match &peek.node {
+                            Token::RBracket => {
+                                let end = peek.span.end.clone();
+                                self.forward()?;
+                                end
+                            }
+                            _ => {
+                                return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                                    .with_message("Founded not closed bracket")
+                                    .with_label(
+                                        "Expected `]`. Got this",
+                                        &self.peek()?.span,
+                                        &self.filename,
+                                    ));
+                            }
+                        }
+                    };
+                    let span = expr.span.start..end;
+                    return Ok(SpannedExpr::new(
+                        Expr::Slice {
+                            object: Box::new(expr),
+                            index: Box::new(in_bracket_expr),
+                        },
+                        span,
+                    ));
+                }
+                _ => return Ok(expr),
             }
         }
     }
 
     fn parse_primary(&mut self) -> RWResult<SpannedExpr> {
         let peek = self.peek()?.clone();
-        let mut expr = match &peek.node {
+        let expr = match &peek.node {
             Token::StringLiteral(s) => {
                 let s = s.clone();
                 self.forward()?;
-                Ok::<SpannedExpr, RuneWayError>(SpannedExpr::new(Expr::String(s.to_string()), peek.span))
+                Ok::<SpannedExpr, RuneWayError>(SpannedExpr::new(
+                    Expr::String(s.to_string()),
+                    peek.span,
+                ))
             }
             Token::IntegerLiteral(i) => {
                 let i = i.clone();
                 self.forward()?;
                 Ok(SpannedExpr::new(Expr::Integer(i), peek.span))
+            }
+            Token::UIntegerLiteral(u) => {
+                let u = u.clone();
+                self.forward()?;
+                Ok(SpannedExpr::new(Expr::UInteger(u), peek.span))
             }
             Token::FloatLiteral(f) => {
                 let f = f.clone();
@@ -729,10 +936,12 @@ impl ParserProcess {
                     match part.clone() {
                         FStringPart::StringLiteral(string) => {
                             format_string.push(FStringExpr::String(string.clone()));
-                        },
-                        FStringPart::Expr(mut expr, .. ) => {
+                        }
+                        FStringPart::Expr(mut expr, ..) => {
                             expr.push(SpannedToken::new(Token::EOF, 0..0));
-                            format_string.push(FStringExpr::Expr(ParserProcess::new(expr).parse_expr()?));
+                            format_string.push(FStringExpr::Expr(
+                                ParserProcess::new(expr, self.filename.clone()).parse_expr()?,
+                            ));
                         }
                     }
                 }
@@ -756,7 +965,7 @@ impl ParserProcess {
             Token::Identifier(identifier) => {
                 let identifier = identifier.clone();
                 self.forward()?;
-                Ok(self.parse_postfix(SpannedExpr::new(Expr::Variable(identifier), peek.span))?)
+                Ok(SpannedExpr::new(Expr::Variable(identifier), peek.span))
             }
             Token::LParen => {
                 let start = self.peek()?.span.start.clone();
@@ -764,12 +973,19 @@ impl ParserProcess {
 
                 let null_end = self.peek()?.span.end.clone();
                 if self.consume(&Token::RParen)? {
-                    return Ok(SpannedExpr::new(Expr::Null, start..null_end))
+                    return Ok(self.parse_postfix(SpannedExpr::new(Expr::Null, start..null_end))?);
                 }
 
-                let expr = self.parse_expr()?;
-                if self.consume(&Token::RParen)? {
-                    return Ok(expr)
+                let mut expr = self.parse_expr()?;
+                let peek = self.peek()?;
+                match &peek.node {
+                    Token::RParen => {
+                        expr.span.start = start;
+                        expr.span.end = peek.span.end.clone();
+                        self.forward()?;
+                        return Ok(self.parse_postfix(expr)?);
+                    }
+                    _ => (),
                 }
 
                 let mut exprs = vec![Box::new(expr)];
@@ -780,7 +996,7 @@ impl ParserProcess {
                             let end = self.peek()?.span.end.clone();
                             self.forward()?;
                             break end;
-                        },
+                        }
                         Token::Comma => {
                             self.forward()?;
                             let peek = self.peek()?;
@@ -791,11 +1007,13 @@ impl ParserProcess {
                             exprs.push(Box::new(expr));
                         }
                         _ => {
-                            return Err(
-                                RuneWayError::new(RuneWayErrorKind::Syntax)
-                                    .with_message("Unexpected token")
-                                    .with_label("Expected `)` or `,`. Got this", &self.peek()?.span, None)
-                            )
+                            return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                                .with_message("Unexpected token")
+                                .with_label(
+                                    "Expected `)` or `,`. Got this",
+                                    &self.peek()?.span,
+                                    &self.filename,
+                                ));
                         }
                     }
                 };
@@ -822,11 +1040,13 @@ impl ParserProcess {
                             }
                             let key_expr = self.parse_expr()?;
                             if !self.consume(&Token::Colon)? {
-                                return Err(
-                                    RuneWayError::new(RuneWayErrorKind::Syntax)
-                                        .with_message("Unexpected token")
-                                        .with_label("Expected `:`. Got this", &self.peek()?.span, None)
-                                )
+                                return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                                    .with_message("Unexpected token")
+                                    .with_label(
+                                        "Expected `:`. Got this",
+                                        &self.peek()?.span,
+                                        &self.filename,
+                                    ));
                             }
                             let value_expr = self.parse_expr()?;
                             vec.push((Box::new(key_expr), Box::new(value_expr)));
@@ -843,22 +1063,23 @@ impl ParserProcess {
 
                 let rbracket = loop {
                     match self.consume_get(&Token::RBracket)? {
-                        Some(bracket) => { break bracket },
-                        None => ()
+                        Some(bracket) => break bracket,
+                        None => (),
                     }
                     list.push(Box::new(self.parse_expr()?));
 
                     self.consume(&Token::Comma)?;
                 };
 
-                Ok(SpannedExpr::new(Expr::List(list), peek.span.start..rbracket.span.end))
+                Ok(SpannedExpr::new(
+                    Expr::List(list),
+                    peek.span.start..rbracket.span.end,
+                ))
             }
             _ => {
-                return Err(
-                    RuneWayError::new(RuneWayErrorKind::Syntax)
-                        .with_message("Unexpected token in primary expression")
-                        .with_label("Got this", &self.peek()?.span, None)
-                )
+                return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                    .with_message("Unexpected token in primary expression")
+                    .with_label("Got this", &self.peek()?.span, &self.filename));
             }
         };
         self.parse_postfix(expr?)

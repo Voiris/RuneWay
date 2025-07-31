@@ -1,5 +1,5 @@
-mod general;
 mod errors;
+mod general;
 
 use crate::runeway::builtins::types::RNWString;
 use crate::runeway::runtime::environment::{EnvRef, Environment};

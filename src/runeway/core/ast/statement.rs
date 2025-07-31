@@ -1,12 +1,16 @@
-use std::ops::Range;
+use super::expression::SpannedExpr;
 use crate::runeway::core::spanned::Spanned;
-use super::expression::{Expr, SpannedExpr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Let {
         name: String,
         value: SpannedExpr,
+        annotation: Option<Spanned<String>>,
+    },
+    LetVoid {
+        name: String,
+        annotation: Option<Spanned<String>>,
     },
     Assign {
         name: String,
@@ -32,14 +36,19 @@ pub enum Statement {
     Continue,
     Act {
         name: String,
-        parameters: Vec<String>,
+        parameters: Vec<AnnotatedParameter>,
+        return_annotation: Option<Spanned<String>>,
         body: Vec<Box<SpannedStatement>>,
     },
-
     Import {
         path: String,
         item: ImportItem,
-    }
+    },
+    Assert(SpannedExpr),
+    Class {
+        name: String,
+        body: Vec<Box<SpannedStatement>>,
+    },
 }
 
 impl Statement {
@@ -50,6 +59,12 @@ impl Statement {
             false
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AnnotatedParameter {
+    pub name: String,
+    pub annotation: Option<Spanned<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

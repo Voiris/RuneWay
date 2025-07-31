@@ -1,7 +1,6 @@
-pub mod core;
 pub mod builtins;
-pub mod executor;
-pub mod stdlibs;
 mod compiler;
+pub mod core;
+pub mod executor;
 pub mod runtime;
-pub mod utils;
+pub mod stdlibs;

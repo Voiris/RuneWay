@@ -2,7 +2,7 @@
 
 // Define entry function
 act main() {
-  // Print "Hello, world!" to console
+  // Print "Hello, world!" with "\n" to console
   println("Hello, world!");
 
   // Return exit code (Not necessary)

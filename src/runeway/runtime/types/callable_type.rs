@@ -1,14 +1,18 @@
+use crate::assign_rnw_type_id;
+use crate::runeway::builtins::types::RNWString;
+use crate::runeway::core::errors::RWResult;
+use crate::runeway::runtime::types::{
+    register_cast, RNWObject, RNWObjectRef, RNWRegisteredNativeFunction, RNWRegisteredNativeMethod,
+    RNWType, RNWTypeId,
+};
 use std::any::Any;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
-use crate::runeway::builtins::types::{RNWNullType, RNWString};
-use crate::runeway::core::errors::RWResult;
-use crate::runeway::runtime::types::{register_cast, RNWObject, RNWObjectRef, RNWRegisteredNativeFunction, RNWRegisteredNativeMethod, RNWType};
 
 #[derive(Clone)]
 pub struct RNWFunction {
-    pub function: Rc<RNWRegisteredNativeFunction>
+    pub function: Rc<RNWRegisteredNativeFunction>,
 }
 
 impl Debug for RNWFunction {
@@ -25,15 +29,30 @@ impl RNWFunction {
     pub fn type_name() -> &'static str {
         "function"
     }
+
+    assign_rnw_type_id!();
 }
 
 impl RNWObject for RNWFunction {
-    fn type_name(&self) -> &'static str { Self::type_name() }
-    fn display(&self) -> String { format!("<function '{}'>", self.function.name) }
-    fn value(&self) -> &dyn Any { self }
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn as_object(&self) -> &dyn RNWObject { self }
+    fn rnw_type_id(&self) -> RNWTypeId {
+        Self::rnw_type_id()
+    }
+    fn type_name(&self) -> &'static str {
+        Self::type_name()
+    }
+    fn display(&self) -> String {
+        format!("<function '{}'>", self.function.name)
+    }
+    fn value(&self) -> &dyn Any {
+        self
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn call(&self, args: &[RNWObjectRef]) -> Option<RWResult<RNWObjectRef>> {
         Some(self.function.call(args))
     }
@@ -41,7 +60,7 @@ impl RNWObject for RNWFunction {
 
 #[derive(Clone)]
 pub struct RNWMethod {
-    pub method: Rc<RNWRegisteredNativeMethod>
+    pub method: Rc<RNWRegisteredNativeMethod>,
 }
 
 impl Debug for RNWMethod {
@@ -58,25 +77,48 @@ impl RNWMethod {
     pub fn type_name() -> &'static str {
         "method"
     }
+
+    pub fn is_type_equals(other: &RNWObjectRef) -> bool {
+        Self::rnw_type_id() == other.borrow().rnw_type_id()
+    }
+
+    assign_rnw_type_id!();
 }
 
 impl RNWObject for RNWMethod {
-    fn type_name(&self) -> &'static str { Self::type_name() }
-    fn display(&self) -> String { format!("<method '{}'>", self.method.name) }
-    fn value(&self) -> &dyn Any { self }
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn as_object(&self) -> &dyn RNWObject { self }
-    fn call(&self, args: &[RNWObjectRef]) -> Option<RWResult<RNWObjectRef>> {
+    fn rnw_type_id(&self) -> RNWTypeId {
+        Self::rnw_type_id()
+    }
+    fn type_name(&self) -> &'static str {
+        Self::type_name()
+    }
+    fn display(&self) -> String {
+        format!("<method '{}'>", self.method.name)
+    }
+    fn value(&self) -> &dyn Any {
+        self
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 
-        Some(self.method.call(args[0].clone(), args[1..].try_into().unwrap()))
+    fn call(&self, args: &[RNWObjectRef]) -> Option<RWResult<RNWObjectRef>> {
+        Some(
+            self.method
+                .call(args[0].clone(), args[1..].try_into().unwrap()),
+        )
     }
 }
 
 pub fn register() -> Rc<RefCell<RNWType>> {
-    register_cast::<RNWFunction, RNWString>(|obj| {
-        Ok(RNWString::new(obj.display()))
-    });
+    register_cast(
+        RNWFunction::rnw_type_id(),
+        RNWString::rnw_type_id(),
+        |obj| Ok(RNWString::new(obj.display())),
+    );
 
-    RNWType::new::<RNWFunction>(RNWFunction::type_name())
+    RNWType::new(RNWFunction::rnw_type_id(), RNWFunction::type_name())
 }

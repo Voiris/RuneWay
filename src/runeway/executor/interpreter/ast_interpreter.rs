@@ -1,64 +1,110 @@
-use std::any::TypeId;
+use crate::runeway::builtins::types::{
+    RNWBoolean, RNWDict, RNWFloat, RNWInteger, RNWIterator, RNWList, RNWNullType, RNWString,
+    RNWTuple, RNWUnsignedInteger,
+};
+use crate::runeway::core::ast::expression::SpannedExpr;
+use crate::runeway::core::ast::statement::{AnnotatedParameter, SpannedStatement};
+use crate::runeway::core::ast::{
+    expression::{Expr, FStringExpr},
+    statement::{ImportItem, Statement},
+};
+use crate::runeway::core::errors::{RWResult, RuneWayError, RuneWayErrorKind};
+use crate::runeway::core::spanned::Spanned;
+use crate::runeway::core::utils::assert::assert_incorrect_type;
+use crate::runeway::runtime::controlflow::ControlFlow;
+use crate::runeway::runtime::environment::{EnvRef, Environment};
+use crate::runeway::runtime::libraries::{load_library, RNWModule};
+use crate::runeway::runtime::types::types_reg::register_type;
+use crate::runeway::runtime::types::{
+    cast_to, RNWMethod, RNWObject, RNWObjectRef, RNWRegisteredNativeFunction,
+    RNWRegisteredNativeMethod, RNWType, RNWTypeId, UserDefinedClass,
+};
+use colored::*;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
-use ariadne::{Color, Fmt};
-use crate::runeway::builtins::types::{RNWBoolean, RNWDict, RNWFloat, RNWInteger, RNWIterator, RNWList, RNWNullType, RNWString, RNWTuple};
-use crate::runeway::core::ast::{
-    statement::{Statement, ImportItem},
-    expression::{Expr, FStringExpr}
-};
-use crate::runeway::core::ast::expression::SpannedExpr;
-use crate::runeway::core::ast::statement::SpannedStatement;
-use crate::runeway::core::errors::{RWResult, RuneWayError, RuneWayErrorKind};
-use crate::runeway::runtime::controlflow::ControlFlow;
-use crate::runeway::runtime::environment::{EnvRef, Environment};
-use crate::runeway::runtime::libraries::{load_library, RNWModule};
-use crate::runeway::runtime::types::{cast_to, RNWObject, RNWObjectRef, RNWRegisteredNativeFunction};
 
 pub struct ASTInterpreter;
 
 impl ASTInterpreter {
-    pub fn execute(root_env: EnvRef, stmt: SpannedStatement, working_dir: &Path,
-                   filename: impl AsRef<str>, code: &String) -> RWResult<()> {
-        Self::execute_local(root_env.clone(), stmt, None, true,
-                            working_dir, filename.as_ref(), code)?;
+    //noinspection RsExternalLinter
+    pub fn execute(
+        root_env: EnvRef,
+        stmt: SpannedStatement,
+        working_dir: &Path,
+        filename: String,
+        code: &String,
+    ) -> RWResult<()> {
+        Self::execute_local(
+            root_env.clone(),
+            stmt,
+            None,
+            true,
+            working_dir,
+            &filename,
+            code,
+        )?;
         Ok(())
     }
 
-    pub fn execute_many(root_env: EnvRef, stmts: Vec<SpannedStatement>, working_dir: &Path,
-                        filename: impl AsRef<str>, code: &String) -> RWResult<()> {
+    pub fn execute_many(
+        root_env: EnvRef,
+        stmts: Vec<SpannedStatement>,
+        working_dir: &Path,
+        filename: String,
+        code: &String,
+    ) -> RWResult<()> {
         for stmt in stmts {
-            Self::execute_local(root_env.clone(), stmt, None, true,
-                                working_dir, filename.as_ref(), code)
-                .map_err(
-                    |e| e.with_code_base(filename.as_ref(), code)
-                )?;
+            Self::execute_local(
+                root_env.clone(),
+                stmt,
+                None,
+                true,
+                working_dir,
+                &filename,
+                code,
+            )?;
         }
         Ok(())
     }
 
-    fn execute_many_local(root_env: EnvRef, stmts: Vec<SpannedStatement>, parent_env: Option<EnvRef>,
-                          is_top_level: bool, working_dir: &Path,
-                          filename: &str, code: &String) -> RWResult<ControlFlow> {
+    fn execute_many_local(
+        root_env: EnvRef,
+        stmts: Vec<SpannedStatement>,
+        parent_env: Option<EnvRef>,
+        is_top_level: bool,
+        working_dir: &Path,
+        filename: &String,
+        code: &String,
+    ) -> RWResult<ControlFlow> {
         for stmt in stmts {
-            match Self::execute_local(root_env.clone(), stmt, parent_env.clone(),
-                                      is_top_level, working_dir, filename, code) {
-                Ok(ControlFlow::Return(r)) => return Ok(ControlFlow::Return(r)),
-                Ok(_) => (),
-                Err(e) => {
-                    return Err(e.with_code_base(filename, code))
-                }
+            match Self::execute_local(
+                root_env.clone(),
+                stmt,
+                parent_env.clone(),
+                is_top_level,
+                working_dir,
+                filename,
+                code,
+            )? {
+                ControlFlow::Return(r) => return Ok(ControlFlow::Return(r)),
+                _ => (),
             }
         }
         Ok(ControlFlow::Nothing)
     }
 
     //noinspection DuplicatedCode
-    fn execute_local(root_env: EnvRef, stmt: SpannedStatement, parent_env: Option<EnvRef>,
-                     is_top_level: bool, working_dir: &Path,
-                     filename: &str, code: &String) -> RWResult<ControlFlow> {
+    fn execute_local(
+        root_env: EnvRef,
+        stmt: SpannedStatement,
+        parent_env: Option<EnvRef>,
+        is_top_level: bool,
+        working_dir: &Path,
+        filename: &String,
+        code: &String,
+    ) -> RWResult<ControlFlow> {
         let env = if let Some(_parent_env) = parent_env {
             _parent_env
         } else {
@@ -68,54 +114,80 @@ impl ASTInterpreter {
         if !is_top_level {
             let result = match stmt.node {
                 Statement::Expr(expr) => {
-                    Self::evaluate(expr, Rc::clone(&env))?;
+                    Self::evaluate(expr, Rc::clone(&env), filename)?;
                     ControlFlow::Nothing
                 }
-                Statement::Let { name, value } => {
-                    let val = Self::evaluate(value, Rc::clone(&env))?;
+                Statement::Let {
+                    name,
+                    value,
+                    annotation,
+                } => {
+                    let val = Self::evaluate(value, Rc::clone(&env), filename)?;
+
+                    if let Some(annotation) = Self::handle_annotation(&annotation, &env, filename)?
+                    {
+                        let borrow = val.borrow();
+                        assert_incorrect_type(annotation, borrow.rnw_type_id())?;
+                    }
+
                     env.borrow_mut().define_variable(name.clone(), val);
                     ControlFlow::Nothing
                 }
+                Statement::LetVoid { name, annotation } => {
+                    let static_type = Self::handle_annotation(&annotation, &env, filename)?;
+
+                    env.borrow_mut()
+                        .define_uninitiated_variable(name.clone(), static_type);
+
+                    ControlFlow::Nothing
+                }
                 Statement::Assign { name, value } => {
-                    let val = Self::evaluate(value, Rc::clone(&env))?;
+                    let val = Self::evaluate(value, Rc::clone(&env), filename)?;
                     env.borrow_mut().assign_variable(&name, val)?;
                     ControlFlow::Nothing
                 }
                 Statement::If {
                     condition,
                     then_branch,
-                    else_branch
+                    else_branch,
                 } => {
                     let mut controlflow = ControlFlow::Nothing;
 
                     let branch = {
-                        let condition_value = Self::evaluate(condition.clone(), Rc::clone(&env))?;
+                        let condition_value =
+                            Self::evaluate(condition.clone(), Rc::clone(&env), filename)?;
 
-                        let casted_condition_value = cast_to::<RNWBoolean>(&condition_value)?;
+                        let casted_condition_value =
+                            cast_to(&condition_value, RNWBoolean::rnw_type_id())?;
 
-                        let cond = *casted_condition_value.borrow().value().downcast_ref::<bool>().unwrap();
+                        let cond = *casted_condition_value
+                            .borrow()
+                            .value()
+                            .downcast_ref::<bool>()
+                            .unwrap();
 
-                        if cond {
-                            Some(then_branch)
-                        } else {
-                            else_branch
-                        }
+                        if cond { Some(then_branch) } else { else_branch }
                     };
 
                     if let Some(statements) = branch {
+                        let enclosed_env = Environment::new_enclosed(env.clone());
                         for stmt in statements {
-                            if (*stmt).node.is(&Statement::Break) {
+                            if stmt.node.is(&Statement::Break) {
                                 controlflow = ControlFlow::Break;
                                 break;
-                            } else if (*stmt).node.is(&Statement::Continue) {
+                            } else if stmt.node.is(&Statement::Continue) {
                                 controlflow = ControlFlow::Continue;
                                 break;
-                            }
-                            match Self::execute_local(root_env.clone(), *stmt, Some(Rc::clone(&env)),
-                                                      false, working_dir, filename, code)? {
-                                ControlFlow::Return(value) =>
-                                    controlflow = ControlFlow::Return(value),
-                                _ => ()
+                            } else if let ControlFlow::Return(value) = Self::execute_local(
+                                root_env.clone(),
+                                *stmt,
+                                Some(enclosed_env.clone()),
+                                false,
+                                working_dir,
+                                filename,
+                                code,
+                            )? {
+                                controlflow = ControlFlow::Return(value)
                             }
                         }
                     }
@@ -124,17 +196,28 @@ impl ASTInterpreter {
                 Statement::While { condition, body } => {
                     'outer: loop {
                         let condition_value =
-                            Self::evaluate(condition.clone(), Rc::clone(&env))?;
+                            Self::evaluate(condition.clone(), Rc::clone(&env), filename)?;
 
-                        let casted_condition_value = cast_to::<RNWBoolean>(&condition_value)?;
+                        let casted_condition_value =
+                            cast_to(&condition_value, RNWBoolean::rnw_type_id())?;
 
-                        let cond = *casted_condition_value.borrow().value().downcast_ref::<bool>().unwrap();
+                        let cond = *casted_condition_value
+                            .borrow()
+                            .value()
+                            .downcast_ref::<bool>()
+                            .unwrap();
 
                         if cond {
                             for stmt in &body {
                                 let cf = Self::execute_local(
-                                    root_env.clone(), *stmt.clone(), Some(Rc::clone(&env)),
-                                    false, working_dir, filename, code)?;
+                                    root_env.clone(),
+                                    *stmt.clone(),
+                                    Some(Rc::clone(&env)),
+                                    false,
+                                    working_dir,
+                                    filename,
+                                    code,
+                                )?;
                                 match cf {
                                     ControlFlow::Break => break 'outer,
                                     ControlFlow::Return(value) => {
@@ -143,7 +226,7 @@ impl ASTInterpreter {
                                     ControlFlow::Continue => {
                                         continue 'outer;
                                     }
-                                    _ => ()
+                                    _ => (),
                                 }
                             }
                         } else {
@@ -152,28 +235,61 @@ impl ASTInterpreter {
                     }
                     ControlFlow::Nothing
                 }
-                Statement::Return(expr) => ControlFlow::Return(Self::evaluate(expr, Rc::clone(&env))?),
+                Statement::Return(expr) => {
+                    ControlFlow::Return(Self::evaluate(expr, Rc::clone(&env), filename)?)
+                }
                 Statement::Break => ControlFlow::Break,
                 Statement::Continue => ControlFlow::Continue,
-                Statement::Act { name, parameters, body } => {
-                    Self::register_act(env.clone(), name, parameters, body, working_dir, filename, code)?
+                Statement::Act {
+                    name,
+                    parameters,
+                    return_annotation,
+                    body,
+                } => {
+                    let function = Self::handle_function_act(
+                        env.clone(),
+                        name,
+                        parameters,
+                        return_annotation,
+                        body,
+                        working_dir,
+                        filename,
+                        code,
+                    )?;
+
+                    let mut borrow = env.borrow_mut();
+                    borrow.define_function(function);
+                    drop(borrow);
+
+                    ControlFlow::Nothing
                 }
-                Statement::For { variable, iterable, body } => {
-                    let iterable_val = Self::evaluate(iterable.clone(), Rc::clone(&env))?;
-                    let mut iterator = match iterable_val.borrow_mut().as_any_mut().downcast_ref::<RNWIterator>() {
+                Statement::For {
+                    variable,
+                    iterable,
+                    body,
+                } => {
+                    let iterable_val = Self::evaluate(iterable.clone(), Rc::clone(&env), filename)?;
+                    let mut iterator = match iterable_val
+                        .borrow_mut()
+                        .as_any_mut()
+                        .downcast_ref::<RNWIterator>()
+                    {
                         Some(iterator) => iterator,
                         None => {
-                            return Err(
-                                RuneWayError::new(RuneWayErrorKind::Runtime(Some("TypeError".to_string())))
-                                    .with_message("Iterable must be an iterator")
-                                    .with_label("This must return an iterator", &iterable.span, None)
-                                    .with_help(format!(
-                                        "Try to add {} after iterable value",
-                                        ".iter()".fg(Color::BrightGreen)
-                                    ))
-                            );
+                            return Err(RuneWayError::new(RuneWayErrorKind::type_error())
+                                .with_message("Iterable must be an iterator")
+                                .with_label(
+                                    "This must return an iterator",
+                                    &iterable.span,
+                                    filename,
+                                )
+                                .with_help(format!(
+                                    "Try to add {} after iterable value",
+                                    ".iter()".bright_green()
+                                )));
                         }
-                    }.clone();
+                    }
+                    .clone();
                     'outer: loop {
                         let value = iterator.next();
 
@@ -187,53 +303,184 @@ impl ASTInterpreter {
                         drop(borrow);
 
                         for stmt in &body {
-                            match Self::execute_local(iteration_env.clone(), *stmt.clone(), None,
-                                                      false, working_dir, filename, code)? {
-                                ControlFlow::Return(value) => return Ok(ControlFlow::Return(value)),
+                            match Self::execute_local(
+                                iteration_env.clone(),
+                                *stmt.clone(),
+                                None,
+                                false,
+                                working_dir,
+                                filename,
+                                code,
+                            )? {
+                                ControlFlow::Return(value) => {
+                                    return Ok(ControlFlow::Return(value));
+                                }
                                 ControlFlow::Continue => continue 'outer,
                                 ControlFlow::Break => break 'outer,
-                                _ => ()
+                                _ => (),
                             }
                         }
                     }
 
                     ControlFlow::Nothing
-                },
+                }
+                Statement::Assert(expr) => {
+                    let obj = Self::evaluate(expr.clone(), Rc::clone(&env), filename)?;
+                    let casted_obj = cast_to(&obj, RNWBoolean::rnw_type_id())?;
+                    let casted_obj_borrow = casted_obj.borrow();
+                    match casted_obj_borrow.value().downcast_ref::<bool>() {
+                        Some(true) => (),
+                        Some(false) => {
+                            return Err(RuneWayError::new(RuneWayErrorKind::error_with_code(
+                                "AssertionError",
+                            ))
+                            .with_message("Statement is not asserted")
+                            .with_label(
+                                "This expression is not asserted",
+                                &expr.span,
+                                filename,
+                            ));
+                        }
+                        None => unreachable!(),
+                    }
+
+                    ControlFlow::Nothing
+                }
                 _ => panic!("Not implemented yet. Statement: {:?}", stmt),
             };
             Ok(result)
         } else {
             match stmt.node {
-                Statement::Act { name, parameters, body } => {
-                    Self::register_act(env.clone(), name, parameters, body, working_dir, filename, code)
+                Statement::Act {
+                    name,
+                    parameters,
+                    return_annotation,
+                    body,
+                } => {
+                    let function = Self::handle_function_act(
+                        env.clone(),
+                        name,
+                        parameters,
+                        return_annotation,
+                        body,
+                        working_dir,
+                        filename,
+                        code,
+                    )?;
+
+                    let mut borrow = env.borrow_mut();
+                    borrow.define_function(function);
+                    drop(borrow);
+
+                    Ok(ControlFlow::Nothing)
+                }
+                Statement::Class { name, body } => {
+                    let class_obj = Self::handle_class(
+                        name.clone(),
+                        body,
+                        &env.clone(),
+                        working_dir,
+                        filename,
+                        code,
+                    )?;
+
+                    let (rnw_type_id, type_obj) = {
+                        let borrow = class_obj.borrow();
+                        (
+                            borrow.rnw_type_id(),
+                            RNWType::new(borrow.rnw_type_id(), borrow.type_name()),
+                        )
+                    };
+
+                    register_type(rnw_type_id, type_obj);
+
+                    let mut borrow = env.borrow_mut();
+                    borrow.define_variable(name, class_obj);
+                    drop(borrow);
+
+                    Ok(ControlFlow::Nothing)
                 }
                 Statement::Import { path, item } => {
-                    Self::execute_import(env.clone(), path, item, &stmt.span, working_dir, filename, code)
+                    Self::execute_import(env.clone(), path, item, &stmt.span, working_dir, filename)
                 }
-                _ => Err(
-                    RuneWayError::new(RuneWayErrorKind::Syntax)
-                        .with_message("Found forbidden statement on top-level")
-                        .with_label("This statement is forbidden on top-level", &stmt.span, None)
-                )
+                _ => Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                    .with_message("Found forbidden statement on top-level")
+                    .with_label(
+                        "This statement is forbidden on top-level",
+                        &stmt.span,
+                        filename,
+                    )),
             }
         }
     }
 
-    fn execute_import(env: EnvRef, path: String, item: ImportItem, span: &Range<usize>,
-                      working_dir: &Path, filename: &str, code: &String) -> RWResult<ControlFlow> {
+    fn handle_class(
+        name: String,
+        body: Vec<Box<SpannedStatement>>,
+        env: &EnvRef,
+        working_dir: &Path,
+        filename: &String,
+        code: &String,
+    ) -> RWResult<RNWObjectRef> {
+        let class_obj = UserDefinedClass::new(&name);
+
+        let unboxed_body = body
+            .iter()
+            .map(|s| *s.clone())
+            .collect::<Vec<SpannedStatement>>();
+
+        for stmt in unboxed_body.iter().cloned() {
+            match stmt.node {
+                Statement::Act {
+                    name: func_name,
+                    parameters,
+                    return_annotation,
+                    body,
+                } => {
+                    let method_obj = {
+                        let method = Self::handle_method_act(
+                            env.clone(),
+                            format!("{}.{}", name, func_name),
+                            parameters,
+                            return_annotation,
+                            body,
+                            working_dir,
+                            filename,
+                            code,
+                        )?;
+                        RNWMethod::new(method)
+                    };
+
+                    let mut class_borrow = class_obj.borrow_mut();
+                    class_borrow.set_attr(func_name.as_str(), method_obj)?
+                }
+                _ => {
+                    return Err(RuneWayError::new(RuneWayErrorKind::syntax_error())
+                        .with_message("Found forbidden statement in class")
+                        .with_label("This statement is forbidden in class", &stmt.span, filename));
+                }
+            }
+        }
+
+        Ok(class_obj)
+    }
+
+    fn execute_import(
+        env: EnvRef,
+        path: String,
+        item: ImportItem,
+        span: &Range<usize>,
+        working_dir: &Path,
+        filename: &String,
+    ) -> RWResult<ControlFlow> {
         let library_env = load_library(path.clone(), working_dir)?;
 
         let mut borrow = env.borrow_mut();
         match item {
             ImportItem::Alias(alias) => {
-                borrow.define_variable(alias, RNWModule::new(
-                    path.clone(),
-                    library_env.clone()
-                ))
+                borrow.define_variable(alias, RNWModule::new(path.clone(), library_env.clone()))
             }
-            ImportItem::All => {
-                borrow.merge(library_env.clone())?
-            }
+            ImportItem::All => borrow.merge(library_env.clone())?,
             ImportItem::Selective(selective) => {
                 let library_borrow = library_env.borrow();
                 for symbol in selective.iter().cloned() {
@@ -243,22 +490,20 @@ impl ASTInterpreter {
                     } else {
                         let symbol_name = symbol.original.clone();
                         let mut err =
-                            RuneWayError::new(RuneWayErrorKind::Runtime(Some("ImportError".to_string())))
-                                .with_message(
-                                    format!(
-                                        "Symbol `{}` not found in module `{}`",
-                                        (&symbol_name).fg(Color::BrightYellow),
-                                        path.fg(Color::BrightYellow)
-                                    )
-                                )
-                                .with_label("In this declaration", span, None);
+                            RuneWayError::new(RuneWayErrorKind::error_with_code("ImportError"))
+                                .with_message(format!(
+                                    "Symbol `{}` not found in module `{}`",
+                                    (&symbol_name).bright_yellow(),
+                                    path.bright_yellow()
+                                ))
+                                .with_label("In this declaration", span, filename);
 
-                        if let Some(matches_name) = library_borrow.find_similar_strings(
-                            symbol_name, 2
-                        ).first() {
+                        if let Some(matches_name) =
+                            library_borrow.find_similar_strings(symbol_name).first()
+                        {
                             err = err.with_help(format!(
                                 "Maybe you mean `{}`?",
-                                matches_name.fg(Color::BrightGreen)
+                                matches_name.bright_green()
                             ));
                         }
 
@@ -271,17 +516,62 @@ impl ASTInterpreter {
         Ok(ControlFlow::Nothing)
     }
 
-    fn register_act(env: EnvRef, name: String, parameters: Vec<String>,
-                    body: Vec<Box<SpannedStatement>>, working_dir: &Path,
-                    filename: &str, code: &String) -> RWResult<ControlFlow> {
-        let unboxed_body: Vec<SpannedStatement> = body.into_iter()
-        .map(|stmt| (*stmt).clone())
-        .collect();
+    fn execute_act(
+        params: &Vec<String>,
+        args: &[RNWObjectRef],
+        unboxed_body: &Vec<SpannedStatement>,
+        env: &EnvRef,
+        working_dir: &Path,
+        filename: &String,
+        code: &String,
+    ) -> RWResult<RNWObjectRef> {
+        let __env = Environment::new_enclosed(env.clone());
+        let mut borrow = __env.borrow_mut();
 
-        // Клонируем параметры для замыкания, чтобы их можно было использовать внутри
-        let _parameters = parameters.clone();
+        // Связываем параметры с аргументами
+        for (_param, _arg) in params.iter().zip(args.iter()) {
+            borrow.define_variable(_param.clone(), Rc::clone(&_arg));
+        }
 
-        // Клонируем глобальную среду для замыкания, чтобы их можно было использовать внутри
+        drop(borrow);
+
+        // Клонируем тело при каждом вызове, чтобы не перемещать из замыкания
+        let body_clone = unboxed_body.clone();
+
+        // Выполняем тело
+        match ASTInterpreter::execute_many_local(
+            Rc::clone(&env),
+            body_clone,
+            Some(__env.clone()),
+            false,
+            &working_dir,
+            &filename,
+            &code,
+        )
+        .map_err(|e| e.with_source(filename.clone(), code.clone()))?
+        {
+            ControlFlow::Return(value) => Ok(value),
+            ControlFlow::Nothing => Ok(RNWNullType::new()),
+            _ => unreachable!(),
+        }
+    }
+
+    fn handle_function_act(
+        env: EnvRef,
+        name: String,
+        parameters: Vec<AnnotatedParameter>,
+        return_annotation: Option<Spanned<String>>,
+        body: Vec<Box<SpannedStatement>>,
+        working_dir: &Path,
+        filename: &String,
+        code: &String,
+    ) -> RWResult<Rc<RNWRegisteredNativeFunction>> {
+        // Готовим данные для замыкания
+        let unboxed_body: Vec<SpannedStatement> =
+            body.into_iter().map(|stmt| (*stmt).clone()).collect();
+
+        let _parameters: Vec<_> = parameters.iter().map(|ap| ap.name.clone()).collect();
+
         let _env = Rc::clone(&env);
 
         let _working_dir = working_dir.to_path_buf();
@@ -291,260 +581,435 @@ impl ASTInterpreter {
 
         // Создаём замыкание, которое реализует Fn (без перемещения unboxed_body)
         let func = Rc::new(move |_args: &[RNWObjectRef]| {
-            let __env = Environment::new_enclosed(_env.clone());
-            let mut borrow = __env.borrow_mut();
-
-            // Связываем параметры с аргументами
-            for (_param, _arg) in _parameters.iter().zip(_args.iter()) {
-                borrow.define_variable(_param.clone(), Rc::clone(&_arg));
-            }
-
-            drop(borrow);
-
-            // Клонируем тело при каждом вызове, чтобы не перемещать из замыкания
-            let body_clone = unboxed_body.clone();
-
-
-            // Выполняем тело
-            match ASTInterpreter::execute_many_local(Rc::clone(&_env), body_clone, Some(__env.clone()),
-                                                     false, &_working_dir,
-                                                     (&_filename).as_ref(), &_code)? {
-                ControlFlow::Return(value) => Ok(value),
-                ControlFlow::Nothing => Ok(RNWNullType::new()),
-                _ => unreachable!(),
-            }
+            Self::execute_act(
+                &_parameters,
+                _args,
+                &unboxed_body,
+                &_env,
+                &_working_dir,
+                &_filename,
+                &_code,
+            )
         });
 
         // Составляем вектор типов параметров (здесь универсальный тип dyn RNWObject)
-        let params: Vec<TypeId> = parameters.iter()
-            .map(|_| TypeId::of::<dyn RNWObject>())
-            .collect();
+        let mut params_type_ids: Vec<RNWTypeId> = Vec::new();
+        for ap in parameters.iter() {
+            params_type_ids
+                .push(Self::handle_annotation(&ap.annotation, &env, filename)?.unwrap_or(0));
+        }
 
-        // Определяем функцию в окружении с вложенной средой
-        let mut borrow = env.borrow_mut();
-        borrow.define_function(
-            RNWRegisteredNativeFunction::new(
-                name,
-                func,
-                params
-            ).into()
-        );
-        drop(borrow);
+        let return_type = Self::handle_annotation(&return_annotation, &env, filename)?;
 
-        Ok(ControlFlow::Nothing)
+        Ok(RNWRegisteredNativeFunction::new_with_return_type(
+            name,
+            func,
+            params_type_ids,
+            return_type,
+        ))
+    }
+
+    fn handle_method_act(
+        env: EnvRef,
+        name: String,
+        parameters: Vec<AnnotatedParameter>,
+        return_annotation: Option<Spanned<String>>,
+        body: Vec<Box<SpannedStatement>>,
+        working_dir: &Path,
+        filename: &String,
+        code: &String,
+    ) -> RWResult<Rc<RNWRegisteredNativeMethod>> {
+        // Готовим данные для замыкания
+        let unboxed_body: Vec<SpannedStatement> =
+            body.into_iter().map(|stmt| (*stmt).clone()).collect();
+
+        let _parameters: Vec<_> = parameters.iter().map(|ap| ap.name.clone()).collect();
+
+        let _env = Rc::clone(&env);
+
+        let _working_dir = working_dir.to_path_buf();
+
+        let _filename = filename.to_owned();
+        let _code = code.to_owned();
+
+        // Создаём замыкание, которое реализует Fn (без перемещения unboxed_body)
+        let func = Rc::new(move |_this: RNWObjectRef, _args: &[RNWObjectRef]| {
+            let mut __args = vec![_this];
+            __args.extend_from_slice(_args);
+            Self::execute_act(
+                &_parameters,
+                __args.as_slice(),
+                &unboxed_body,
+                &_env,
+                &_working_dir,
+                &_filename,
+                &_code,
+            )
+        });
+
+        // Составляем вектор типов параметров (здесь универсальный тип dyn RNWObject)
+        let mut params_type_ids: Vec<RNWTypeId> = Vec::new();
+        for ap in parameters.iter() {
+            params_type_ids
+                .push(Self::handle_annotation(&ap.annotation, &env, filename)?.unwrap_or(0));
+        }
+
+        let return_type = Self::handle_annotation(&return_annotation, &env, filename)?;
+
+        Ok(RNWRegisteredNativeMethod::new_with_return_type(
+            name,
+            func,
+            params_type_ids,
+            return_type,
+        ))
+    }
+
+    fn handle_annotation(
+        annotation: &Option<Spanned<String>>,
+        env: &EnvRef,
+        filename: &String,
+    ) -> RWResult<Option<RNWTypeId>> {
+        if let Some(annotation) = annotation.clone() {
+            let r#type = env.borrow().get_variable(&annotation.node);
+            let r#type = if let Some(r#type) = r#type {
+                r#type
+            } else {
+                let mut err =
+                    RuneWayError::new(RuneWayErrorKind::error_with_code("AnnotationError"))
+                        .with_message(format!(
+                            "Cannot find type: `{}`",
+                            (&annotation.node).bright_yellow()
+                        ))
+                        .with_label("This is not found", &annotation.span, filename);
+
+                println!(
+                    "{:#?}",
+                    env.borrow().find_similar_strings(annotation.node.clone(),)
+                );
+
+                if let Some(matches_name) =
+                    env.borrow().find_similar_strings(annotation.node).first()
+                {
+                    err =
+                        err.with_help(format!("Maybe you mean `{}`?", matches_name.bright_green()));
+                }
+
+                return Err(err);
+            };
+            if let Some(r#type) = r#type.borrow().as_any().downcast_ref::<RNWType>() {
+                Ok(Some(r#type.rnw_type_id))
+            } else {
+                Err(
+                    RuneWayError::new(RuneWayErrorKind::error_with_code("AnnotationError"))
+                        .with_message(format!(
+                            "Annotation must be a type identifier. Got <{}> type",
+                            (&annotation.node).bright_yellow()
+                        ))
+                        .with_label("This is not a type", &annotation.span, filename),
+                )
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     //noinspection DuplicatedCode
-    fn evaluate(expr: SpannedExpr, env: EnvRef) -> RWResult<RNWObjectRef> {
+    fn evaluate(expr: SpannedExpr, env: EnvRef, filename: &String) -> RWResult<RNWObjectRef> {
         let result = match expr.node {
             Expr::Null => RNWNullType::new(),
             Expr::String(s) => RNWString::new(s),
             Expr::Integer(i) => RNWInteger::new(i),
+            Expr::UInteger(u) => RNWUnsignedInteger::new(u),
             Expr::Float(f) => RNWFloat::new(f),
             Expr::Boolean(b) => RNWBoolean::new(b),
             Expr::List(vec) => {
                 let mut list: Vec<RNWObjectRef> = Vec::new();
                 for item in vec.iter() {
-                    list.push(Self::evaluate(*item.clone(), Rc::clone(&env))?);
+                    list.push(Self::evaluate(*item.clone(), Rc::clone(&env), filename)?);
                 }
                 RNWList::new(&list)
             }
             Expr::Tuple(vec) => {
                 let mut list: Vec<RNWObjectRef> = Vec::new();
                 for item in vec.iter() {
-                    list.push(Self::evaluate(*item.clone(), Rc::clone(&env))?);
+                    list.push(Self::evaluate(*item.clone(), Rc::clone(&env), filename)?);
                 }
                 RNWTuple::new(&list)
             }
             Expr::Iterator { start, end, step } => {
-                let start: i64 = *(Self::evaluate(*start, Rc::clone(&env))?
-                    .borrow().value().downcast_ref::<i64>().unwrap());
-                let end: i64 = *(Self::evaluate(*end, Rc::clone(&env))?
-                    .borrow().value().downcast_ref::<i64>().unwrap());
-                let step: i64 = match step {
-                    Some(int) => *(Self::evaluate(*int, Rc::clone(&env))?.borrow()
-                        .value().downcast_ref::<i64>().unwrap()),
-                    None => 1
+                let start_obj = Self::evaluate(*start, Rc::clone(&env), filename)?;
+                let end_obj = Self::evaluate(*end, Rc::clone(&env), filename)?;
+                let step_obj = match step {
+                    Some(int) => Self::evaluate(*int, Rc::clone(&env), filename)?,
+                    None => RNWInteger::new(1),
                 };
-                RNWIterator::from_range(
-                    start, end, step
-                )
+
+                let start_is_float = {
+                    let start_borrow = start_obj.borrow();
+                    start_borrow.as_any().is::<RNWFloat>()
+                };
+                let end_is_float = {
+                    let end_borrow = end_obj.borrow();
+                    end_borrow.as_any().is::<RNWFloat>()
+                };
+                let step_is_float = {
+                    let step_borrow = step_obj.borrow();
+                    step_borrow.as_any().is::<RNWFloat>()
+                };
+
+                let cast_type_id = if start_is_float || end_is_float || step_is_float {
+                    RNWFloat::rnw_type_id()
+                } else {
+                    RNWInteger::rnw_type_id()
+                };
+
+                let casted_start_obj = cast_to(&start_obj, cast_type_id)?;
+                let casted_end_obj = cast_to(&end_obj, cast_type_id)?;
+                let casted_step_obj = cast_to(&step_obj, cast_type_id)?;
+
+                let start_borrow = casted_start_obj.borrow();
+                let end_borrow = casted_end_obj.borrow();
+                let step_borrow = casted_step_obj.borrow();
+
+                if start_is_float || end_is_float || step_is_float {
+                    let start = start_borrow.value().downcast_ref::<f64>().unwrap();
+                    let end = end_borrow.value().downcast_ref::<f64>().unwrap();
+                    let step = step_borrow.value().downcast_ref::<f64>().unwrap();
+
+                    RNWIterator::from_f64_range(*start, *end, *step)
+                } else {
+                    let start = start_borrow.value().downcast_ref::<i64>().unwrap();
+                    let end = end_borrow.value().downcast_ref::<i64>().unwrap();
+                    let step = step_borrow.value().downcast_ref::<i64>().unwrap();
+
+                    RNWIterator::from_i64_range(*start, *end, *step)
+                }
             }
-            Expr::Call { ref callee, ref arguments } => {
-                match &(*callee).node {
+            Expr::Call {
+                ref callee,
+                ref arguments,
+            } => {
+                let result = match &(*callee).node {
                     Expr::Variable(name) => {
                         let function = env.borrow().get_variable(&name);
                         match function {
                             Some(function) => {
                                 let mut args = Vec::with_capacity(arguments.len());
                                 for arg in arguments.iter().cloned() {
-                                    args.push(Self::evaluate(arg, Rc::clone(&env))?);
+                                    args.push(Self::evaluate(arg, Rc::clone(&env), filename)?);
                                 }
                                 match function.borrow().call(&args) {
-                                    Some(r) => r?,
-                                    None => return Err(
-                                        RuneWayError::new(RuneWayErrorKind::Runtime(Some("TypeError".to_string())))
-                                            .with_message(
-                                                format!(
-                                                    "<{}> object is not callable",
-                                                    function.borrow().type_name()
-                                                ))
-                                            .with_label("Not callable", &(*callee).span, None)
-                                    )
+                                    Some(r) => r,
+                                    None => {
+                                        return Err(RuneWayError::new(
+                                            RuneWayErrorKind::type_error(),
+                                        )
+                                        .with_message(format!(
+                                            "<{}> object is not callable",
+                                            function.borrow().type_name()
+                                        ))
+                                        .with_label("Not callable", &(*callee).span, filename));
+                                    }
                                 }
                             }
-                            None => return Err(
-                                RuneWayError::new(RuneWayErrorKind::Runtime(Some("NameError".to_string())))
+                            None => {
+                                return Err(RuneWayError::new(RuneWayErrorKind::name_error())
                                     .with_message(format!("Variable '{}' not defined", name))
-                                    .with_label("Not defined", &(*callee).span, None)
-                            )
+                                    .with_label("Not defined", &(*callee).span, filename));
+                            }
                         }
                     }
-                    Expr::GetAttr { object, field } => {
-                        let obj_val = Self::evaluate(*object.clone(), Rc::clone(&env))?;
+                    Expr::AttributeAccess { object, field } => {
+                        let obj_val = Self::evaluate(*object.clone(), Rc::clone(&env), filename)?;
                         let callable = {
                             let obj_borrow = obj_val.borrow();
 
-                            if let Some(callable) = obj_borrow.field(&field) {
+                            if let Some(callable) = obj_borrow.get_attr(&field) {
                                 callable.clone()
                             } else {
-                                return Err(
-                                    RuneWayError::new(RuneWayErrorKind::Runtime(Some("AttributeError".to_string())))
-                                        .with_message(format!(
-                                            "Method `{}` not found in type: {}",
-                                            (&field).fg(Color::BrightYellow),
-                                            obj_borrow.type_name().fg(Color::BrightYellow)
-                                        ))
-                                        .with_label("Not found attribute", &(*callee).span, None)
-                                );
+                                return Err(RuneWayError::new(RuneWayErrorKind::error_with_code(
+                                    "AttributeError",
+                                ))
+                                .with_message(format!(
+                                    "Method `{}` not found in type: {}",
+                                    (&field).bright_yellow(),
+                                    obj_borrow.type_name().bright_yellow()
+                                ))
+                                .with_label(
+                                    "Not found attribute",
+                                    &(*callee).span,
+                                    filename,
+                                ));
                             }
                         };
                         let mut args_eval = Vec::with_capacity(arguments.len());
                         for arg in arguments.iter().cloned() {
-                            let evaluated = Self::evaluate(arg, Rc::clone(&env))?;
+                            let evaluated = Self::evaluate(arg, Rc::clone(&env), filename)?;
                             args_eval.push(evaluated);
                         }
 
-                        let mut args = if RNWModule::is_type_equals(obj_val.clone()) {
-                            Vec::new()
+                        let mut args = if RNWMethod::is_type_equals(&callable) {
+                            let class: Option<UserDefinedClass> = {
+                                let borrow = obj_val.borrow();
+                                borrow.as_any().downcast_ref::<UserDefinedClass>().cloned()
+                            };
+                            if let Some(class) = class {
+                                if class.is_instance {
+                                    vec![Rc::clone(&obj_val)]
+                                } else {
+                                    vec![class.new_instance()]
+                                }
+                            } else {
+                                vec![Rc::clone(&obj_val)]
+                            }
                         } else {
-                            vec![Rc::clone(&obj_val)]
+                            Vec::new()
                         };
                         args.extend(args_eval);
 
                         match callable.borrow().call(args.as_slice()) {
-                            Some(r) => r?,
-                            None => return Err(
-                                RuneWayError::new(RuneWayErrorKind::Runtime(Some("TypeError".to_string())))
-                                    .with_message(
-                                        format!(
-                                            "<{}> object is not callable",
-                                            callable.borrow().type_name()
-                                        ))
-                            )
+                            Some(r) => r,
+                            None => {
+                                return Err(RuneWayError::new(RuneWayErrorKind::type_error())
+                                    .with_message(format!(
+                                        "<{}> object is not callable",
+                                        callable.borrow().type_name()
+                                    )));
+                            }
                         }
                     }
                     _ => panic!("Unexpected callee. Expr: {:?}", expr.clone()),
-                }
+                };
+                result.map_err(|e| e.with_secondary_label("In this call", &expr.span, filename))?
             }
-            Expr::Variable(name) => {
-                match env.borrow().get_variable(&name) {
-                    Some(var) => Rc::clone(&var),
-                    None => return Err(
-                        RuneWayError::new(RuneWayErrorKind::Runtime(Some("NameError".to_string())))
-                            .with_message(format!("Variable '{}' not defined", name))
-                            .with_label("Not defined variable", &expr.span, None)
-                    )
+            Expr::Variable(name) => match env.borrow().get_variable(&name) {
+                Some(var) => Rc::clone(&var),
+                None => {
+                    return Err(RuneWayError::new(RuneWayErrorKind::name_error())
+                        .with_message(format!("Variable '{}' not defined", name))
+                        .with_label("Not defined variable", &expr.span, filename));
                 }
-            }
-            Expr::BinaryOperation { left_operand, right_operand, operator } => {
-                let left = Self::evaluate(*left_operand.clone(), Rc::clone(&env))?;
-                let right = Self::evaluate(*right_operand.clone(), Rc::clone(&env))?;
+            },
+            Expr::BinaryOperation {
+                left_operand,
+                right_operand,
+                operator,
+            } => {
+                let left = Self::evaluate(*left_operand.clone(), Rc::clone(&env), filename)?;
+                let right = Self::evaluate(*right_operand.clone(), Rc::clone(&env), filename)?;
 
-                let result = left.borrow().binary_operation(right.clone(), operator.clone());
+                let result = left
+                    .borrow()
+                    .binary_operation(right.clone(), operator.clone());
 
                 match result {
                     Some(val) => val,
                     None => {
-                        return Err(
-                            RuneWayError::new(RuneWayErrorKind::Runtime(Some("OperationError".to_string())))
-                                .with_message(
-                                    format!(
-                                        "Not supported binary operation: `{} {} {}`",
-                                        left.borrow().type_name().fg(Color::BrightYellow),
-                                        operator.display().fg(Color::BrightRed),
-                                        right.borrow().type_name().fg(Color::BrightYellow)
-                                    )
-                                )
-                                .with_label("Not supported binary operation",
-                                            &expr.span, None)
-                        )
+                        return Err(RuneWayError::new(RuneWayErrorKind::error_with_code(
+                            "OperationError",
+                        ))
+                        .with_message(format!(
+                            "Not supported binary operation: `{} {} {}`",
+                            left.borrow().type_name().bright_yellow(),
+                            operator.display().bright_red(),
+                            right.borrow().type_name().bright_yellow()
+                        ))
+                        .with_label(
+                            "Not supported binary operation",
+                            &expr.span,
+                            filename,
+                        ));
                     }
                 }
             }
             Expr::UnaryOperation { operand, operator } => {
-                let operand = Self::evaluate(*operand, Rc::clone(&env))?;
+                let operand = Self::evaluate(*operand, Rc::clone(&env), filename)?;
 
                 let result = operand.borrow().unary_operation(operator.clone());
 
                 match result {
                     Some(val) => val,
-                    None => return Err(
-                        RuneWayError::new(RuneWayErrorKind::Runtime(Some("OperationError".to_string())))
-                            .with_message(
-                                format!(
-                                    "Not supported unary operation: `{}{}`",
-                                    operator.display().fg(Color::BrightRed),
-                                    operand.borrow().type_name().fg(Color::BrightYellow)
-                                )
-                            )
-                            .with_label("Not supported unary operation", &expr.span, None)
-                    )
+                    None => {
+                        return Err(RuneWayError::new(RuneWayErrorKind::error_with_code(
+                            "OperationError",
+                        ))
+                        .with_message(format!(
+                            "Not supported unary operation: `{}{}`",
+                            operator.display().bright_red(),
+                            operand.borrow().type_name().bright_yellow()
+                        ))
+                        .with_label(
+                            "Not supported unary operation",
+                            &expr.span,
+                            filename,
+                        ));
+                    }
                 }
             }
-            Expr::GetAttr { object, field } => {
-                let obj_val = Self::evaluate(*object, Rc::clone(&env))?;
+            Expr::AttributeAccess { object, field } => {
+                let obj_val = Self::evaluate(*object, Rc::clone(&env), filename)?;
                 let obj_borrow = obj_val.borrow();
 
-                match obj_borrow.field(&field) {
+                match obj_borrow.get_attr(&field) {
                     Some(val) => Rc::clone(&val),
-                    None => return Err(
-                        RuneWayError::new(RuneWayErrorKind::Runtime(Some("AttributeError".to_string())))
-                            .with_message(format!(
-                                "Field `{}` not found in type: {}",
-                                (&field).fg(Color::BrightYellow),
-                                obj_borrow.type_name().fg(Color::BrightYellow)
-                            ))
-                            .with_label("Not found attribute", &expr.span, None)
-                    )
+                    None => {
+                        return Err(RuneWayError::new(RuneWayErrorKind::error_with_code(
+                            "AttributeError",
+                        ))
+                        .with_message(format!(
+                            "Field `{}` not found in type: {}",
+                            (&field).bright_yellow(),
+                            obj_borrow.type_name().bright_yellow()
+                        ))
+                        .with_label(
+                            "Not found attribute",
+                            &expr.span,
+                            filename,
+                        ));
+                    }
                 }
             }
+            Expr::SetAttr { object, value } => match object.node {
+                Expr::AttributeAccess { object: obj, field } => {
+                    let obj_val = Self::evaluate(*obj, Rc::clone(&env), filename)?;
+                    let value_val = Self::evaluate(*value, Rc::clone(&env), filename)?;
+
+                    let mut obj_borrow = obj_val.borrow_mut();
+
+                    obj_borrow.set_attr(&field, value_val.clone())?;
+
+                    value_val
+                }
+                _ => unreachable!(),
+            },
             Expr::Slice { object, index } => {
-                let obj_val = Self::evaluate(*object, Rc::clone(&env))?;
-                let index_val = Self::evaluate(*index, Rc::clone(&env))?;
-                if let Some(callable) = obj_val.borrow().field("slice") {
-                    match callable.borrow().call(vec![Rc::clone(&obj_val), Rc::clone(&index_val)].as_slice()) {
+                let obj_val = Self::evaluate(*object, Rc::clone(&env), filename)?;
+                let index_val = Self::evaluate(*index, Rc::clone(&env), filename)?;
+                if let Some(callable) = obj_val.borrow().get_attr("slice") {
+                    match callable
+                        .borrow()
+                        .call(vec![Rc::clone(&obj_val), Rc::clone(&index_val)].as_slice())
+                    {
                         Some(r) => r?,
-                        None => return Err(
-                            RuneWayError::new(RuneWayErrorKind::Runtime(Some("TypeError".to_string())))
-                                .with_message(
-                                    format!(
-                                        "<{}> object is not callable",
-                                        callable.borrow().type_name()
-                                    ))
-                                .with_label("Not callable", &expr.span, None)
-                        )
+                        None => {
+                            return Err(RuneWayError::new(RuneWayErrorKind::type_error())
+                                .with_message(format!(
+                                    "<{}> object is not callable",
+                                    callable.borrow().type_name()
+                                ))
+                                .with_label("Not callable", &expr.span, filename));
+                        }
                     }
                 } else {
-                    return Err(
-                        RuneWayError::new(RuneWayErrorKind::Runtime(Some("AttributeError".to_string())))
-                            .with_message(format!(
-                                "Cannot use slice on type: {}. Required method `{}`",
-                                obj_val.borrow().type_name().fg(Color::BrightYellow),
-                                "slice".fg(Color::BrightYellow),
-                            ))
-                            .with_label("Not found attribute", &expr.span, None)
-                    );
+                    return Err(RuneWayError::new(RuneWayErrorKind::error_with_code(
+                        "AttributeError",
+                    ))
+                    .with_message(format!(
+                        "Cannot use slice on type: {}. Required method `{}`",
+                        obj_val.borrow().type_name().bright_yellow(),
+                        "slice".bright_yellow(),
+                    ))
+                    .with_label("Not found attribute", &expr.span, filename));
                 }
             }
             Expr::FString(f_string_items) => {
@@ -553,7 +1018,7 @@ impl ASTInterpreter {
                     match f_string_item {
                         FStringExpr::String(s) => string.push_str(s),
                         FStringExpr::Expr(expr) => {
-                            let value = Self::evaluate(expr.clone(), Rc::clone(&env))?;
+                            let value = Self::evaluate(expr.clone(), Rc::clone(&env), filename)?;
                             let borrowed = value.borrow();
 
                             if let Some(val) = borrowed.value().downcast_ref::<String>() {
@@ -563,20 +1028,18 @@ impl ASTInterpreter {
 
                             drop(borrowed);
 
-                            let val = cast_to::<RNWString>(&value)?;
+                            let val = cast_to(&value, RNWString::rnw_type_id())?;
 
                             let borrowed = val.borrow();
                             let Some(str_val) = borrowed.value().downcast_ref::<String>() else {
-                                return Err(
-                                    RuneWayError::new(RuneWayErrorKind::Runtime(Some("TypeError".to_string())))
-                                        .with_message(format!(
-                                            "Expected type <{}> from method `{}`. Got: <{}>",
-                                            RNWString::type_name().fg(Color::BrightYellow),
-                                            "to_string".fg(Color::BrightYellow),
-                                            borrowed.type_name().fg(Color::BrightYellow),
-                                        ))
-                                        .with_label("Wrong returns value", &expr.span, None)
-                                );
+                                return Err(RuneWayError::new(RuneWayErrorKind::type_error())
+                                    .with_message(format!(
+                                        "Expected type <{}> from method `{}`. Got: <{}>",
+                                        RNWString::type_name().bright_yellow(),
+                                        "to_string".bright_yellow(),
+                                        borrowed.type_name().bright_yellow(),
+                                    ))
+                                    .with_label("Wrong returns value", &expr.span, filename));
                             };
 
                             string.push_str(str_val);
@@ -588,19 +1051,24 @@ impl ASTInterpreter {
             Expr::Dict(vec) => {
                 let mut map = HashMap::new();
                 for (key, val) in vec.iter() {
-                    let key_value = Self::evaluate(*key.clone(), Rc::clone(&env))?;
-                    let val_value = Self::evaluate(*val.clone(), Rc::clone(&env))?;
+                    let key_value = Self::evaluate(*key.clone(), Rc::clone(&env), filename)?;
+                    let val_value = Self::evaluate(*val.clone(), Rc::clone(&env), filename)?;
                     map.insert(
-                        key_value.borrow().as_any().downcast_ref::<RNWString>().ok_or_else(
-                            || {
-                                RuneWayError::new(RuneWayErrorKind::Runtime(Some("TypeError".to_string())))
-                                    .with_message(format!(
+                        key_value
+                            .borrow()
+                            .as_any()
+                            .downcast_ref::<RNWString>()
+                            .ok_or_else(|| {
+                                RuneWayError::new(RuneWayErrorKind::type_error()).with_message(
+                                    format!(
                                         "Key value mast be a string. Not <{}>",
-                                        key_value.borrow().type_name().fg(Color::BrightYellow)
-                                    ))
-                            }
-                        )?.value.clone(),
-                        val_value
+                                        key_value.borrow().type_name().bright_yellow()
+                                    ),
+                                )
+                            })?
+                            .value
+                            .clone(),
+                        val_value,
                     );
                 }
                 RNWDict::new(map)
@@ -614,41 +1082,39 @@ impl ASTInterpreter {
         let function = root_env.borrow().get_variable(entry_function_name);
         match function {
             Some(function) => {
-                let result = match function.borrow().call(&[]) {
-                    Some(r) => r?,
-                    None => return Err(
-                        RuneWayError::new(RuneWayErrorKind::Runtime(Some("TypeError".to_string())))
-                            .with_message(
-                                format!(
+                let result =
+                    match function.borrow().call(&[]) {
+                        Some(r) => r?,
+                        None => {
+                            return Err(RuneWayError::new(RuneWayErrorKind::type_error())
+                                .with_message(format!(
                                     "Cannot use not callable <{}> object as entry",
                                     function.borrow().type_name()
-                                ))
-                    )
-                };
+                                )));
+                        }
+                    };
                 let code = if RNWNullType::is_type_equals(&result) {
                     0
                 } else {
                     match result.borrow().as_any().downcast_ref::<RNWInteger>() {
                         Some(val) => val.value,
-                        None => return Err(
-                            RuneWayError::new(RuneWayErrorKind::Runtime(Some("TypeError".to_string())))
+                        None => {
+                            return Err(RuneWayError::new(RuneWayErrorKind::type_error())
                                 .with_message(format!(
                                     "Entry `{}` exit code must be <{}> or <{}>. Got: <{}>",
                                     entry_function_name,
-                                    RNWInteger::type_name().fg(Color::BrightYellow),
-                                    RNWNullType::type_name().fg(Color::BrightYellow),
-                                    result.borrow().type_name().fg(Color::BrightYellow),
-                                ))
-                        )
+                                    RNWInteger::type_name().bright_yellow(),
+                                    RNWNullType::type_name().bright_yellow(),
+                                    result.borrow().type_name().bright_yellow(),
+                                )));
+                        }
                     }
                 };
                 println!("\n\nProcess finished with exit code {}", code);
                 Ok(())
             }
-            None => Err(
-                RuneWayError::new(RuneWayErrorKind::Runtime(Some("NameError".to_string())))
-                    .with_message(format!("Variable '{}' not found", entry_function_name))
-            )
+            None => Err(RuneWayError::new(RuneWayErrorKind::name_error())
+                .with_message(format!("Variable '{}' not found", entry_function_name))),
         }
     }
 }

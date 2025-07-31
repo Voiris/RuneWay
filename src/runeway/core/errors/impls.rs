@@ -1,24 +1,36 @@
+use crate::runeway::core::errors::{RuneWayError, RuneWayErrorKind};
 use std::error::Error;
 use std::num::{ParseFloatError, ParseIntError};
-use crate::runeway::core::errors::{RuneWayError, RuneWayErrorKind};
 
-impl From<Box<dyn Error>> for RuneWayError {
+impl From<Box<dyn Error>> for Box<RuneWayError> {
     fn from(e: Box<dyn Error>) -> Self {
-        RuneWayError::new(RuneWayErrorKind::Runtime(Some("JSONParsingError".to_string())))
+        RuneWayError::new(RuneWayErrorKind::error_with_code("JSONParsingError"))
             .with_message(format!("{}", e))
     }
 }
 
-impl From<ParseIntError> for RuneWayError {
-    fn from(e: ParseIntError) -> RuneWayError {
-        RuneWayError::new(RuneWayErrorKind::Runtime(Some("JSONParsingError".to_string())))
+impl From<ParseIntError> for Box<RuneWayError> {
+    fn from(e: ParseIntError) -> Self {
+        RuneWayError::new(RuneWayErrorKind::error_with_code("JSONParsingError"))
             .with_message(format!("{}", e))
     }
 }
 
-impl From<ParseFloatError> for RuneWayError {
-    fn from(e: ParseFloatError) -> RuneWayError {
-        RuneWayError::new(RuneWayErrorKind::Runtime(Some("JSONParsingError".to_string())))
+impl From<ParseFloatError> for Box<RuneWayError> {
+    fn from(e: ParseFloatError) -> Self {
+        RuneWayError::new(RuneWayErrorKind::error_with_code("JSONParsingError"))
             .with_message(format!("{}", e))
+    }
+}
+
+impl From<String> for Box<RuneWayError> {
+    fn from(message: String) -> Self {
+        RuneWayError::new(RuneWayErrorKind::runtime_error()).with_message(message)
+    }
+}
+
+impl From<(&'static str, String)> for Box<RuneWayError> {
+    fn from((kind, message): (&'static str, String)) -> Self {
+        RuneWayError::new(RuneWayErrorKind::error_with_code(kind)).with_message(message)
     }
 }

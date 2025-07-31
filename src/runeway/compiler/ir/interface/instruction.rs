@@ -1,5 +1,5 @@
-use std::fmt::Display;
 use crate::runeway::compiler::ir::interface::const_value::IRConstValue;
+use std::fmt::Display;
 
 pub enum IRInst {
     // General
@@ -57,7 +57,8 @@ pub enum IRInst {
 }
 
 impl IRInst {
-    pub fn to_u8(&self) -> u8 { // 0x00u8 -> 0xFFu8
+    pub fn to_u8(&self) -> u8 {
+        // 0x00u8 -> 0xFFu8
         match self {
             // Group 0x0: General
             IRInst::NoOp => 0x00,
@@ -66,17 +67,17 @@ impl IRInst {
             IRInst::Halt => 0x03,
 
             // Group 0x1: Literals and Constants
-            IRInst::PushInt( .. ) => 0x10,
-            IRInst::PushFloat( .. ) => 0x11,
+            IRInst::PushInt(..) => 0x10,
+            IRInst::PushFloat(..) => 0x11,
             IRInst::PushTrue => 0x12,
             IRInst::PushFalse => 0x13,
             IRInst::PushNull => 0x14,
-            IRInst::LoadConst( .. ) => 0x15,
+            IRInst::LoadConst(..) => 0x15,
 
             // Group 0x2: Variables
-            IRInst::DefineFast( .. ) => 0x20,
-            IRInst::StoreFast( .. ) => 0x21,
-            IRInst::LoadFast( .. ) => 0x22,
+            IRInst::DefineFast(..) => 0x20,
+            IRInst::StoreFast(..) => 0x21,
+            IRInst::LoadFast(..) => 0x22,
 
             // Group 0x3: Unary ops
             IRInst::Neg => 0x30,
@@ -99,18 +100,18 @@ impl IRInst {
             IRInst::GtEq => 0x55,
 
             // Group 0x6: Functions
-            IRInst::Call( .. ) => 0x60,
+            IRInst::Call(..) => 0x60,
             IRInst::Return => 0x61,
 
             // Group 0x7: Flow control
-            IRInst::Jump( .. ) => 0x70,
-            IRInst::JumpIfTrue( .. ) => 0x71,
-            IRInst::JumpIfFalse( .. ) => 0x72,
+            IRInst::Jump(..) => 0x70,
+            IRInst::JumpIfTrue(..) => 0x71,
+            IRInst::JumpIfFalse(..) => 0x72,
 
             // Group 0x8: Complex building
-            IRInst::BuiltList( .. ) => 0x80,
-            IRInst::BuiltTuple( .. ) => 0x81,
-            IRInst::BuiltDict( .. ) => 0x82,
+            IRInst::BuiltList(..) => 0x80,
+            IRInst::BuiltTuple(..) => 0x81,
+            IRInst::BuiltDict(..) => 0x82,
         }
     }
 }

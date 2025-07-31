@@ -1,10 +1,11 @@
+use crate::assign_rnw_type_id;
+use crate::runeway::builtins::types::RNWString;
+use crate::runeway::runtime::environment::EnvRef;
+use crate::runeway::runtime::types::{register_cast, RNWObject, RNWObjectRef, RNWType, RNWTypeId};
 use std::any::Any;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
-use crate::runeway::builtins::types::{RNWInteger, RNWString};
-use crate::runeway::runtime::environment::EnvRef;
-use crate::runeway::runtime::types::{register_cast, RNWObject, RNWObjectRef, RNWRegisteredNativeFunction, RNWType};
 
 #[derive(Clone)]
 pub struct RNWModule {
@@ -30,12 +31,17 @@ impl RNWModule {
         "module"
     }
 
-    pub fn is_type_equals(other: RNWObjectRef) -> bool {
-        std::any::TypeId::of::<Self>() == other.borrow().as_any().type_id()
+    pub fn is_type_equals(other: &RNWObjectRef) -> bool {
+        Self::rnw_type_id() == other.borrow().rnw_type_id()
     }
+
+    assign_rnw_type_id!();
 }
 
 impl RNWObject for RNWModule {
+    fn rnw_type_id(&self) -> RNWTypeId {
+        Self::rnw_type_id()
+    }
     fn type_name(&self) -> &'static str {
         Self::type_name()
     }
@@ -43,20 +49,25 @@ impl RNWObject for RNWModule {
     fn display(&self) -> String {
         format!("<MODULE::{}>", self.path)
     }
-    fn value(&self) -> &dyn Any { self }
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn as_object(&self) -> &dyn RNWObject { self }
+    fn value(&self) -> &dyn Any {
+        self
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 
-    fn field(&self, name: &str) -> Option<RNWObjectRef> {
+    fn get_attr(&self, name: &str) -> Option<RNWObjectRef> {
         self.env.borrow().get_variable(name)
     }
 }
 
 pub fn register() -> Rc<RefCell<RNWType>> {
-    register_cast::<RNWModule, RNWString>(|obj| {
+    register_cast(RNWModule::rnw_type_id(), RNWString::rnw_type_id(), |obj| {
         Ok(RNWString::new(obj.display()))
     });
 
-    RNWType::new::<RNWModule>(RNWModule::type_name())
+    RNWType::new(RNWModule::rnw_type_id(), RNWModule::type_name())
 }

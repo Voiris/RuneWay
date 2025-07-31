@@ -1,16 +1,33 @@
-use std::any::{Any, TypeId};
+use crate::assign_rnw_type_id;
+use crate::runeway::builtins::types::{RNWBoolean, RNWFloat, RNWInteger, RNWNullType};
+use crate::runeway::core::errors::RWResult;
+use crate::runeway::runtime::types::{
+    RNWMethod, RNWObject, RNWObjectRef, RNWRegisteredNativeMethod, RNWType, RNWTypeId,
+};
+use once_cell::unsync::Lazy;
+use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use once_cell::unsync::Lazy;
-use crate::runeway::builtins::types::{RNWBoolean, RNWDict, RNWFloat, RNWInteger, RNWNullType, RNWString};
-use crate::runeway::core::errors::RWResult;
-use crate::runeway::runtime::types::{register_cast, RNWMethod, RNWObject, RNWObjectRef, RNWRegisteredNativeMethod, RNWType};
 
 #[derive(Debug, Clone)]
 enum RNWIteratorKind {
-    Range { current: i64, start: i64, end: i64, step: i64 },
-    List { items: Vec<RNWObjectRef>, index: usize },
+    Range {
+        current: i64,
+        start: i64,
+        end: i64,
+        step: i64,
+    },
+    FloatRange {
+        current: f64,
+        start: f64,
+        end: f64,
+        step: f64,
+    },
+    List {
+        items: Vec<RNWObjectRef>,
+        index: usize,
+    },
 }
 
 impl RNWIteratorKind {
@@ -19,27 +36,42 @@ impl RNWIteratorKind {
             RNWIteratorKind::Range { current, start, .. } => {
                 *current = *start;
             }
+            RNWIteratorKind::FloatRange { current, start, .. } => {
+                *current = *start;
+            }
             RNWIteratorKind::List { items: _, index } => {
                 *index = 0;
             }
         }
     }
 
-    pub fn next(&mut self) -> RNWObjectRef {
+    pub fn inner_next(&mut self) -> Option<RNWObjectRef> {
         match self {
-            RNWIteratorKind::Range { current, end, step, .. } => {
-                *current += *step;
-                if (*step > 0 && *current >= *end) || (*step < 0 && current <= end) {
-                    RNWNullType::new()
+            RNWIteratorKind::Range {
+                current, end, step, ..
+            } => {
+                let result = if (*step > 0 && *current >= *end) || (*step < 0 && current <= end) {
+                    None
                 } else {
-                    RNWInteger::new(*current)
-                }
+                    Some(RNWInteger::new(*current))
+                };
+                *current += *step;
+                result
+            }
+            RNWIteratorKind::FloatRange {
+                current, end, step, ..
+            } => {
+                let result = if (*step > 0.0 && *current >= *end) || (*step < 0.0 && current <= end)
+                {
+                    None
+                } else {
+                    Some(RNWFloat::new(*current))
+                };
+                *current += *step;
+                result
             }
             RNWIteratorKind::List { items, index } => {
-                let result = match items.get(*index) {
-                    Some(item) => item.clone(),
-                    None => RNWNullType::new()
-                };
+                let result = items.get(*index).cloned();
                 *index += 1;
                 result
             }
@@ -48,24 +80,36 @@ impl RNWIteratorKind {
 
     pub fn is_infinite(&self) -> bool {
         match self {
-            RNWIteratorKind::Range { step, .. } => {
-                *step == 0
-            }
-            RNWIteratorKind::List { .. } => false
+            RNWIteratorKind::Range { step, .. } => *step == 0,
+            RNWIteratorKind::FloatRange { step, .. } => *step == 0.0,
+            RNWIteratorKind::List { .. } => false,
         }
     }
 
     pub fn display(&self) -> String {
         match self {
-            RNWIteratorKind::Range { current, start, end, step } => {
+            RNWIteratorKind::Range {
+                current,
+                start,
+                end,
+                step,
+            } => {
                 format!(
                     "<range iterator {}..{}::{} at {}",
-                    start,
-                    end,
-                    step,
-                    current
+                    start, end, step, current
                 )
-            },
+            }
+            RNWIteratorKind::FloatRange {
+                current,
+                start,
+                end,
+                step,
+            } => {
+                format!(
+                    "<range iterator {}..{}::{} at {}",
+                    start, end, step, current
+                )
+            }
             &RNWIteratorKind::List { index, .. } => format!("<list iterator at {}>", index),
         }
     }
@@ -77,33 +121,44 @@ pub struct RNWIterator {
 }
 
 impl RNWIterator {
-    pub fn from_range(start: i64, end: i64, step: i64) -> RNWObjectRef {
+    pub fn from_i64_range(start: i64, end: i64, step: i64) -> RNWObjectRef {
         Rc::new(RefCell::new(Self {
             kind: RNWIteratorKind::Range {
-                current: 0,
+                current: start,
                 start,
                 end,
                 step,
-            }
+            },
+        }))
+    }
+
+    pub fn from_f64_range(start: f64, end: f64, step: f64) -> RNWObjectRef {
+        Rc::new(RefCell::new(Self {
+            kind: RNWIteratorKind::FloatRange {
+                current: start,
+                start,
+                end,
+                step,
+            },
         }))
     }
 
     pub fn from_list(items: Vec<RNWObjectRef>) -> RNWObjectRef {
         Rc::new(RefCell::new(Self {
-            kind: RNWIteratorKind::List {
-                items,
-                index: 0,
-            }
+            kind: RNWIteratorKind::List { items, index: 0 },
         }))
     }
 
-    pub fn type_name() -> &'static str { "iterator" }
-    pub fn is_type_equals(other: RNWObjectRef) -> bool {
-        other.borrow().type_name() == Self::type_name()
+    pub fn type_name() -> &'static str {
+        "iterator"
+    }
+
+    pub fn is_type_equals(other: &RNWObjectRef) -> bool {
+        Self::rnw_type_id() == other.borrow().rnw_type_id()
     }
 
     pub fn next(&mut self) -> RNWObjectRef {
-        self.kind.next()
+        self.kind.inner_next().unwrap_or_else(|| RNWNullType::new())
     }
 
     pub fn reset(&mut self) {
@@ -112,6 +167,16 @@ impl RNWIterator {
 
     pub fn is_infinite(&self) -> bool {
         self.kind.is_infinite()
+    }
+
+    assign_rnw_type_id!();
+}
+
+impl Iterator for RNWIterator {
+    type Item = RNWObjectRef;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.kind.inner_next()
     }
 }
 
@@ -147,17 +212,17 @@ thread_local! {
         map.insert("next", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "iterator.next".to_string(),
             Rc::new(native_iterator_next),
-            vec![TypeId::of::<RNWIterator>()]
+            vec![RNWIterator::rnw_type_id()]
         )));
         map.insert("reset", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "iterator.reset".to_string(),
             Rc::new(native_iterator_reset),
-            vec![TypeId::of::<RNWIterator>()]
+            vec![RNWIterator::rnw_type_id()]
         )));
         map.insert("is_infinite", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "iterator.is_infinite".to_string(),
             Rc::new(native_iterator_is_infinite),
-            vec![TypeId::of::<RNWIterator>()]
+            vec![RNWIterator::rnw_type_id()]
         )));
 
         RefCell::new(map)
@@ -165,23 +230,31 @@ thread_local! {
 }
 
 impl RNWObject for RNWIterator {
-    fn type_name(&self) -> &'static str { Self::type_name() }
+    fn rnw_type_id(&self) -> RNWTypeId {
+        Self::rnw_type_id()
+    }
+    fn type_name(&self) -> &'static str {
+        Self::type_name()
+    }
     fn display(&self) -> String {
         self.kind.display()
     }
-    fn value(&self) -> &dyn Any { self }
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn as_object(&self) -> &dyn RNWObject { self }
+    fn value(&self) -> &dyn Any {
+        self
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 
     //noinspection DuplicatedCode
-    fn field(&self, name: &str) -> Option<RNWObjectRef> {
-        ITERATOR_NATIVE_FIELDS.with(|iter| {
-            iter.borrow().get(name).cloned()
-        })
+    fn get_attr(&self, name: &str) -> Option<RNWObjectRef> {
+        ITERATOR_NATIVE_FIELDS.with(|iter| iter.borrow().get(name).cloned())
     }
 }
 
 pub(super) fn register() -> Rc<RefCell<RNWType>> {
-    RNWType::new::<RNWIterator>(RNWIterator::type_name())
+    RNWType::new(RNWIterator::rnw_type_id(), RNWIterator::type_name())
 }

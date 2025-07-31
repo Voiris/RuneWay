@@ -1,7 +1,7 @@
+use crate::runeway::runtime::environment::EnvRef;
+use once_cell::unsync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use once_cell::unsync::Lazy;
-use crate::runeway::runtime::environment::EnvRef;
 
 thread_local! {
     static LOADED_LIBS: Lazy<RefCell<HashMap<String, EnvRef>>> = Lazy::new(|| {
@@ -10,9 +10,7 @@ thread_local! {
 }
 
 pub fn register_loaded(path: &String, lib: EnvRef) {
-    LOADED_LIBS.with(
-        |t| t.borrow_mut().insert(path.clone(), lib.clone()),
-    );
+    LOADED_LIBS.with(|t| t.borrow_mut().insert(path.clone(), lib.clone()));
 }
 
 pub fn get_loaded(path: &String) -> Option<EnvRef> {

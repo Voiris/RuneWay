@@ -1,11 +1,15 @@
-use std::any::{Any, TypeId};
+use super::{RNWBoolean, RNWInteger, RNWIterator, RNWNullType, RNWString, RNWTuple};
+use crate::assign_rnw_type_id;
+use crate::runeway::core::errors::RWResult;
+use crate::runeway::runtime::types::{
+    partial_cmp, register_cast, RNWMethod, RNWObject, RNWObjectRef, RNWRegisteredNativeMethod, RNWType,
+    RNWTypeId,
+};
+use once_cell::sync::Lazy;
+use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use once_cell::sync::Lazy;
-use crate::runeway::core::errors::{RWResult, RuneWayError};
-use super::{RNWBoolean, RNWDict, RNWFloat, RNWInteger, RNWIterator, RNWNullType, RNWString, RNWTuple};
-use crate::runeway::runtime::types::{RNWRegisteredNativeMethod, RNWObject, RNWObjectRef, RNWMethod, register_cast, RNWType};
 
 #[derive(Debug, Clone)]
 pub struct RNWList {
@@ -23,6 +27,16 @@ fn native_list_reverse(this: RNWObjectRef, _: &[RNWObjectRef]) -> RWResult<RNWOb
     let mut binding = this.borrow_mut();
     let value = binding.as_any_mut().downcast_mut::<RNWList>().unwrap();
     value.value.reverse();
+    Ok(RNWNullType::new())
+}
+
+fn native_list_sort(this: RNWObjectRef, _: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
+    let mut binding = this.borrow_mut();
+    let value = binding.as_any_mut().downcast_mut::<RNWList>().unwrap();
+    value.value.sort_by(|a, b| {
+        let a = partial_cmp(a, b).unwrap_or(std::cmp::Ordering::Equal);
+        a
+    });
     Ok(RNWNullType::new())
 }
 
@@ -65,32 +79,37 @@ thread_local! {
         map.insert("append", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "list.append".to_string(),
             Rc::new(native_list_append),
-            vec![TypeId::of::<RNWList>(), TypeId::of::<dyn RNWObject>()],
+            vec![RNWList::rnw_type_id(), 0],
         )));
         map.insert("reverse", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "list.reverse".to_string(),
             Rc::new(native_list_reverse),
-            vec![TypeId::of::<RNWList>()]
+            vec![RNWList::rnw_type_id()]
+        )));
+        map.insert("sort", RNWMethod::new(RNWRegisteredNativeMethod::new(
+            "list.sort".to_string(),
+            Rc::new(native_list_sort),
+            vec![RNWList::rnw_type_id()]
         )));
         map.insert("is_empty", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "list.is_empty".to_string(),
             Rc::new(native_list_is_empty),
-            vec![TypeId::of::<RNWList>()]
+            vec![RNWList::rnw_type_id()]
         )));
         map.insert("len", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "list.len".to_string(),
             Rc::new(native_list_len),
-            vec![TypeId::of::<RNWList>()]
+            vec![RNWList::rnw_type_id()]
         )));
         map.insert("slice", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "list.slice".to_string(),
             Rc::new(native_list_slice),
-            vec![TypeId::of::<RNWList>(), TypeId::of::<RNWInteger>()]
+            vec![RNWList::rnw_type_id(), RNWInteger::rnw_type_id()]
         )));
         map.insert("iter", RNWMethod::new(RNWRegisteredNativeMethod::new(
             "list.iter".to_string(),
             Rc::new(native_list_iter),
-            vec![TypeId::of::<RNWList>()]
+            vec![RNWList::rnw_type_id()]
         )));
 
         RefCell::new(map)
@@ -99,23 +118,37 @@ thread_local! {
 
 impl RNWList {
     pub fn new(value: &Vec<RNWObjectRef>) -> RNWObjectRef {
-        Rc::new(RefCell::new(Self { value: value.clone() }))
+        Rc::new(RefCell::new(Self {
+            value: value.clone(),
+        }))
     }
 
-    pub fn type_name() -> &'static str { "list" }
-
-    pub fn is_type_equals(other: RNWObjectRef) -> bool {
-        TypeId::of::<Self>() == other.borrow().as_any().type_id()
+    pub fn type_name() -> &'static str {
+        "list"
     }
+
+    pub fn is_type_equals(other: &RNWObjectRef) -> bool {
+        Self::rnw_type_id() == other.borrow().rnw_type_id()
+    }
+
+    assign_rnw_type_id!();
 }
 
 impl RNWObject for RNWList {
-    fn type_name(&self) -> &'static str { Self::type_name() }
+    fn rnw_type_id(&self) -> RNWTypeId {
+        Self::rnw_type_id()
+    }
+    fn type_name(&self) -> &'static str {
+        Self::type_name()
+    }
     fn display(&self) -> String {
-        format!("[{}]",
-                self.value.iter()
-                    .map(|x| x.borrow().display())
-                    .collect::<Vec<String>>().join(", ")
+        format!(
+            "[{}]",
+            self.value
+                .iter()
+                .map(|x| x.borrow().display())
+                .collect::<Vec<String>>()
+                .join(", ")
         )
     }
     fn value(&self) -> &dyn Any {
@@ -127,27 +160,41 @@ impl RNWObject for RNWList {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-    fn as_object(&self) -> &dyn RNWObject {
-        self
-    }
 
-    fn field(&self, name: &str) -> Option<RNWObjectRef> {
-        LIST_NATIVE_FIELDS.with(
-            |methods| methods.borrow().get(name).cloned()
-        )
+    fn get_attr(&self, name: &str) -> Option<RNWObjectRef> {
+        LIST_NATIVE_FIELDS.with(|methods| methods.borrow().get(name).cloned())
     }
 }
 
 pub(super) fn register() -> Rc<RefCell<RNWType>> {
-    register_cast::<RNWList, RNWString>(|obj| {
+    register_cast(RNWList::rnw_type_id(), RNWString::rnw_type_id(), |obj| {
         Ok(RNWString::new(obj.display()))
     });
-    register_cast::<RNWList, RNWTuple>(|obj| {
-        Ok(RNWTuple::new(&obj.value().downcast_ref::<Vec<RNWObjectRef>>().unwrap().clone()))
+    register_cast(RNWList::rnw_type_id(), RNWTuple::rnw_type_id(), |obj| {
+        Ok(RNWTuple::new(
+            &obj.value()
+                .downcast_ref::<Vec<RNWObjectRef>>()
+                .unwrap()
+                .clone(),
+        ))
     });
-    register_cast::<RNWList, RNWBoolean>(|obj| {
-        Ok(RNWBoolean::new(!obj.as_any().downcast_ref::<RNWList>().unwrap().value.is_empty()))
+    register_cast(RNWList::rnw_type_id(), RNWBoolean::rnw_type_id(), |obj| {
+        Ok(RNWBoolean::new(
+            !obj.as_any()
+                .downcast_ref::<RNWList>()
+                .unwrap()
+                .value
+                .is_empty(),
+        ))
+    });
+    register_cast(RNWList::rnw_type_id(), RNWIterator::rnw_type_id(), |obj| {
+        Ok(RNWIterator::from_list(
+            obj.value()
+                .downcast_ref::<Vec<RNWObjectRef>>()
+                .unwrap()
+                .clone(),
+        ))
     });
 
-    RNWType::new::<RNWList>(RNWList::type_name())
+    RNWType::new(RNWList::rnw_type_id(), RNWList::type_name())
 }

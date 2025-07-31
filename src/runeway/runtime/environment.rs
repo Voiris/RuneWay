@@ -1,14 +1,16 @@
+use crate::runeway::core::errors::{RWResult, RuneWayError, RuneWayErrorKind};
+use crate::runeway::core::utils::assert::assert_incorrect_type;
+use crate::runeway::runtime::types::{
+    RNWFunction, RNWObjectRef, RNWRegisteredNativeFunction, RNWTypeId,
+};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 use std::rc::Rc;
-use crate::runeway::core::errors::{RWResult, RuneWayError, RuneWayErrorKind};
-use crate::runeway::runtime::types::{RNWFunction, RNWMethod, RNWObjectRef, RNWRegisteredNativeFunction, RNWRegisteredNativeMethod};
 
 #[derive(Clone, Debug)]
 pub struct Environment {
     parent: Option<EnvRef>,
-    variables: HashMap<String, RNWObjectRef>,
+    variables: HashMap<String, EnvField>,
 }
 
 impl Environment {
@@ -30,43 +32,71 @@ impl Environment {
     }
 
     /// Определяем новую переменную в текущем окружении (локально)
-    pub fn define_variable(&mut self, name: String, value: RNWObjectRef) -> () {
-        self.variables.insert(name, value);
+    pub fn define_variable(&mut self, name: String, value: RNWObjectRef) {
+        self.variables.insert(name, EnvField::new(value.clone()));
     }
 
     /// Определяем новую функцию в текущем окружении (локально)
-    pub fn define_function(&mut self, function: Rc<RNWRegisteredNativeFunction>) -> () {
-        self.variables.insert(function.name.clone(), RNWFunction::new(function.clone()));
+    pub fn define_function(&mut self, function: Rc<RNWRegisteredNativeFunction>) {
+        self.variables.insert(
+            function.name.clone(),
+            EnvField::new_with_type(
+                RNWFunction::new(function.clone()),
+                Some(RNWFunction::rnw_type_id()),
+            ),
+        );
     }
 
-    /// Определяем новую функцию в текущем окружении (локально)
-    pub fn define_method(&mut self, method: Rc<RNWRegisteredNativeMethod>) -> () {
-        self.variables.insert(method.name.clone(), RNWMethod::new(method.clone()));
+    pub fn define_uninitiated_variable(&mut self, name: String, static_type: Option<RNWTypeId>) {
+        self.variables
+            .insert(name, EnvField::new_uninitiated(static_type));
     }
 
     /// Получаем ссылку на переменную, если она есть в текущем или родительских окружениях
-    pub fn get_variable(&self, name: &str) -> Option<RNWObjectRef> {
-        if let Some(val) = self.variables.get(name) {
-            Some(Rc::clone(val))
+    pub fn get_variable(&self, name: impl AsRef<str>) -> Option<RNWObjectRef> {
+        if let Some(field) = self.variables.get(name.as_ref()) {
+            field.value.clone()
         } else if let Some(parent_env) = &self.parent {
-            parent_env.borrow().get_variable(name)
+            parent_env.borrow().get_variable(name.as_ref())
         } else {
             None
         }
     }
 
+    fn assign_variable_value(
+        &mut self,
+        name: impl ToString,
+        value: &RNWObjectRef,
+    ) -> RWResult<bool> {
+        let name = name.to_string();
+        if let Some(field) = self.variables.get(&name).cloned() {
+            if let Some(static_type_id) = field.static_type {
+                let borrow = value.borrow();
+                assert_incorrect_type(static_type_id, borrow.rnw_type_id())?;
+            }
+            self.variables.insert(
+                name,
+                EnvField::new_with_type(value.clone(), field.static_type),
+            );
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
     /// Обновляем значение переменной, ищем где она объявлена (текущий или родительские уровни)
-    pub fn assign_variable(&mut self, name: &str, value: RNWObjectRef) -> RWResult<()> {
-        if self.variables.contains_key(name) {
-            self.variables.insert(name.to_string(), value);
+    pub fn assign_variable(
+        &mut self,
+        name: impl ToString + std::fmt::Display,
+        value: RNWObjectRef,
+    ) -> RWResult<()> {
+        if self.assign_variable_value(&name, &value)? {
             Ok(())
         } else if let Some(parent) = &self.parent {
             parent.borrow_mut().assign_variable(name, value)
         } else {
-            Err(
-                RuneWayError::new(RuneWayErrorKind::Runtime(Some("NameError".to_string())))
-                    .with_message(format!("Variable '{}' not defined", name))
-            )
+            Err(RuneWayError::new(RuneWayErrorKind::name_error())
+                .with_message(format!("Variable '{}' not defined", name)))
         }
     }
 
@@ -97,14 +127,60 @@ impl Environment {
         vars
     }
 
-    pub fn find_similar_strings(&self, string: impl AsRef<str>, threshold: usize) -> Vec<String> {
+    pub fn find_similar_strings(&self, string: impl AsRef<str>) -> Vec<String> {
         let library_names: HashSet<String> = self.collect_all_names();
 
-        library_names.iter().cloned()
-            .filter(
-                |name| strsim::levenshtein(name, string.as_ref()) <= threshold
-            )
-            .collect()
+        let mut vec: Vec<(_, _)> = library_names
+            .iter()
+            .map(|name| (name, strsim::levenshtein(name, string.as_ref())))
+            .filter(|(_, dist)| *dist <= 4) // dist <= threshold
+            .collect::<Vec<_>>();
+        vec.sort_by_key(|(_, dist)| *dist);
+
+        vec.into_iter().map(|(name, _)| name.clone()).collect()
+    }
+
+    pub fn get_as_hash_map(&self) -> HashMap<String, RNWObjectRef> {
+        let mut hash_map: HashMap<String, RNWObjectRef> = HashMap::new();
+
+        for (name, field) in self.variables.iter() {
+            if field.value.is_some() {
+                hash_map.insert(name.clone(), field.value.clone().unwrap());
+            }
+        }
+
+        hash_map
+    }
+}
+
+#[derive(Clone, Debug)]
+struct EnvField {
+    value: Option<RNWObjectRef>,
+    static_type: Option<RNWTypeId>,
+}
+
+impl EnvField {
+    pub fn new(value: RNWObjectRef) -> Self {
+        let borrow = value.borrow();
+
+        Self {
+            value: Some(value.clone()),
+            static_type: Some(borrow.rnw_type_id()),
+        }
+    }
+
+    pub fn new_with_type(value: RNWObjectRef, static_type: Option<RNWTypeId>) -> Self {
+        Self {
+            value: Some(value),
+            static_type,
+        }
+    }
+
+    pub fn new_uninitiated(static_type: Option<RNWTypeId>) -> Self {
+        Self {
+            value: None,
+            static_type,
+        }
     }
 }
 

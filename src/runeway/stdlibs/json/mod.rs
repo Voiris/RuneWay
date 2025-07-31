@@ -1,10 +1,12 @@
-mod general;
 mod errors;
+mod general;
 
 use crate::runeway::builtins::types::RNWString;
 use crate::runeway::runtime::environment::{EnvRef, Environment};
 use crate::runeway::runtime::libraries::register_stdlib;
-use crate::runeway::stdlibs::json::general::{register_native_json_dump, register_native_json_load};
+use crate::runeway::stdlibs::json::general::{
+    register_native_json_dump, register_native_json_load,
+};
 
 fn load() -> EnvRef {
     let env = Environment::new_global();

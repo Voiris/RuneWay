@@ -1,9 +1,10 @@
-use std::any::TypeId;
-use std::rc::Rc;
 use crate::runeway::builtins::types::RNWString;
 use crate::runeway::core::errors::RWResult;
-use crate::runeway::runtime::types::{RNWFunction, RNWObject, RNWObjectRef, RNWRegisteredNativeFunction};
-use crate::runeway::utils::serde::serde_serialize;
+use crate::runeway::core::utils::serde::serde_serialize;
+use crate::runeway::runtime::types::{
+    RNWFunction, RNWObject, RNWObjectRef, RNWRegisteredNativeFunction,
+};
+use std::rc::Rc;
 
 pub fn native_http_get(args: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
     let borrow = args[0].borrow();
@@ -33,7 +34,7 @@ pub(super) fn register_native_http_get() -> RNWObjectRef {
     RNWFunction::new(RNWRegisteredNativeFunction::new(
         "http.get".to_owned(),
         Rc::new(native_http_get),
-        vec![TypeId::of::<RNWString>()],
+        vec![RNWString::rnw_type_id()],
     ))
 }
 
@@ -41,6 +42,6 @@ pub(super) fn register_native_http_post() -> RNWObjectRef {
     RNWFunction::new(RNWRegisteredNativeFunction::new(
         "http.post".to_owned(),
         Rc::new(native_http_post),
-        vec![TypeId::of::<RNWString>(), TypeId::of::<dyn RNWObject>()],
+        vec![RNWString::rnw_type_id(), 0],
     ))
 }

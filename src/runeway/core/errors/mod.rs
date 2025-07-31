@@ -1,149 +1,228 @@
-mod color_generator;
 mod impls;
 
-use std::error::Error;
+use codespan_reporting::files::Files;
+use codespan_reporting::{
+    diagnostic::{Diagnostic, Label, LabelStyle, Severity},
+    files::SimpleFiles,
+    term::{
+        self,
+        termcolor::{ColorChoice, StandardStream},
+    },
+};
+use colored::*;
 use std::fmt;
 use std::ops::Range;
-use ariadne::{Color, Label, Report, ReportKind, Source};
 
 #[derive(Debug, Clone)]
 pub struct RuneWayError {
-    pub message: Option<String>,
-    pub labels: Vec<RuneWayErrorLabel>,
-    pub additions: Vec<RuneWayAddition>,
-    pub kind: RuneWayErrorKind,
-    pub filename: Option<String>,
-    pub code: Option<String>,
+    message: Option<String>,
+    labels: Vec<RuneWayErrorLabel>,
+    additions: Vec<RuneWayAddition>,
+    kind: RuneWayErrorKind,
+    sources: Option<Vec<(String, String)>>,
 }
 
 impl RuneWayError {
-    pub fn new(
-        kind: RuneWayErrorKind
-    ) -> Self {
-        Self {
+    pub fn new(kind: RuneWayErrorKind) -> Box<Self> {
+        Box::new(Self {
             kind,
             labels: Vec::new(),
             additions: Vec::new(),
             message: None,
-            filename: None,
-            code: None,
-        }
+            sources: None,
+        })
     }
 
-    pub fn with_message<M: Into<String>>(mut self, message: M) -> Self {
+    pub fn with_message<M: Into<String>>(mut self, message: M) -> Box<Self> {
         self.message = Some(message.into());
-
-        self
+        Box::new(self)
     }
 
-    pub fn with_label<L: Into<String>>(mut self, label: L, span: &Range<usize>, color: Option<Color>) -> Self {
+    pub fn with_label<L: Into<String>>(
+        mut self,
+        label: L,
+        span: &Range<usize>,
+        source_id: &String,
+    ) -> Box<Self> {
+        self.inner_with_label(label, span, source_id, LabelStyle::Primary)
+    }
+
+    pub fn with_secondary_label<L: Into<String>>(
+        mut self,
+        label: L,
+        span: &Range<usize>,
+        source_id: &String,
+    ) -> Box<Self> {
+        self.inner_with_label(label, span, source_id, LabelStyle::Secondary)
+    }
+
+    fn inner_with_label<L: Into<String>>(
+        mut self,
+        label: L,
+        span: &Range<usize>,
+        source_id: &String,
+        label_style: LabelStyle,
+    ) -> Box<Self> {
         self.labels.push(RuneWayErrorLabel {
             span: span.clone(),
             label: label.into(),
-            color
+            source_id: source_id.clone(),
+            label_style,
         });
-
-        self
+        Box::new(self)
     }
 
-    pub fn with_help<L: Into<String>>(mut self, help: L) -> Self {
+    pub fn with_help<L: Into<String>>(mut self, help: L) -> Box<Self> {
         self.additions.push(RuneWayAddition::Help(help.into()));
-
-        self
+        Box::new(self)
     }
 
-    pub fn with_note<L: Into<String>>(mut self, note: L) -> Self {
+    pub fn with_note<L: Into<String>>(mut self, note: L) -> Box<Self> {
         self.additions.push(RuneWayAddition::Note(note.into()));
-
-        self
+        Box::new(self)
     }
 
-    pub fn with_code_base(mut self, filename: impl ToString, code: impl ToString) -> Self {
-        if self.filename.is_none() || self.code.is_none() {
-            self.filename = Some(filename.to_string());
-            self.code = Some(code.to_string());
-        }
-
-        self
+    pub fn with_source(mut self, filename: impl ToString, code: impl ToString) -> Box<Self> {
+        self.sources
+            .get_or_insert_with(Vec::new)
+            .push((filename.to_string(), code.to_string()));
+        Box::new(self)
     }
 
     pub fn report(&self) {
-        let (source_id, source_code): (String, String) = match (self.filename.clone(), self.code.clone()) {
-            (Some(filename), Some(code)) => {
-                (filename, code)
-            }
-            _ => panic!("Internal: Cannot report error without code base"),
-        };
+        let sources = self
+            .sources
+            .as_ref()
+            .expect("Cannot report error without code base");
+        let mut files = SimpleFiles::new();
 
-        let source_id = source_id.as_str();
-        let source_code = source_code.as_str();
-
-        let main_range = self.find_error_start().unwrap_or_else(|| {
-            let size = source_code.len();
-
-            size..size
-        });
-
-        let mut report =
-            Report::build(self.kind.report_kind(), (source_id, main_range));
-
-        if let Some(message) = self.message.as_ref() {
-            report = report.with_message(message)
+        // Добавляем все исходники в SimpleFiles, запоминаем file_id для каждого
+        let mut file_ids = Vec::new();
+        for (name, code) in sources {
+            let id = files.add(name.clone(), code.clone());
+            file_ids.push(id);
         }
 
-        for label in self.labels.iter() {
-            report = report.with_label(
-                Label::new((source_id, label.span.clone()))
-                    .with_message(&label.label)
-                    .with_color(label.color()),
-            )
+        // Предположим, что главный источник — последний
+        let main_file_id = *file_ids.last().unwrap();
+
+        // Собираем метки для Diagnostic
+        let labels: Vec<Label<usize>> = self
+            .labels
+            .iter()
+            .rev()
+            .map(|label| {
+                let file_index = file_ids
+                    .iter()
+                    .position(|&id| {
+                        // Проверяем соответствие по имени
+                        files
+                            .name(id)
+                            .map(|s| s == label.source_id)
+                            .unwrap_or(false)
+                    })
+                    .unwrap_or(main_file_id);
+
+                Label::new(label.label_style, file_ids[file_index], label.span.clone())
+                    .with_message(label.label.clone())
+            })
+            .collect();
+
+        // Формируем Diagnostic
+        let mut diagnostic = Diagnostic::new(self.kind.severity).with_labels(labels);
+
+        if let Some(code) = self.kind.code {
+            diagnostic = diagnostic.with_code(code);
         }
 
-        for addition in self.additions.iter() {
+        if let Some(msg) = &self.message {
+            diagnostic = diagnostic.with_message(msg.clone());
+        }
+
+        for addition in &self.additions {
             match addition {
-                RuneWayAddition::Help(help) => report = report.with_help(help),
-                RuneWayAddition::Note(note) => report = report.with_note(note),
+                RuneWayAddition::Help(help) => {
+                    diagnostic =
+                        diagnostic.with_note(format!("{} {}", "help:".bright_cyan(), help.clone()))
+                }
+                RuneWayAddition::Note(note) => {
+                    diagnostic =
+                        diagnostic.with_note(format!("{} {}", "note:".cyan(), note.clone()))
+                }
             }
         }
+
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = term::Config::default();
 
         println!();
-        report.finish().print((source_id, Source::from(source_code))).unwrap();
-    }
 
-    fn find_error_start(&self) -> Option<Range<usize>> {
-        let start = self.labels.iter()
-            .map(|label| label.span.start)
-            .min();
-        match start {
-            Some(start) => Some(start..start),
-            None => None
-        }
+        term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap();
     }
 }
 
 impl fmt::Display for RuneWayError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.kind.report_kind(), self.message.as_ref().unwrap())
+        write!(
+            f,
+            "{:?}: {}",
+            self.kind.severity,
+            self.message.as_ref().unwrap_or(&"".to_string())
+        )
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum RuneWayErrorKind {
-    Syntax,
-    Warning,
-    Type,
-    Runtime(Option<String>),
+pub struct RuneWayErrorKind {
+    pub severity: Severity,
+    pub code: Option<&'static str>,
 }
 
 impl RuneWayErrorKind {
-    pub fn report_kind(&self) -> ReportKind {
-        match self {
-            Self::Syntax => ReportKind::Custom("SyntaxError", Color::Red),
-            Self::Warning => ReportKind::Warning,
-            Self::Type => ReportKind::Custom("TypeError", Color::Yellow),
-            Self::Runtime(error) =>
-                ReportKind::Custom(error.as_deref().unwrap_or("RuntimeError"), Color::BrightCyan),
-        }
+    #[inline]
+    pub fn new(severity: Severity, code: Option<&'static str>) -> Self {
+        Self { severity, code }
+    }
+
+    #[inline]
+    pub fn error() -> Self {
+        Self::new(Severity::Error, None)
+    }
+
+    #[inline(always)]
+    pub fn error_with_code(code: &'static str) -> Self {
+        Self::new(Severity::Error, Some(code))
+    }
+
+    #[inline(always)]
+    pub fn warning() -> Self {
+        Self::new(Severity::Warning, None)
+    }
+
+    #[inline(always)]
+    pub fn warning_with_code(code: &'static str) -> Self {
+        Self::new(Severity::Warning, Some(code))
+    }
+
+    // Basics
+    #[inline(always)]
+    pub fn syntax_error() -> Self {
+        Self::error_with_code("SyntaxError")
+    }
+
+    #[inline(always)]
+    pub fn runtime_error() -> Self {
+        Self::error_with_code("RuntimeError")
+    }
+
+    #[inline(always)]
+    pub fn type_error() -> Self {
+        Self::error_with_code("TypeError")
+    }
+
+    #[inline(always)]
+    pub fn name_error() -> Self {
+        Self::error_with_code("NameError")
     }
 }
 
@@ -151,13 +230,8 @@ impl RuneWayErrorKind {
 struct RuneWayErrorLabel {
     pub span: Range<usize>,
     pub label: String,
-    pub color: Option<Color>,
-}
-
-impl RuneWayErrorLabel {
-    fn color(&self) -> Color {
-        self.color.unwrap_or_default()
-    }
+    pub source_id: String,
+    pub label_style: LabelStyle,
 }
 
 #[derive(Debug, Clone)]
@@ -166,4 +240,4 @@ enum RuneWayAddition {
     Help(String),
 }
 
-pub type RWResult<T> = Result<T, RuneWayError>;
+pub type RWResult<T> = Result<T, Box<RuneWayError>>;

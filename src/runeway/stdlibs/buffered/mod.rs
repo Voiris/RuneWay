@@ -1,10 +1,13 @@
+mod errors;
 mod general;
 
 use crate::runeway::builtins::types::RNWString;
 use crate::runeway::runtime::environment::{EnvRef, Environment};
 use crate::runeway::runtime::libraries::register_stdlib;
 use crate::runeway::stdlibs::buffered::general::{
-    register_native_buffered_flush, register_native_buffered_print, register_native_buffered_println};
+    register_native_buffered_flush, register_native_buffered_print,
+    register_native_buffered_println,
+};
 
 fn load() -> EnvRef {
     let env = Environment::new_global();
