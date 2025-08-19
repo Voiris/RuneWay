@@ -31,6 +31,7 @@ pub fn native_object_id(args: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
 
     Ok(RNWUnsignedInteger::new(id))
 }
+
 pub fn native_is_instance(args: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
     let object_rwn_type_id = {
         let obj = args.get(0).unwrap();
@@ -43,7 +44,7 @@ pub fn native_is_instance(args: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
                     None
                 }
             } else {
-                None
+                Some(obj_borrow.rnw_type_id())
             }
         } else {
             Some(obj_borrow.rnw_type_id())
@@ -62,7 +63,7 @@ pub fn native_is_instance(args: &[RNWObjectRef]) -> RWResult<RNWObjectRef> {
     };
 
     let bool = match (object_rwn_type_id, class_rwn_type_id) {
-        (Some(x), Some(y)) => x == y,
+        (Some(x), Some(y)) => { x == y || y == RNWType::rnw_type_id() },
         _ => false,
     };
 

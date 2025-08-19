@@ -13,7 +13,7 @@ use crate::runeway::core::spanned::Spanned;
 use crate::runeway::core::utils::assert::assert_incorrect_type;
 use crate::runeway::runtime::controlflow::ControlFlow;
 use crate::runeway::runtime::environment::{EnvRef, Environment};
-use crate::runeway::runtime::libraries::{load_library, RNWModule};
+use crate::runeway::runtime::libraries::RNWModule;
 use crate::runeway::runtime::types::types_reg::register_type;
 use crate::runeway::runtime::types::{
     cast_to, RNWMethod, RNWObject, RNWObjectRef, RNWRegisteredNativeFunction,
@@ -21,9 +21,14 @@ use crate::runeway::runtime::types::{
 };
 use colored::*;
 use std::collections::HashMap;
+use std::fs;
 use std::ops::Range;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use crate::runeway::core::ast::operators::BinaryOperator;
+use crate::runeway::core::parser::parse_code;
+use crate::runeway::core::utils::get_rc_id;
+use crate::runeway::runtime::libraries;
 
 pub struct ASTInterpreter;
 
@@ -473,7 +478,7 @@ impl ASTInterpreter {
         working_dir: &Path,
         filename: &String,
     ) -> RWResult<ControlFlow> {
-        let library_env = load_library(path.clone(), working_dir)?;
+        let library_env = ASTInterpreter::load_library(path.clone(), working_dir)?;
 
         let mut borrow = env.borrow_mut();
         match item {
@@ -898,27 +903,33 @@ impl ASTInterpreter {
                 let left = Self::evaluate(*left_operand.clone(), Rc::clone(&env), filename)?;
                 let right = Self::evaluate(*right_operand.clone(), Rc::clone(&env), filename)?;
 
-                let result = left
-                    .borrow()
-                    .binary_operation(right.clone(), operator.clone());
-
-                match result {
-                    Some(val) => val,
-                    None => {
-                        return Err(RuneWayError::new(RuneWayErrorKind::error_with_code(
-                            "OperationError",
-                        ))
-                        .with_message(format!(
-                            "Not supported binary operation: `{} {} {}`",
-                            left.borrow().type_name().bright_yellow(),
-                            operator.display().bright_red(),
-                            right.borrow().type_name().bright_yellow()
-                        ))
-                        .with_label(
-                            "Not supported binary operation",
-                            &expr.span,
-                            filename,
-                        ));
+                match &operator {
+                    BinaryOperator::Is => {
+                        RNWBoolean::new(get_rc_id(left) == get_rc_id(right))
+                    }
+                    _ => {
+                        let result = left
+                            .borrow()
+                            .binary_operation(right.clone(), operator.clone());
+                        match result {
+                            Some(val) => val,
+                            None => {
+                                return Err(RuneWayError::new(RuneWayErrorKind::error_with_code(
+                                    "OperationError",
+                                ))
+                                    .with_message(format!(
+                                        "Not supported binary operation: `{} {} {}`",
+                                        left.borrow().type_name().bright_yellow(),
+                                        operator.display().bright_red(),
+                                        right.borrow().type_name().bright_yellow()
+                                    ))
+                                    .with_label(
+                                        "Not supported binary operation",
+                                        &expr.span,
+                                        filename,
+                                    ));
+                            }
+                        }
                     }
                 }
             }
@@ -1076,6 +1087,72 @@ impl ASTInterpreter {
             _ => panic!("Not implemented yet. Expression: {:?}", expr),
         };
         Ok(result)
+    }
+
+    fn load_library(import_path: String, working_dir: &Path) -> RWResult<EnvRef> {
+        if let Some(name) = import_path.strip_prefix("std::") {
+            if !libraries::loaded::is_loaded(&import_path) {
+                let module = match libraries::stdlib_registry::get_stdlib(name) {
+                    Some(loader) => loader(),
+                    None => {
+                        return Err(
+                            RuneWayError::new(RuneWayErrorKind::error_with_code("ImportError"))
+                                .with_message(format!("Cannot load library `{}`", import_path)),
+                        );
+                    }
+                };
+                libraries::loaded::register_loaded(&import_path, module.clone());
+                return Ok(module);
+            }
+            Ok(libraries::loaded::get_loaded(&import_path)
+                .unwrap_or_else(|| panic!("InternalError: Cannot load the library '{}'", import_path)))
+        } else {
+            let import_path = if !import_path.ends_with(".rnw") {
+                import_path + ".rnw"
+            } else {
+                import_path
+            };
+            let mut path = PathBuf::from(&import_path);
+            if !path.is_absolute() {
+                path = working_dir.join(&path);
+            }
+            if !path.is_file() {
+                return Err(
+                    RuneWayError::new(RuneWayErrorKind::error_with_code("FileSystemError"))
+                        .with_message(format!(
+                            "Path is not a file or it does not exists: {}",
+                            path.display()
+                        )),
+                );
+            }
+            path = path.canonicalize().map_err(|e| {
+                RuneWayError::new(RuneWayErrorKind::error_with_code("FileSystemError"))
+                    .with_message(format!("Cannot canonicalize path: {}", path.display()))
+                    .with_note(format!("Raw Error: {}", e))
+            })?;
+            if !libraries::loaded::is_loaded(&import_path) {
+                let (filename, code) = if let Some(file_name) = path.file_name() {
+                    (file_name.to_str().unwrap(), fs::read_to_string(&path)?)
+                } else {
+                    panic!("Internal: No filename found.");
+                };
+                let parsed_code = parse_code(filename.to_owned(), code.clone())
+                    .map_err(|e| e.with_source(filename, &code))?;
+                let env = Environment::new_global();
+                ASTInterpreter::execute_many(
+                    env.clone(),
+                    parsed_code.ast,
+                    working_dir,
+                    filename.to_string(),
+                    &code,
+                )
+                    .map_err(|e| e.with_source(filename, &code))?;
+                libraries::loaded::register_loaded(&import_path, env.clone());
+                return Ok(env);
+            }
+            Ok(libraries::loaded::get_loaded(&import_path)
+                .unwrap_or_else(|| panic!("InternalError: Cannot load the library '{}'", import_path)))
+        }
     }
 
     pub fn entry(root_env: EnvRef, entry_function_name: &'static str) -> RWResult<()> {

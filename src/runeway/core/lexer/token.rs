@@ -97,6 +97,7 @@ pub enum Token {
     DoubleColon, // ::
     Semicolon,   // ;
     AtSymbol,    // @
+    Is,
 
     // Comments
     // DoubleSlash, // //
@@ -132,6 +133,7 @@ impl Token {
 
             Token::And => Some(BinaryOperator::And),
             Token::Or => Some(BinaryOperator::Or),
+            Token::Is => Some(BinaryOperator::Is),
 
             _ => None,
         }
@@ -213,6 +215,7 @@ impl std::fmt::Display for Token {
             Token::DoubleColon => "`::`".to_string(),
             Token::Semicolon => "`;`".to_string(),
             Token::AtSymbol => "`@`".to_string(),
+            Token::Is => "`is`".to_string(),
         };
         write!(f, "{}", string)
     }

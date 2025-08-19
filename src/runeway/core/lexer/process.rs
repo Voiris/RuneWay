@@ -286,6 +286,7 @@ impl LexerProcess {
             "import" => Token::Import,
             "get" => Token::Get,
             "as" => Token::As,
+            "is" => Token::Is,
             "assert" => Token::Assert,
 
             _ => Token::Identifier(ident),

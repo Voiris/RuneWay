@@ -20,22 +20,26 @@ pub enum BinaryOperator {
     // Logic
     And,
     Or,
+
+    // Other
+    Is,
 }
 
 impl BinaryOperator {
     pub fn get_precedence(&self) -> u8 {
         match self {
-            BinaryOperator::Pow => 5,
-            BinaryOperator::Mod => 4,
-            BinaryOperator::Mul | BinaryOperator::Div => 3,
-            BinaryOperator::Add | BinaryOperator::Sub => 2,
+            BinaryOperator::Pow => 6,
+            BinaryOperator::Mod => 5,
+            BinaryOperator::Mul | BinaryOperator::Div => 4,
+            BinaryOperator::Add | BinaryOperator::Sub => 3,
             BinaryOperator::Eq
             | BinaryOperator::NotEq
             | BinaryOperator::Lt
             | BinaryOperator::LtEq
             | BinaryOperator::Gt
-            | BinaryOperator::GtEq => 1,
-            BinaryOperator::And | BinaryOperator::Or => 0,
+            | BinaryOperator::GtEq => 2,
+            BinaryOperator::Is => 1,
+            BinaryOperator::And | BinaryOperator::Or => 0
             // _ => 255,
         }
     }
@@ -58,6 +62,7 @@ impl BinaryOperator {
 
             BinaryOperator::And => "and",
             BinaryOperator::Or => "or",
+            BinaryOperator::Is => "is",
         }
     }
 }

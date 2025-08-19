@@ -41,8 +41,8 @@ macro_rules! register_types {
 
 pub fn register_basic_types(borrow: &mut RefMut<Environment>) {
     register_types!(
-        // Runtime
         borrow;
+        // Runtime
         RNWType => register_type_class(),
         RNWModule => register_module(),
         RNWFunction => register_function(),

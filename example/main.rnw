@@ -42,6 +42,7 @@ act main() {
   let b = a;
 
   assert id(a) == id(b);
+  assert a is b;
 
   // Numbers
   let i: int = 1i;   // Integer
@@ -169,7 +170,7 @@ act main() {
   assert square(2) == 4;
 
   // Hello, World!
-  print("Goodbye, \rHello, world!\n\t\u16B1 \U000016B1\n");
+  print("Goodbye, \rHello, world!\n\t\u16B1 \U000016B1");
 
   assert "\u16B1" == "\U000016B1";
 
@@ -186,6 +187,13 @@ act main() {
   assert user.display() == "Vector @ 18";
 
   assert is_instance(user, User);
+
+  assert is_instance(type, type);
+  assert is_instance(int, type);
+  assert is_instance(1, int);
+  assert not is_instance(type, int);
+  assert not is_instance(int, 1);
+  assert not is_instance(1, string);
 }
 
 act square(a) {
