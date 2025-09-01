@@ -490,7 +490,7 @@ impl ASTInterpreter {
                 let library_borrow = library_env.borrow();
                 for symbol in selective.iter().cloned() {
                     let alias = symbol.alias.unwrap_or_else(|| symbol.original.clone());
-                    if let Some(variable) = library_borrow.get_variable(&symbol.original) {
+                    if let Some(variable) = library_borrow.get_variable(symbol.original.clone()) {
                         borrow.define_variable(alias, variable.clone())
                     } else {
                         let symbol_name = symbol.original.clone();
@@ -1114,7 +1114,7 @@ impl ASTInterpreter {
             };
             let mut path = PathBuf::from(&import_path);
             if !path.is_absolute() {
-                path = working_dir.join(&path);
+                path = working_dir.join(path);
             }
             if !path.is_file() {
                 return Err(
@@ -1132,13 +1132,13 @@ impl ASTInterpreter {
             })?;
             if !libraries::loaded::is_loaded(&import_path) {
                 let (filename, code) = if let Some(file_name) = path.file_name() {
-                    (file_name.to_str().unwrap(), fs::read_to_string(&path)?)
+                    (file_name.to_str().unwrap(), fs::read_to_string(path.clone())?)
                 } else {
                     panic!("Internal: No filename found.");
                 };
                 let parsed_code = parse_code(filename.to_owned(), code.clone())
-                    .map_err(|e| e.with_source(filename, &code))?;
-                let env = Environment::new_global();
+                    .map_err(|e| e.with_source(filename, code.clone()))?;
+                let env = Environment::new_builtins_global();
                 ASTInterpreter::execute_many(
                     env.clone(),
                     parsed_code.ast,
@@ -1146,7 +1146,7 @@ impl ASTInterpreter {
                     filename.to_string(),
                     &code,
                 )
-                    .map_err(|e| e.with_source(filename, &code))?;
+                    .map_err(|e| e.with_source(filename, code.clone()))?;
                 libraries::loaded::register_loaded(&import_path, env.clone());
                 return Ok(env);
             }

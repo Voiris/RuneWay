@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Opcode {
     // General
     NoOp,

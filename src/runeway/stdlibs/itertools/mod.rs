@@ -5,7 +5,7 @@ use crate::runeway::runtime::environment::{EnvRef, Environment};
 use crate::runeway::runtime::libraries::register_stdlib;
 
 fn load() -> EnvRef {
-    let env = Environment::new_global();
+    let env = Environment::new_builtins_global();
 
     let mut borrow = env.borrow_mut();
 

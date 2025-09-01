@@ -10,24 +10,29 @@ use std::rc::Rc;
 #[derive(Clone, Debug)]
 pub struct Environment {
     parent: Option<EnvRef>,
-    variables: HashMap<String, EnvField>,
+    variables: HashMap<String, EnvField>
 }
 
 impl Environment {
-    fn new(parent: Option<Rc<RefCell<Self>>>) -> Rc<RefCell<Self>> {
+    fn new(parent: Option<EnvRef>) -> EnvRef {
         Rc::new(RefCell::new(Self {
             parent,
-            variables: HashMap::new(),
+            variables: HashMap::new()
         }))
     }
 
-    /// Создаём глобальное окружение без родителя
-    pub fn new_global() -> Rc<RefCell<Self>> {
+    /// Создаём супер-глобальное окружение без родителя для builtins
+    pub fn new_builtins_global() -> EnvRef {
         Self::new(None)
     }
 
+    /// Создаём глобальное окружение с доступом к builtins
+    pub fn new_global(builtins: EnvRef) -> EnvRef {
+        Self::new(Some(builtins))
+    }
+
     /// Создаём вложенное окружение с указанием родителя
-    pub fn new_enclosed(parent: Rc<RefCell<Self>>) -> Rc<RefCell<Self>> {
+    pub fn new_enclosed(parent: EnvRef) -> EnvRef {
         Self::new(Some(parent))
     }
 
@@ -53,11 +58,11 @@ impl Environment {
     }
 
     /// Получаем ссылку на переменную, если она есть в текущем или родительских окружениях
-    pub fn get_variable(&self, name: impl AsRef<str>) -> Option<RNWObjectRef> {
-        if let Some(field) = self.variables.get(name.as_ref()) {
+    pub fn get_variable<T: ToString>(&self, name: T) -> Option<RNWObjectRef> {
+        if let Some(field) = self.variables.get(&name.to_string()) {
             field.value.clone()
         } else if let Some(parent_env) = &self.parent {
-            parent_env.borrow().get_variable(name.as_ref())
+            parent_env.borrow().get_variable(name.to_string())
         } else {
             None
         }

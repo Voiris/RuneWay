@@ -18,7 +18,7 @@ impl UserDefinedClass {
         Rc::new(RefCell::new(Self {
             rnw_type_id: gen_rnw_type_id(),
             name: Box::leak(name.clone().into_boxed_str()),
-            fields: Environment::new_global(),
+            fields: Environment::new_builtins_global(),
             is_instance: false,
         }))
     }

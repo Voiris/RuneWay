@@ -3,7 +3,7 @@ extern crate core;
 mod runeway;
 
 use std::path::{Path, PathBuf};
-use std::process::exit;
+use std::process::{exit, Termination};
 use std::time::SystemTime;
 use std::{env, fs};
 
@@ -12,9 +12,11 @@ use crate::runeway::core::parser::{parse_code, ParsedCode};
 use crate::runeway::executor::interpreter::ASTInterpreter;
 use crate::runeway::stdlibs;
 use runeway::runtime::environment::Environment;
+use crate::runeway::compiler::bytecode::BytecodeCompiler;
+use crate::runeway::executor::vm::VM;
 
 fn execute(working_dir: &Path, parsed_code: ParsedCode, filename: String, code: String) {
-    let env = Environment::new_global();
+    let env = Environment::new_builtins_global();
     builtins::prelude(env.clone());
     stdlibs::prelude();
     match ASTInterpreter::execute_many(
@@ -65,24 +67,25 @@ fn main() {
         code
     );
     println!("\n\n-----------------------------------RUNEWAY----------------------------------");
-    println!("-----------------------------------PARSING----------------------------------");
-    let t1 = SystemTime::now();
-    let parsed_code = match parse_code(filename.to_string(), code.clone()) {
-        Ok(x) => x,
-        Err(e) => {
-            e.with_source(filename, code).report();
-            exit(1)
-        }
-    };
-    let t2 = SystemTime::now();
-    /*
-    println!("Parsed: {}", parsed_code.ast.iter()
-        .map(|x| format!("{:?}", x)).collect::<Vec<String>>().join("\n"));
-     */
-    println!("Time-spent: {:?}", t2.duration_since(t1).unwrap());
 
     match args.get(0).unwrap().as_str() {
         "run" => {
+            println!("-----------------------------------PARSING----------------------------------");
+            let t1 = SystemTime::now();
+            let parsed_code = match parse_code(filename.to_string(), code.clone()) {
+                Ok(x) => x,
+                Err(e) => {
+                    e.with_source(filename.to_string(), code).report();
+                    exit(1)
+                }
+            };
+            let t2 = SystemTime::now();
+            /*
+            println!("Parsed: {}", parsed_code.ast.iter()
+                .map(|x| format!("{:?}", x)).collect::<Vec<String>>().join("\n"));
+             */
+            println!("Time-spent: {:?}", t2.duration_since(t1).unwrap());
+
             println!(
                 "------------------------------------RUN-------------------------------------"
             );
@@ -128,7 +131,26 @@ fn main() {
 
             println!("\n\nTime-spent: {:?}", t2.duration_since(t1).unwrap());
         }
-        "build" => {}
+        "build" => {
+            println!("---------------------------------COMPILING----------------------------------");
+            let compiled = match BytecodeCompiler::compile(working_dir.to_path_buf(), filename.to_string(), "main") {
+                Ok(x) => x,
+                Err(e) => {
+                    e.report();
+                    exit(1);
+                }
+            };
+            println!("{:?}", compiled);
+            println!("------------------------------------RUN-------------------------------------");
+            let vm = VM::new(compiled);
+
+            let t1 = SystemTime::now();
+            VM::run(&vm).report();
+
+            let t2 = SystemTime::now();
+
+            println!("\n\nTime-spent: {:?}", t2.duration_since(t1).unwrap());
+        }
         _ => unimplemented!(),
     }
 }

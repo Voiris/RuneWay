@@ -7,7 +7,7 @@ use crate::runeway::runtime::libraries::register_stdlib;
 use crate::runeway::stdlibs::http::general::{register_native_http_get, register_native_http_post};
 
 fn load() -> EnvRef {
-    let env = Environment::new_global();
+    let env = Environment::new_builtins_global();
 
     let mut borrow = env.borrow_mut();
 

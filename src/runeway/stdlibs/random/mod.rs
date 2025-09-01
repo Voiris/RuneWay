@@ -8,7 +8,7 @@ mod general;
 mod types;
 
 fn load() -> EnvRef {
-    let env = Environment::new_global();
+    let env = Environment::new_builtins_global();
 
     let mut borrow = env.borrow_mut();
 

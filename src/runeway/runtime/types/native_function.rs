@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use super::RNWObject;
 use super::{type_name_from_id, RNWTypeId};
 use crate::runeway::core::errors::{RWResult, RuneWayError, RuneWayErrorKind};

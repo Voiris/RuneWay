@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub enum ConstValue {
     Str(String),
     // To be continued...

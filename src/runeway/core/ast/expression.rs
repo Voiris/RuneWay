@@ -1,6 +1,7 @@
 use super::operators::{BinaryOperator, UnaryOperator};
 use crate::runeway::core::spanned::Spanned;
 
+//noinspection RsDerivableTraitMembers
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     // Types
