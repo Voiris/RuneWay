@@ -110,7 +110,13 @@ impl BytecodeCompiler {
             Statement::Expr(expr) => {
                 ops.extend(self.compile_expr(expr)?)
             }
-            _ => unimplemented!()
+            Statement::Let {
+                name, value, ..
+            } => {
+                ops.extend(self.compile_expr(value)?);
+                ops.push(Opcode::DefineFast(name))
+            }
+            _ => panic!("Unimplemented statement: {:?}", statement.node)
         }
 
         Ok(ops)
@@ -129,6 +135,27 @@ impl BytecodeCompiler {
                     )
                 )
             },
+            Expr::Integer(i) => {
+                ops.push(Opcode::PushInt(i))
+            },
+            Expr::Float(f) => {
+                ops.push(Opcode::PushFloat(f))
+            },
+            Expr::UInteger(u) => {
+                ops.push(Opcode::PushUnsignedInt(u))
+            },
+            Expr::Boolean(b) => {
+                ops.push(
+                    if b {
+                        Opcode::PushTrue
+                    } else {
+                        Opcode::PushFalse
+                    }
+                )
+            },
+            Expr::Null => {
+                ops.push(Opcode::PushNull)
+            }
             Expr::Variable(v) => {
                 ops.push(Opcode::LoadFast(v))
             }

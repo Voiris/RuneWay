@@ -12,6 +12,7 @@ pub enum Opcode {
     // Literals and Constants
     PushInt(i64),
     PushFloat(f64),
+    PushUnsignedInt(u64),
     PushTrue,
     PushFalse,
     PushNull,
@@ -69,11 +70,12 @@ impl Opcode {
 
             // Group 0x1: Literals and Constants
             Opcode::PushInt(..) => 0x10,
-            Opcode::PushFloat(..) => 0x11,
-            Opcode::PushTrue => 0x12,
-            Opcode::PushFalse => 0x13,
-            Opcode::PushNull => 0x14,
-            Opcode::LoadConst(..) => 0x15,
+            Opcode::PushUnsignedInt( .. ) => 0x11,
+            Opcode::PushFloat(..) => 0x12,
+            Opcode::PushTrue => 0x13,
+            Opcode::PushFalse => 0x14,
+            Opcode::PushNull => 0x15,
+            Opcode::LoadConst(..) => 0x16,
 
             // Group 0x2: Variables
             Opcode::DefineFast(..) => 0x20,
@@ -129,6 +131,7 @@ impl Display for Opcode {
             // Literals and Constants
             Opcode::PushInt(i) => write!(f, "PushInt {}", i),
             Opcode::PushFloat(fl) => write!(f, "PushFloat {}", fl),
+            Opcode::PushUnsignedInt(u) => write!(f, "PushUnsignedInt {}", u),
             Opcode::PushTrue => write!(f, "PushTrue"),
             Opcode::PushFalse => write!(f, "PushFalse"),
             Opcode::PushNull => write!(f, "PushNull"),

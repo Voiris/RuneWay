@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use crate::runeway::builtins;
-use crate::runeway::builtins::types::{RNWNullType, RNWString};
+use crate::runeway::builtins::types::{RNWBoolean, RNWFloat, RNWInteger, RNWNullType, RNWString, RNWUnsignedInteger};
 use crate::runeway::compiler::bytecode::interface::application::CompiledApplication;
 use crate::runeway::compiler::bytecode::interface::consts::{ConstValue, ConstsTable};
 use crate::runeway::compiler::bytecode::interface::function::CompiledFunction;
@@ -117,17 +117,38 @@ impl VM {
     fn execute_opcode(vm: &VMRef, opcode: Opcode, env: &EnvRef) {
         match opcode {
             Opcode::LoadConst(id) => {
-                let const_value: ConstValue = {
-                    let borrow = vm.borrow();
-                    borrow.consts_table.get(id).cloned().unwrap()
-                };
+                let mut borrow = vm.borrow_mut();
+                let const_value: ConstValue = borrow.consts_table.get(id).cloned().unwrap();
                 let object = match const_value {
                     ConstValue::Str(s) => {
                         RNWString::new(s)
                     }
                 };
-                let mut borrow = vm.borrow_mut();
                 borrow.stack.push(object);
+            }
+            Opcode::PushInt(i) => {
+                let mut borrow = vm.borrow_mut();
+                borrow.stack.push(RNWInteger::new(i));
+            }
+            Opcode::PushUnsignedInt(u) => {
+                let mut borrow = vm.borrow_mut();
+                borrow.stack.push(RNWUnsignedInteger::new(u));
+            }
+            Opcode::PushFloat(f) => {
+                let mut borrow = vm.borrow_mut();
+                borrow.stack.push(RNWFloat::new(f));
+            }
+            Opcode::PushTrue => {
+                let mut borrow = vm.borrow_mut();
+                borrow.stack.push(RNWBoolean::new(true));
+            }
+            Opcode::PushFalse => {
+                let mut borrow = vm.borrow_mut();
+                borrow.stack.push(RNWBoolean::new(false));
+            }
+            Opcode::PushNull => {
+                let mut borrow = vm.borrow_mut();
+                borrow.stack.push(RNWNullType::new());
             }
             Opcode::LoadFast(name) => {
                 let object = {
@@ -136,6 +157,14 @@ impl VM {
                 };
                 let mut borrow = vm.borrow_mut();
                 borrow.stack.push(object);
+            }
+            Opcode::DefineFast(name) => {
+                let value = {
+                    let mut borrow = vm.borrow_mut();
+                    borrow.stack.pop().unwrap()
+                };
+                let mut borrow = env.borrow_mut();
+                borrow.define_variable(name, value);
             }
             Opcode::Call(args_count) => {
                 let (function, args) = {
