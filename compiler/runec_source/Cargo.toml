@@ -4,6 +4,5 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
-runec_hashes = { path = "../runec_hashes" }
 runec_utils = { path = "../runec_utils" }
 memchr = "2.7.6"
