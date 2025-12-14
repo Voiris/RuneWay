@@ -1,6 +1,4 @@
-mod byte_pos;
-mod source_map;
-mod span;
-mod file_loader;
-
-pub use crate::byte_pos::BytePos;
+pub mod byte_pos;
+pub mod source_map;
+pub mod span;
+pub mod file_loader;

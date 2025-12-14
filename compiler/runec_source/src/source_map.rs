@@ -117,7 +117,7 @@ impl SourceMap {
 
 #[cfg(test)]
 mod tests {
-    use crate::BytePos;
+    use crate::byte_pos::BytePos;
     use crate::source_map::{LineIndex, SourceLineStarts};
 
     #[test]
