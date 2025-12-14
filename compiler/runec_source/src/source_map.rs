@@ -74,21 +74,45 @@ impl SourceLineStarts {
 
 pub enum FileName {
     Real(PathBuf),
-    // Maybe other...
+    // Maybe other... Maybe later...
 }
 
 pub struct SourceFile {
     pub file_name: FileName,
-    pub src: Option<Arc<String>>,
+    pub src: Arc<String>,
     pub lines: SourceLineStarts,
 }
 
 impl SourceFile {
     pub const MAX_FILE_SIZE: usize = BytePos::MAX;
+
+    pub fn new(file_name: FileName, src: String) -> SourceFile {
+        SourceFile {
+            file_name,
+            lines: SourceLineStarts::compute_from_source(&src),
+            src: Arc::new(src),
+        }
+    }
 }
 
 pub struct SourceMap {
     files: Vec<SourceFile>,
+}
+
+impl SourceMap {
+    pub fn new() -> SourceMap {
+        SourceMap { files: Vec::new() }
+    }
+
+    pub fn add_file(&mut self, source_file: SourceFile) -> SourceId {
+        let new_id = SourceId::from_usize(self.files.len());
+        self.files.push(source_file);
+        new_id
+    }
+
+    pub fn get_file(&self, id: SourceId) -> Option<&SourceFile> {
+        self.files.get(id.to_usize())
+    }
 }
 
 #[cfg(test)]
