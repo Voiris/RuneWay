@@ -1,8 +1,0 @@
-act main() {
-    let hello = "Hello, World!";
-    let i = 1i;
-    let f = 1f;
-    let u = 1u;
-    let n = null;
-    println(hello);
-}
