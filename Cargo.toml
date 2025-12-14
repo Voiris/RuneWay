@@ -3,7 +3,6 @@ members = [
     "compiler/runec",
     "compiler/runec_utils",
     "compiler/runec_errors",
-    "compiler/runec_hashes",
     "compiler/runec_parse",
     "compiler/runec_source"
 ]
