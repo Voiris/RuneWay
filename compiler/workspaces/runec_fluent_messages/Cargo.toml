@@ -1,5 +1,5 @@
 [package]
-name = "runec_parse"
+name = "runec_fluent_messages"
 version = "0.0.0"
 edition = "2024"
 

@@ -7,3 +7,4 @@ edition = "2024"
 fluent = { version = "0.17.0" }
 once_cell = "1.21.3"
 runec_source = { path = "../runec_source" }
+indexmap = "2.12.1"

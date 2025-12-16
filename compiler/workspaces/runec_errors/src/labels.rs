@@ -4,7 +4,7 @@ use runec_source::span::Span;
 
 #[derive(Debug)]
 pub struct DiagLabel<'a> {
-    pub message_id: &'static str,
+    pub message_id: Option<&'static str>,
     pub args: Option<HashMap<&'static str, FluentValue<'a>>>,
     pub span: Span
 }

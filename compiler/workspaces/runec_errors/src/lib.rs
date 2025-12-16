@@ -1,6 +1,7 @@
 mod diagnostics;
 mod labels;
 mod message;
+mod emit;
 
 use std::sync::{Arc, Mutex};
 use once_cell::sync::Lazy;
