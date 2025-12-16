@@ -4,3 +4,7 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+fluent = "0.17.0"
+unic-langid = { version = "0.9.6", features = ["unic-langid-macros"] }
+once_cell = "1.21.3"
+intl-memoizer = "0.5.3"
