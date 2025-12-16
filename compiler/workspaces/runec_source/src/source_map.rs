@@ -141,18 +141,18 @@ mod tests {
         );
 
         // Equal search
-        assert_eq!(source_line_starts.line_search(BytePos::from_usize(0)), (LineIndex::from_usize(1), BytePos::from_usize(0)));
-        assert_eq!(source_line_starts.line_search(BytePos::from_usize(10)), (LineIndex::from_usize(2), BytePos::from_usize(10)));
-        assert_eq!(source_line_starts.line_search(BytePos::from_usize(20)), (LineIndex::from_usize(3), BytePos::from_usize(20)));
-        assert_eq!(source_line_starts.line_search(BytePos::from_usize(30)), (LineIndex::from_usize(4), BytePos::from_usize(30)));
+        assert_eq!(source_line_starts.line_search(BytePos::from_usize(0)), (LineIndex::from_usize(0), BytePos::from_usize(0)));
+        assert_eq!(source_line_starts.line_search(BytePos::from_usize(10)), (LineIndex::from_usize(1), BytePos::from_usize(10)));
+        assert_eq!(source_line_starts.line_search(BytePos::from_usize(20)), (LineIndex::from_usize(2), BytePos::from_usize(20)));
+        assert_eq!(source_line_starts.line_search(BytePos::from_usize(30)), (LineIndex::from_usize(3), BytePos::from_usize(30)));
 
         // Greater search
         // Check positions between lines
         for i in 1..10 {
-            assert_eq!(source_line_starts.line_search(BytePos::from_usize(i)), (LineIndex::from_usize(1), BytePos::from_usize(0)));
-            assert_eq!(source_line_starts.line_search(BytePos::from_usize(10 + i)), (LineIndex::from_usize(2), BytePos::from_usize(10)));
-            assert_eq!(source_line_starts.line_search(BytePos::from_usize(20 + i)), (LineIndex::from_usize(3), BytePos::from_usize(20)));
-            assert_eq!(source_line_starts.line_search(BytePos::from_usize(30 + i)), (LineIndex::from_usize(4), BytePos::from_usize(30)));
+            assert_eq!(source_line_starts.line_search(BytePos::from_usize(i)), (LineIndex::from_usize(0), BytePos::from_usize(0)));
+            assert_eq!(source_line_starts.line_search(BytePos::from_usize(10 + i)), (LineIndex::from_usize(1), BytePos::from_usize(10)));
+            assert_eq!(source_line_starts.line_search(BytePos::from_usize(20 + i)), (LineIndex::from_usize(2), BytePos::from_usize(20)));
+            assert_eq!(source_line_starts.line_search(BytePos::from_usize(30 + i)), (LineIndex::from_usize(3), BytePos::from_usize(30)));
         }
     }
 }
