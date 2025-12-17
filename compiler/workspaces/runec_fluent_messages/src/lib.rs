@@ -5,7 +5,7 @@ use unic_langid::langids;
 
 macro_rules! include_resources {
     ($($file:expr),* $(,)?) => {
-        [$(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../resources/fluent/", $file))),*]
+        [$(($file, include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../resources/fluent/", $file)))),*]
     };
 }
 
@@ -13,11 +13,10 @@ static FLUENT_BUNDLE: Lazy<FluentBundle<FluentResource, intl_memoizer::concurren
     let lang_ids = langids!["en-US"];
     let mut bundle = FluentBundle::new_concurrent(lang_ids);
 
-    for resource_file_text in include_resources![
+    for (file_name, text) in include_resources![
         "lexer_messages.ftl",
     ] {
-        let res = FluentResource::try_new(resource_file_text.into())
-            .expect("Failed to parse an FTL string.");
+        let res = FluentResource::try_new(text.into()).unwrap_or_else(|_| panic!("Failed to parse {}", file_name));
         bundle.add_resource(res)
             .expect("Failed to add FTL resources to the bundle.");
     }
