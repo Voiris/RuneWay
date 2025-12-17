@@ -1,4 +1,4 @@
-use fluent::{FluentResource};
+use fluent::{FluentMessage, FluentResource};
 use fluent::bundle::FluentBundle;
 use once_cell::sync::Lazy;
 use unic_langid::langids;
@@ -23,3 +23,11 @@ static FLUENT_BUNDLE: Lazy<FluentBundle<FluentResource, intl_memoizer::concurren
 
     bundle
 });
+
+pub fn get_fluent_bundle() -> &'static FluentBundle<FluentResource, intl_memoizer::concurrent::IntlLangMemoizer> {
+    &*FLUENT_BUNDLE
+}
+
+pub fn get_fluent_message(id: &'static str) -> FluentMessage<'static> {
+    FLUENT_BUNDLE.get_message(id).unwrap_or_else(|| panic!("Fluent message `{}` not found", id))
+}
