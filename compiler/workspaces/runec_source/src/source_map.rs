@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use crate::byte_pos::BytePos;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SourceId(u16);
 
 impl SourceId {
