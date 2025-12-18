@@ -30,6 +30,7 @@ impl LineIndex {
 }
 
 /// Stores the start position of each line in the source file
+#[derive(Debug)]
 pub struct SourceLineStarts(Box<[BytePos]>);
 
 impl SourceLineStarts {
@@ -82,6 +83,7 @@ impl SourceLineStarts {
     }
 }
 
+#[derive(Debug)]
 pub enum FileName {
     Real(PathBuf),
     // Maybe other... Maybe later...
@@ -95,6 +97,7 @@ impl Display for FileName {
     }
 }
 
+#[derive(Debug)]
 pub struct SourceFile {
     pub file_name: FileName,
     pub src: Arc<String>,
@@ -113,6 +116,7 @@ impl SourceFile {
     }
 }
 
+#[derive(Debug)]
 pub struct SourceMap {
     files: Vec<SourceFile>,
 }
