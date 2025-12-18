@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
 use crate::byte_pos::BytePos;
@@ -84,6 +85,14 @@ impl SourceLineStarts {
 pub enum FileName {
     Real(PathBuf),
     // Maybe other... Maybe later...
+}
+
+impl Display for FileName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            FileName::Real(path) => write!(f, "{}", path.display()),
+        }
+    }
 }
 
 pub struct SourceFile {
