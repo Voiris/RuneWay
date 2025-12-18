@@ -1,1 +1,2 @@
-mod growing_vec;
+pub mod growing_vec;
+pub mod number_length;
