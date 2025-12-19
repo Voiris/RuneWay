@@ -12,8 +12,15 @@ use crate::message::DiagMessage;
 
 impl<'a> Diagnostic<'a> {
     #[doc(hidden)]
-    fn write_emit_header(diag_type: DiagType, message: DiagMessage, out: &mut impl Write) {
+    fn write_emit_header(diag_type: DiagType, diag_code: Option<u16>, message: DiagMessage, out: &mut impl Write) {
         write!(out, "{}", diag_type).unwrap();
+        if let Some(code) = diag_code {
+            write!(
+                out,
+                "\x1b[1;36m[E{:04}]\x1b[0m",
+                code,
+            ).unwrap();
+        }
         let bundle = get_fluent_bundle();
         {
             let message_args = message.args.map(|args| FluentArgs::from_iter(args));
@@ -173,7 +180,7 @@ impl<'a> Diagnostic<'a> {
     /// Emits a diagnostic to the given output buffer
     // Diagnostic formatting design inspired by Rust compiler: https://github.com/rust-lang/rust
     pub fn emit(self, source_map: &SourceMap, out: &mut impl Write) {
-        Self::write_emit_header(self.diag_type, self.message, out);
+        Self::write_emit_header(self.diag_type, self.code, self.message, out);
         let source_labels = Self::group_labels_by_source(self.labels);
         let separator_offset = Self::calculate_separator_offset(
             &source_labels,
@@ -246,7 +253,7 @@ mod tests {
         diagnostic.emit(&source_map, &mut buffer);
 
         assert_eq!(buffer,
-                   "\x1b[1;93mwarning\x1b[0m: void message\n \x1b[1;96m-->\x1b[0m /home/user/main.rnw\n\x1b[1;96m  |\
+                   "\x1b[1;93mwarning\x1b[0m\x1b[1;36m[E0102]\x1b[0m: void message\n \x1b[1;96m-->\x1b[0m /home/user/main.rnw\n\x1b[1;96m  |\
                    \n\x1b[1;96m1 |\x1b[0m 01234567\n  \x1b[1;96m|  \x1b[1;96m----\x1b[0m \x1b[1;96mvoid message\
                    \x1b[0m\n\x1b[1;96m4 |\x1b[0m \t987654321\n  \x1b[1;96m|        \x1b[1;93m^^^\x1b[0m\n  \x1b[96m= \
                    \x1b[97mhelp\x1b[0m: void message\n  \x1b[96m= \x1b[97mnote\x1b[0m: void message"
