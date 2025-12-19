@@ -28,3 +28,47 @@ pub struct Diagnostic<'a> {
     pub note: Option<DiagNote<'a>>,
     pub help: Option<DiagHelp<'a>>,
 }
+
+impl<'a> Diagnostic<'a> {
+    pub fn new(diag_type: DiagType, code: Option<u16>, message: DiagMessage<'a>) -> Self {
+        Self {
+            diag_type,
+            code,
+            message,
+            labels: vec![],
+            note: None,
+            help: None,
+        }
+    }
+
+    pub fn weak_warning(message: DiagMessage<'a>) -> Self {
+        Self::new(DiagType::WeakWarning, None, message)
+    }
+
+    pub fn warning(message: DiagMessage<'a>) -> Self {
+        Self::new(DiagType::Warning, None, message)
+    }
+
+    pub fn error(message: DiagMessage<'a>) -> Self {
+        Self::new(DiagType::Error, None, message)
+    }
+
+    pub fn error_with_code(message: DiagMessage<'a>, code: u16) -> Self {
+        Self::new(DiagType::Error, Some(code), message)
+    }
+
+    pub fn add_label(mut self, label: DiagLabel<'a>) -> Self {
+        self.labels.push(label);
+        self
+    }
+
+    pub fn add_help(mut self, help: DiagHelp<'a>) -> Self {
+        self.help = Some(help);
+        self
+    }
+
+    pub fn add_note(mut self, note: DiagNote<'a>) -> Self {
+        self.note = Some(note);
+        self
+    }
+}
