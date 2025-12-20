@@ -62,12 +62,12 @@ impl<'a> Diagnostic<'a> {
         self
     }
 
-    pub fn add_help(mut self, help: DiagHelp<'a>) -> Self {
+    pub fn set_help(mut self, help: DiagHelp<'a>) -> Self {
         self.help = Some(help);
         self
     }
 
-    pub fn add_note(mut self, note: DiagNote<'a>) -> Self {
+    pub fn set_note(mut self, note: DiagNote<'a>) -> Self {
         self.note = Some(note);
         self
     }
