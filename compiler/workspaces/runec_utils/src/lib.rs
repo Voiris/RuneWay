@@ -1,2 +1,2 @@
 pub mod sync;
-mod common;
+pub mod common;
