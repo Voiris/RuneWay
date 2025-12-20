@@ -23,7 +23,7 @@ impl<'a> Diagnostic<'a> {
         }
         let bundle = get_fluent_bundle();
         {
-            let message_args = message.args.map(|args| FluentArgs::from_iter(args));
+            let message_args = message.args.map(FluentArgs::from_iter);
             let mut err = Vec::new();
             write!(
                 out,
@@ -42,7 +42,7 @@ impl<'a> Diagnostic<'a> {
         let mut source_labels = IndexMap::<SourceId, Vec<DiagLabel<'a>>>::new();
         for label in labels {
             source_labels
-                .entry(label.span.src_id.clone())
+                .entry(label.span.src_id)
                 .or_default()
                 .push(label);
         }
@@ -56,7 +56,7 @@ impl<'a> Diagnostic<'a> {
     ) -> usize {
         let max_line_number = source_labels.keys().map(
             |id| source_map
-                .get_file(&id).unwrap()
+                .get_file(id).unwrap()
                 .lines.last_line_number()
                 .to_usize() + 1
         ).max().unwrap();
@@ -89,7 +89,7 @@ impl<'a> Diagnostic<'a> {
                     let (line_idx, line_start) = source_file.lines.line_search(label.span.lo);
                     (line_idx.to_usize() + 1, line_start.to_usize())
                 };
-                let line_end = line_start + memchr('\n' as u8, source_text[line_start..].as_bytes()).unwrap_or(source_text.len() - 1);
+                let line_end = line_start + memchr(b'\n', &source_text.as_bytes()[line_start..]).unwrap_or(source_text.len() - 1);
                 let line_text = &source_text[line_start..line_end];
                 let text_marker_offset = line_text
                     .chars()
@@ -108,7 +108,7 @@ impl<'a> Diagnostic<'a> {
                     label.kind.marker().to_string().repeat(label.span.hi.to_usize() - label.span.lo.to_usize()),
                 ).unwrap();
                 if let Some(label_message_id) = label.message_id {
-                    let label_args = label.args.map(|args| FluentArgs::from_iter(args));
+                    let label_args = label.args.map(FluentArgs::from_iter);
                     let mut err = Vec::new();
                     write!(
                         out,
@@ -135,7 +135,7 @@ impl<'a> Diagnostic<'a> {
         sublabel_type: &'static str,
         out: &mut impl Write,
     ) {
-        let label_args = message_args.map(|args| FluentArgs::from_iter(args));
+        let label_args = message_args.map(FluentArgs::from_iter);
         let mut err = Vec::new();
         write!(
             out,
@@ -202,8 +202,7 @@ mod tests {
     use runec_source::byte_pos::BytePos;
     use runec_source::source_map::{FileName, SourceFile};
     use runec_source::span::Span;
-    use crate::diagnostics::DiagType;
-    use crate::labels::{DiagHelp, DiagLabelKind, DiagNote};
+    use crate::labels::{DiagHelp, DiagNote};
     use crate::message::DiagMessage;
     use super::*;
 
@@ -213,47 +212,36 @@ mod tests {
         let source_id = source_map.add_file(
             SourceFile::new(FileName::Real(PathBuf::from("/home/user/main.rnw")), "01234567\n8\n\n\t987654321\n".to_owned())
         );
-        let diagnostic = Diagnostic {
-            diag_type: DiagType::Warning,
-            code: Some(102),
-            message: DiagMessage { message_id: "void", args: None },
-            labels: vec![
-                DiagLabel {
-                    message_id: Some("void"),
-                    args: None,
-                    kind: DiagLabelKind::Primary,
-                    span: Span {
-                        lo: BytePos::from_usize(1),
-                        hi: BytePos::from_usize(5),
-                        src_id: source_id,
-                    },
-                },
-                DiagLabel {
-                    message_id: None,
-                    args: None,
-                    kind: DiagLabelKind::Secondary,
-                    span: Span {
-                        lo: BytePos::from_usize(16),
-                        hi: BytePos::from_usize(19),
-                        src_id: source_id,
-                    },
-                }
-            ],
-            note: Some(DiagNote {
-                message_id: "void",
-                args: None,
-            }),
-            help: Some(DiagHelp {
-                message_id: "void",
-                args: None,
-            }),
-        };
+        let diagnostic = Diagnostic::error_with_code(
+            DiagMessage::new_simple("void"),
+            102
+        )
+            .add_label(
+                DiagLabel::simple_primary("void", Span::new(
+                    BytePos::from_usize(1),
+                    BytePos::from_usize(5),
+                    source_id,
+                ))
+            )
+            .add_label(
+                DiagLabel::simple_secondary("void", Span::new(
+                    BytePos::from_usize(16),
+                    BytePos::from_usize(19),
+                    source_id,
+                ))
+            )
+            .set_note(
+                DiagNote::new_simple("void")
+            )
+            .set_help(
+                DiagHelp::new_simple("void")
+            );
 
         let mut buffer = String::new();
         diagnostic.emit(&source_map, &mut buffer);
 
         assert_eq!(buffer,
-                   "\x1b[1;93mwarning\x1b[0m\x1b[1;36m[E0102]\x1b[0m: void message\n \x1b[1;96m-->\x1b[0m /home/user/main.rnw\n\x1b[1;96m  |\
+                   "\x1b[1;91merror\x1b[0m\x1b[1;36m[E0102]\x1b[0m: void message\n \x1b[1;96m-->\x1b[0m /home/user/main.rnw\n\x1b[1;96m  |\
                    \n\x1b[1;96m1 |\x1b[0m 01234567\n  \x1b[1;96m|  \x1b[1;96m----\x1b[0m \x1b[1;96mvoid message\
                    \x1b[0m\n\x1b[1;96m4 |\x1b[0m \t987654321\n  \x1b[1;96m|        \x1b[1;93m^^^\x1b[0m\n  \x1b[96m= \
                    \x1b[97mhelp\x1b[0m: void message\n  \x1b[96m= \x1b[97mnote\x1b[0m: void message"
