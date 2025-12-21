@@ -25,7 +25,7 @@ static FLUENT_BUNDLE: Lazy<FluentBundle<FluentResource, intl_memoizer::concurren
 });
 
 pub fn get_fluent_bundle() -> &'static FluentBundle<FluentResource, intl_memoizer::concurrent::IntlLangMemoizer> {
-    &*FLUENT_BUNDLE
+    &FLUENT_BUNDLE
 }
 
 pub fn get_fluent_message(id: &'static str) -> FluentMessage<'static> {
