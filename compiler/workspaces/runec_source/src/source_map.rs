@@ -121,6 +121,12 @@ pub struct SourceMap {
     files: Vec<SourceFile>,
 }
 
+impl Default for SourceMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SourceMap {
     pub fn new() -> SourceMap {
         SourceMap { files: Vec::new() }
