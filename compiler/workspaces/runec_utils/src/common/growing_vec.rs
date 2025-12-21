@@ -16,6 +16,10 @@ impl<T> GrowingVec<T> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+    
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 
     pub fn from_vec(vec: Vec<T>) -> Self {
         GrowingVec(vec)
