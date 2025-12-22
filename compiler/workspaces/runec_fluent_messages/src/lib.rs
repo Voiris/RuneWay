@@ -15,6 +15,7 @@ static FLUENT_BUNDLE: Lazy<FluentBundle<FluentResource, intl_memoizer::concurren
 
     for (file_name, text) in include_resources![
         "lexer_messages.ftl",
+        "test_messages.ftl",
     ] {
         let res = FluentResource::try_new(text.into()).unwrap_or_else(|_| panic!("Failed to parse {}", file_name));
         bundle.add_resource(res)
