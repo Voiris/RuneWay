@@ -24,9 +24,8 @@ impl FileLoader for RealFileLoader {
 
     fn read_file(&self, path: &Path) -> IoResult<String> {
         let mut file = File::open(path)?;
-        let size = file.metadata()?.len();
 
-        if size > SourceFile::MAX_FILE_SIZE as u64 {
+        if file.metadata()?.len() > SourceFile::MAX_FILE_SIZE as u64 {
             return Err(io::Error::other(
                 format!("File {} is too large. Supported: {} bytes", path.display(), SourceFile::MAX_FILE_SIZE),
             ));
@@ -34,8 +33,6 @@ impl FileLoader for RealFileLoader {
 
         let mut buffer = String::new();
         file.read_to_string(&mut buffer)?;
-
-        assert!(buffer.len() as u64 <= size);
 
         Ok(buffer)
     }
