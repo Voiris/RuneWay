@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use fluent::{FluentArgs, FluentValue};
 use indexmap::IndexMap;
-use memchr::memchr;
 use runec_fluent_messages::{get_fluent_bundle, get_fluent_message};
 use runec_source::source_map::{SourceId, SourceMap};
 use runec_utils::common::number_length::number_length;
@@ -70,7 +69,6 @@ impl<'a> Diagnostic<'a> {
         source_labels: IndexMap<SourceId, Vec<DiagLabel<'a>>>,
         out: &mut impl Write
     ) -> usize {
-
         let bundle = get_fluent_bundle();
         for (source_id, labels) in source_labels {
             let source_file = source_map.get_file(&source_id).unwrap();
@@ -89,7 +87,7 @@ impl<'a> Diagnostic<'a> {
                     let (line_idx, line_start) = source_file.lines.line_search(label.span.lo);
                     (line_idx.to_usize() + 1, line_start.to_usize())
                 };
-                let line_end = line_start + memchr(b'\n', &source_text.as_bytes()[line_start..]).unwrap_or(source_text.len() - 1);
+                let line_end = line_start + source_text[line_start..].chars().position(|c| c == '\n').unwrap_or(source_text.len());
                 let line_text = &source_text[line_start..line_end];
                 let text_marker_offset = line_text
                     .chars()
@@ -224,7 +222,7 @@ mod tests {
                 ))
             )
             .add_label(
-                DiagLabel::simple_secondary("void", Span::new(
+                DiagLabel::silent_secondary(Span::new(
                     BytePos::from_usize(16),
                     BytePos::from_usize(19),
                     source_id,
@@ -239,6 +237,8 @@ mod tests {
 
         let mut buffer = String::new();
         diagnostic.emit(&source_map, &mut buffer);
+
+        println!("{}", buffer);
 
         assert_eq!(buffer,
                    "\x1b[1;91merror\x1b[0m\x1b[1;36m[E0102]\x1b[0m: void message\n \x1b[1;96m-->\x1b[0m /home/user/main.rnw\n\x1b[1;96m  |\

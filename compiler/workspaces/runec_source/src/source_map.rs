@@ -46,7 +46,7 @@ impl SourceLineStarts {
         let mut line_starts = vec![BytePos::from_usize(0)];
 
         // Find all newline characters and record the start of the next line
-        for pos in memchr::memchr_iter(b'\n', src.as_bytes()) {
+        for pos in src.chars().enumerate().filter_map(|(i, c)| if c == '\n' { Some(i) } else { None }) {
             line_starts.push(BytePos::from_usize(pos + 1));
         }
 
