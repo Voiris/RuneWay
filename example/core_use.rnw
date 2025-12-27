@@ -1,0 +1,8 @@
+use core::mem::drop;
+
+act main() {
+    let x = 15;
+    println(x);
+    drop(x);
+    // println(x); -- error
+}
