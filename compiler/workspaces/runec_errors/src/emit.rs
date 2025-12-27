@@ -238,8 +238,6 @@ mod tests {
         let mut buffer = String::new();
         diagnostic.emit(&source_map, &mut buffer);
 
-        println!("{}", buffer);
-
         assert_eq!(buffer,
                    "\x1b[1;91merror\x1b[0m\x1b[1;36m[E0102]\x1b[0m: void message\n \x1b[1;96m-->\x1b[0m /home/user/main.rnw\n\x1b[1;96m  |\
                    \n\x1b[1;96m1 |\x1b[0m 01234567\n  \x1b[1;96m|  \x1b[1;96m----\x1b[0m \x1b[1;96mvoid message\
