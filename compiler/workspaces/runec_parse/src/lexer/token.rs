@@ -112,10 +112,18 @@ pub enum Token<'a> {
     Arrow,
 
     /* Other */
+    /// .
+    Dot,
+    /// ..
+    Range,
+    /// ..=
+    RangeInclusive,
     /// `,`
     Comma,
     /// `:`
     Colon,
+    /// ::
+    DColon,
     /// `;`
     Semicolon,
 }
