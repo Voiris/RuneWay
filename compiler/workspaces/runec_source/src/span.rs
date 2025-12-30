@@ -23,6 +23,7 @@ impl Span {
     }
 }
 
+#[derive(Debug)]
 pub struct Spanned<T> {
     pub node: T,
     pub span: Span
