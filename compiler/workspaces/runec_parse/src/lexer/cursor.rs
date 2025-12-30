@@ -8,9 +8,9 @@ pub(super) struct Cursor<'src> {
     pos: usize,
 }
 
-impl<'a> Cursor<'a> {
+impl<'src> Cursor<'src> {
     /// Creates a new cursor for the given string slice.
-    pub fn new(source: &'a str) -> Self {
+    pub fn new(source: &'src str) -> Self {
         Self {
             source,
             iter: source.char_indices().peekable(),
@@ -63,7 +63,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// Returns a slice of the next len characters and advances the cursor. Returns None if there aren’t enough characters.
-    pub fn try_next_slice(&mut self, len: usize) -> Option<&'a str> {
+    pub fn try_next_slice(&mut self, len: usize) -> Option<&'src str> {
         let start = self.pos;
 
         if len == 0 {
