@@ -94,6 +94,7 @@ impl<'diag> Diagnostic<'diag> {
                     .take(label.span.lo.to_usize() - line_start)
                     .map(|c| if c == '\t' { 4 } else { 1 })
                     .sum::<usize>();
+                let marker_len = source_text[label.span.lo.to_usize()..label.span.hi.to_usize()].chars().count();
                 write!(
                     out,
                     "\n\x1b[1;96m{}{}|\x1b[0m {}\n{}\x1b[1;96m| {}{}{}\x1b[0m",
@@ -103,7 +104,7 @@ impl<'diag> Diagnostic<'diag> {
                     " ".repeat(separator_offset),
                     " ".repeat(text_marker_offset),
                     label.kind.color_code(),
-                    label.kind.marker().to_string().repeat(label.span.hi.to_usize() - label.span.lo.to_usize()),
+                    label.kind.marker().to_string().repeat(marker_len),
                 ).unwrap();
                 if let Some(label_message_id) = label.message_id {
                     let label_args = label.args.map(FluentArgs::from_iter);
