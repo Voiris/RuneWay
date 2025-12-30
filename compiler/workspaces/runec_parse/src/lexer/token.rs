@@ -1,7 +1,7 @@
 use runec_source::span::Spanned;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Token<'a> {
+pub enum Token<'src> {
     /* Expression-operator symbols. */
     /// `=`
     Eq,
@@ -67,12 +67,12 @@ pub enum Token<'a> {
     ShrEq,
 
     /* Literals */
-    NonNegIntLiteral(&'a str),  // >= 0
-    NegIntLiteral(&'a str),     //  < 0
-    FloatLiteral(&'a str),
-    RawStringLiteral(&'a str),  // without escape sequence: r"string\n" or "string"
+    NonNegIntLiteral(&'src str),  // >= 0
+    NegIntLiteral(&'src str),     //  < 0
+    FloatLiteral(&'src str),
+    RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
     StringLiteral(String),      // with escape sequence: "string\n"
-    Ident(&'a str),
+    Ident(&'src str),
 
     /* Format strings control */
     FormatStringStart,
