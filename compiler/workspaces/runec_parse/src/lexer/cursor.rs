@@ -2,9 +2,9 @@ use std::iter::Peekable;
 use std::str::CharIndices;
 
 #[derive(Clone, Debug)]
-pub(super) struct Cursor<'a> {
-    source: &'a str,
-    iter: Peekable<CharIndices<'a>>,
+pub(super) struct Cursor<'src> {
+    source: &'src str,
+    iter: Peekable<CharIndices<'src>>,
     pos: usize,
 }
 
