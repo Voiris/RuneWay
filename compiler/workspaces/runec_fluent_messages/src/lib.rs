@@ -12,6 +12,7 @@ macro_rules! include_resources {
 static FLUENT_BUNDLE: Lazy<FluentBundle<FluentResource, intl_memoizer::concurrent::IntlLangMemoizer>> = Lazy::new(|| {
     let lang_ids = langids!["en-US"];
     let mut bundle = FluentBundle::new_concurrent(lang_ids);
+    bundle.set_use_isolating(false);
 
     for (file_name, text) in include_resources![
         "lexer_messages.ftl",
