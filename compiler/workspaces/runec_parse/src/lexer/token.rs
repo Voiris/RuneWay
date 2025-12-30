@@ -67,11 +67,16 @@ pub enum Token<'a> {
     ShrEq,
 
     /* Literals */
-    IntLiteral(&'a str),
-    UIntLiteral(&'a str),
+    NonNegIntLiteral(&'a str),  // >= 0
+    NegIntLiteral(&'a str),     //  < 0
     FloatLiteral(&'a str),
-    StringLiteral(&'a str),
+    RawStringLiteral(&'a str),  // without escape sequence: r"string\n" or "string"
+    StringLiteral(String),      // with escape sequence: "string\n"
     Ident(&'a str),
+
+    /* Format strings control */
+    FormatStringStart,
+    FormatStringEnd,
 
     /* Keywords */
     /// act
