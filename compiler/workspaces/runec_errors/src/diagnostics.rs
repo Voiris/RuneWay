@@ -30,44 +30,44 @@ pub struct Diagnostic<'diag> {
 }
 
 impl<'diag> Diagnostic<'diag> {
-    pub fn new(diag_type: DiagType, code: Option<u16>, message: DiagMessage<'diag>) -> Self {
-        Self {
+    pub fn new(diag_type: DiagType, code: Option<u16>, message: DiagMessage<'diag>) -> Box<Self> {
+        Box::new(Self {
             diag_type,
             code,
             message,
             labels: vec![],
             note: None,
             help: None,
-        }
+        })
     }
 
-    pub fn weak_warning(message: DiagMessage<'diag>) -> Self {
+    pub fn weak_warning(message: DiagMessage<'diag>) -> Box<Self> {
         Self::new(DiagType::WeakWarning, None, message)
     }
 
-    pub fn warning(message: DiagMessage<'diag>) -> Self {
+    pub fn warning(message: DiagMessage<'diag>) -> Box<Self> {
         Self::new(DiagType::Warning, None, message)
     }
 
-    pub fn error(message: DiagMessage<'diag>) -> Self {
+    pub fn error(message: DiagMessage<'diag>) -> Box<Self> {
         Self::new(DiagType::Error, None, message)
     }
 
-    pub fn error_with_code(message: DiagMessage<'diag>, code: u16) -> Self {
+    pub fn error_with_code(message: DiagMessage<'diag>, code: u16) -> Box<Self> {
         Self::new(DiagType::Error, Some(code), message)
     }
 
-    pub fn add_label(mut self, label: DiagLabel<'diag>) -> Self {
+    pub fn add_label(mut self: Box<Self>, label: DiagLabel<'diag>) -> Box<Self> {
         self.labels.push(label);
         self
     }
 
-    pub fn set_help(mut self, help: DiagHelp<'diag>) -> Self {
+    pub fn set_help(mut self: Box<Self>, help: DiagHelp<'diag>) -> Box<Self> {
         self.help = Some(help);
         self
     }
 
-    pub fn set_note(mut self, note: DiagNote<'diag>) -> Self {
+    pub fn set_note(mut self: Box<Self>, note: DiagNote<'diag>) -> Box<Self> {
         self.note = Some(note);
         self
     }
