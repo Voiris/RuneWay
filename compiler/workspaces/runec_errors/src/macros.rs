@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! impl_add_arg {
-    () => {
-        pub fn add_arg(mut self, key: &'static str, arg: FluentValue<'a>) -> Self {
+    ($lifetime:lifetime) => {
+        pub fn add_arg(mut self, key: &'static str, arg: FluentValue<$lifetime>) -> Self {
             self.args.get_or_insert_with(HashMap::new).insert(key, arg);
             self
         }
@@ -10,8 +10,8 @@ macro_rules! impl_add_arg {
 
 #[macro_export]
 macro_rules! impl_message_new {
-    () => {
-        pub fn new(message_id: &'static str, args: Option<HashMap<&'static str, FluentValue<'a>>>) -> Self {
+    ($lifetime:lifetime) => {
+        pub fn new(message_id: &'static str, args: Option<HashMap<&'static str, FluentValue<$lifetime>>>) -> Self {
             Self { message_id, args }
         }
 

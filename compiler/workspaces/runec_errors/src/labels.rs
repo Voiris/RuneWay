@@ -26,15 +26,15 @@ impl DiagLabelKind {
 }
 
 #[derive(Debug)]
-pub struct DiagLabel<'a> {
+pub struct DiagLabel<'diag> {
     pub message_id: Option<&'static str>,
-    pub args: Option<HashMap<&'static str, FluentValue<'a>>>,
+    pub args: Option<HashMap<&'static str, FluentValue<'diag>>>,
     pub kind: DiagLabelKind,
     pub span: Span
 }
 
-impl<'a> DiagLabel<'a> {
-    pub fn new(message_id: Option<&'static str>, args: Option<HashMap<&'static str, FluentValue<'a>>>, kind: DiagLabelKind, span: Span) -> Self {
+impl<'diag> DiagLabel<'diag> {
+    pub fn new(message_id: Option<&'static str>, args: Option<HashMap<&'static str, FluentValue<'diag>>>, kind: DiagLabelKind, span: Span) -> Self {
         Self {
             message_id,
             args,
@@ -43,7 +43,7 @@ impl<'a> DiagLabel<'a> {
         }
     }
 
-    pub fn primary(message_id: Option<&'static str>, args: HashMap<&'static str, FluentValue<'a>>, span: Span) -> Self {
+    pub fn primary(message_id: Option<&'static str>, args: HashMap<&'static str, FluentValue<'diag>>, span: Span) -> Self {
         Self::new(message_id, Some(args), DiagLabelKind::Primary, span)
     }
 
@@ -55,7 +55,7 @@ impl<'a> DiagLabel<'a> {
         Self::new(None, None, DiagLabelKind::Primary, span)
     }
 
-    pub fn secondary(message_id: Option<&'static str>, args: HashMap<&'static str, FluentValue<'a>>, span: Span) -> Self {
+    pub fn secondary(message_id: Option<&'static str>, args: HashMap<&'static str, FluentValue<'diag>>, span: Span) -> Self {
         Self::new(message_id, Some(args), DiagLabelKind::Secondary, span)
     }
 
@@ -67,27 +67,27 @@ impl<'a> DiagLabel<'a> {
         Self::new(None, None, DiagLabelKind::Secondary, span)
     }
 
-    impl_add_arg!();
+    impl_add_arg!('diag);
 }
 
 #[derive(Debug)]
-pub struct DiagNote<'a> {
+pub struct DiagNote<'diag> {
     pub message_id: &'static str,
-    pub args: Option<HashMap<&'static str, FluentValue<'a>>>,
+    pub args: Option<HashMap<&'static str, FluentValue<'diag>>>,
 }
 
-impl<'a> DiagNote<'a> {
-    impl_message_new!();
-    impl_add_arg!();
+impl<'diag> DiagNote<'diag> {
+    impl_message_new!('diag);
+    impl_add_arg!('diag);
 }
 
 #[derive(Debug)]
-pub struct DiagHelp<'a> {
+pub struct DiagHelp<'diag> {
     pub message_id: &'static str,
-    pub args: Option<HashMap<&'static str, FluentValue<'a>>>,
+    pub args: Option<HashMap<&'static str, FluentValue<'diag>>>,
 }
 
-impl<'a> DiagHelp<'a> {
-    impl_message_new!();
-    impl_add_arg!();
+impl<'diag> DiagHelp<'diag> {
+    impl_message_new!('diag);
+    impl_add_arg!('diag);
 }

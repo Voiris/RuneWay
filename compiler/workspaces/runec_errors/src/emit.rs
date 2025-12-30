@@ -9,7 +9,7 @@ use crate::diagnostics::{DiagType, Diagnostic};
 use crate::labels::{DiagHelp, DiagLabel, DiagNote};
 use crate::message::DiagMessage;
 
-impl<'a> Diagnostic<'a> {
+impl<'diag> Diagnostic<'diag> {
     #[doc(hidden)]
     fn write_emit_header(diag_type: DiagType, diag_code: Option<u16>, message: DiagMessage, out: &mut impl Write) {
         write!(out, "{}", diag_type).unwrap();
@@ -37,8 +37,8 @@ impl<'a> Diagnostic<'a> {
     }
 
     #[doc(hidden)]
-    fn group_labels_by_source(labels: Vec<DiagLabel<'a>>) -> IndexMap<SourceId, Vec<DiagLabel<'a>>> {
-        let mut source_labels = IndexMap::<SourceId, Vec<DiagLabel<'a>>>::new();
+    fn group_labels_by_source(labels: Vec<DiagLabel<'diag>>) -> IndexMap<SourceId, Vec<DiagLabel<'diag>>> {
+        let mut source_labels = IndexMap::<SourceId, Vec<DiagLabel<'diag>>>::new();
         for label in labels {
             source_labels
                 .entry(label.span.src_id)
@@ -50,7 +50,7 @@ impl<'a> Diagnostic<'a> {
 
     #[doc(hidden)]
     fn calculate_separator_offset(
-        source_labels: &IndexMap<SourceId, Vec<DiagLabel<'a>>>,
+        source_labels: &IndexMap<SourceId, Vec<DiagLabel<'diag>>>,
         source_map: &SourceMap,
     ) -> usize {
         let max_line_number = source_labels.keys().map(
@@ -66,7 +66,7 @@ impl<'a> Diagnostic<'a> {
     fn write_emit_labels(
         source_map: &SourceMap,
         separator_offset: usize,
-        source_labels: IndexMap<SourceId, Vec<DiagLabel<'a>>>,
+        source_labels: IndexMap<SourceId, Vec<DiagLabel<'diag>>>,
         out: &mut impl Write
     ) -> usize {
         let bundle = get_fluent_bundle();
@@ -129,7 +129,7 @@ impl<'a> Diagnostic<'a> {
     fn write_emit_sublabel(
         separator_offset: usize,
         message_id: &'static str,
-        message_args: Option<HashMap<&'static str, FluentValue<'a>>>,
+        message_args: Option<HashMap<&'static str, FluentValue<'diag>>>,
         sublabel_type: &'static str,
         out: &mut impl Write,
     ) {
@@ -151,8 +151,8 @@ impl<'a> Diagnostic<'a> {
     #[doc(hidden)]
     fn write_emit_sublabels(
         separator_offset: usize,
-        help_opt: Option<DiagHelp<'a>>,
-        note_opt: Option<DiagNote<'a>>,
+        help_opt: Option<DiagHelp<'diag>>,
+        note_opt: Option<DiagNote<'diag>>,
         out: &mut impl Write,
     ) {
         if let Some(help) = help_opt {

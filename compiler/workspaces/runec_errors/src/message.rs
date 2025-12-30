@@ -3,12 +3,12 @@ use fluent::FluentValue;
 use crate::{impl_add_arg, impl_message_new};
 
 #[derive(Debug)]
-pub struct DiagMessage<'a> {
+pub struct DiagMessage<'diag> {
     pub message_id: &'static str,
-    pub args: Option<HashMap<&'static str, FluentValue<'a>>>,
+    pub args: Option<HashMap<&'static str, FluentValue<'diag>>>,
 }
 
-impl<'a> DiagMessage<'a> {
-    impl_message_new!();
-    impl_add_arg!();
+impl<'diag> DiagMessage<'diag> {
+    impl_message_new!('diag);
+    impl_add_arg!('diag);
 }

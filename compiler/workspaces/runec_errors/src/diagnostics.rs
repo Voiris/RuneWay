@@ -20,17 +20,17 @@ impl Display for DiagType {
 }
 
 #[derive(Debug)]
-pub struct Diagnostic<'a> {
+pub struct Diagnostic<'diag> {
     pub diag_type: DiagType,
     pub code: Option<u16>,
-    pub message: DiagMessage<'a>,
-    pub labels: Vec<DiagLabel<'a>>,
-    pub note: Option<DiagNote<'a>>,
-    pub help: Option<DiagHelp<'a>>,
+    pub message: DiagMessage<'diag>,
+    pub labels: Vec<DiagLabel<'diag>>,
+    pub note: Option<DiagNote<'diag>>,
+    pub help: Option<DiagHelp<'diag>>,
 }
 
-impl<'a> Diagnostic<'a> {
-    pub fn new(diag_type: DiagType, code: Option<u16>, message: DiagMessage<'a>) -> Self {
+impl<'diag> Diagnostic<'diag> {
+    pub fn new(diag_type: DiagType, code: Option<u16>, message: DiagMessage<'diag>) -> Self {
         Self {
             diag_type,
             code,
@@ -41,33 +41,33 @@ impl<'a> Diagnostic<'a> {
         }
     }
 
-    pub fn weak_warning(message: DiagMessage<'a>) -> Self {
+    pub fn weak_warning(message: DiagMessage<'diag>) -> Self {
         Self::new(DiagType::WeakWarning, None, message)
     }
 
-    pub fn warning(message: DiagMessage<'a>) -> Self {
+    pub fn warning(message: DiagMessage<'diag>) -> Self {
         Self::new(DiagType::Warning, None, message)
     }
 
-    pub fn error(message: DiagMessage<'a>) -> Self {
+    pub fn error(message: DiagMessage<'diag>) -> Self {
         Self::new(DiagType::Error, None, message)
     }
 
-    pub fn error_with_code(message: DiagMessage<'a>, code: u16) -> Self {
+    pub fn error_with_code(message: DiagMessage<'diag>, code: u16) -> Self {
         Self::new(DiagType::Error, Some(code), message)
     }
 
-    pub fn add_label(mut self, label: DiagLabel<'a>) -> Self {
+    pub fn add_label(mut self, label: DiagLabel<'diag>) -> Self {
         self.labels.push(label);
         self
     }
 
-    pub fn set_help(mut self, help: DiagHelp<'a>) -> Self {
+    pub fn set_help(mut self, help: DiagHelp<'diag>) -> Self {
         self.help = Some(help);
         self
     }
 
-    pub fn set_note(mut self, note: DiagNote<'a>) -> Self {
+    pub fn set_note(mut self, note: DiagNote<'diag>) -> Self {
         self.note = Some(note);
         self
     }
