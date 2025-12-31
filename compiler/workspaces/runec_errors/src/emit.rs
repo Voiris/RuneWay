@@ -241,8 +241,8 @@ mod tests {
 
         assert_eq!(buffer,
                    "\x1b[1;91merror\x1b[0m\x1b[1;36m[E0102]\x1b[0m: void message\n \x1b[1;96m-->\x1b[0m /home/user/main.rnw\n\x1b[1;96m  |\
-                   \n\x1b[1;96m1 |\x1b[0m 01234567\n  \x1b[1;96m|  \x1b[1;96m----\x1b[0m \x1b[1;96mvoid message\
-                   \x1b[0m\n\x1b[1;96m4 |\x1b[0m \t987654321\n  \x1b[1;96m|        \x1b[1;93m^^^\x1b[0m\n  \x1b[96m= \
+                   \n\x1b[1;96m1 |\x1b[0m 01234567\n  \x1b[1;96m|  \x1b[1;96m^^^^\x1b[0m \x1b[1;96mvoid message\
+                   \x1b[0m\n\x1b[1;96m4 |\x1b[0m \t987654321\n  \x1b[1;96m|        \x1b[1;93m---\x1b[0m\n  \x1b[96m= \
                    \x1b[97mhelp\x1b[0m: void message\n  \x1b[96m= \x1b[97mnote\x1b[0m: void message"
         );
     }
