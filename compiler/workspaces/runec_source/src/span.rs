@@ -10,11 +10,11 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn new(lo: BytePos, hi: BytePos, src_id: SourceId) -> Span {
+    pub const fn new(lo: BytePos, hi: BytePos, src_id: SourceId) -> Span {
         Span { lo, hi, src_id }
     }
 
-    pub fn to_range(&self) -> Range<BytePos> {
+    pub const fn to_range(&self) -> Range<BytePos> {
         self.lo..self.hi
     }
 
@@ -30,7 +30,7 @@ pub struct Spanned<T> {
 }
 
 impl<T> Spanned<T> {
-    pub fn new(node: T, span: Span) -> Spanned<T> {
+    pub const fn new(node: T, span: Span) -> Spanned<T> {
         Spanned { node, span }
     }
 
