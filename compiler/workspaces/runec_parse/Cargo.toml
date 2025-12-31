@@ -5,3 +5,6 @@ edition = "2024"
 
 [dependencies]
 runec_source = { path = "../runec_source" }
+runec_errors = { path = "../runec_errors" }
+runec_utils = { path = "../runec_utils" }
+fluent = "0.17.0"
