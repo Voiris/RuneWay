@@ -12,8 +12,8 @@ pub enum DiagLabelKind {
 impl DiagLabelKind {
     pub fn marker(&self) -> char {
         match self {
-            DiagLabelKind::Primary => '-',
-            DiagLabelKind::Secondary => '^',
+            DiagLabelKind::Primary => '^',
+            DiagLabelKind::Secondary => '-',
         }
     }
 

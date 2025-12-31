@@ -60,7 +60,7 @@ impl<'src, 'diag> Lexer<'src> {
                                 "char" => FluentValue::String(Cow::Owned(ch.to_string())),
                             ))))
                                 .add_label(
-                                    DiagLabel::silent_secondary(Span::new(
+                                    DiagLabel::silent_primary(Span::new(
                                         BytePos::from_usize(lo),
                                         BytePos::from_usize(hi),
                                         self.source_id
