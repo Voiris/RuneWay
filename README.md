@@ -20,7 +20,7 @@
 
 - [ ] AST-based Interpreter
 - [ ] Semantic Checker
-- [ ] AST Optimizer
+- [ ] Optimizer
 - [ ] Bytecode compiler & VM
 
 ### 🪵 Built-ins
@@ -55,7 +55,6 @@
 ### 📢 Errors
 
 - [ ] Line & Column Positioning
-- [ ] SyntaxError, TypeError, ValueError (Python like)
 - [ ] Error reporter (Rust like)
 - [ ] User-defined Error Throwing
 
@@ -79,4 +78,4 @@ We welcome your issues about bugs, ideas, or suggestions.
 
 ## 📄 License
 
-MIT License. See [LICENSE](./LICENSE) for details.
+MIT License. See [LICENSE](LICENSE) for details.
