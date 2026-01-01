@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use crate::labels::{DiagHelp, DiagLabel, DiagNote};
+use crate::lint::Lint;
 use crate::message::DiagMessage;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -23,6 +24,7 @@ impl Display for DiagType {
 pub struct Diagnostic<'diag> {
     pub diag_type: DiagType,
     pub code: Option<u16>,
+    pub lint_type: Option<Lint<'diag>>,
     pub message: DiagMessage<'diag>,
     pub labels: Vec<DiagLabel<'diag>>,
     pub note: Option<DiagNote<'diag>>,
@@ -34,6 +36,7 @@ impl<'diag> Diagnostic<'diag> {
         Box::new(Self {
             diag_type,
             code,
+            lint_type: None,
             message,
             labels: vec![],
             note: None,
@@ -69,6 +72,11 @@ impl<'diag> Diagnostic<'diag> {
 
     pub fn set_note(mut self: Box<Self>, note: DiagNote<'diag>) -> Box<Self> {
         self.note = Some(note);
+        self
+    }
+
+    pub fn set_lint_type(mut self: Box<Self>, lint_type: &'diag str) -> Box<Self> {
+        self.lint_type = Some(Lint::from_str(lint_type));
         self
     }
 }
