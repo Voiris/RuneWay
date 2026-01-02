@@ -18,10 +18,13 @@
 
 ### 🧱 Architecture
 
-- [ ] AST-based Interpreter
+- [ ] Lexer (out: Tokens)
+- [ ] Parser (out: AST)
+- [ ] IR generator (out: IR)
 - [ ] Semantic Checker
 - [ ] Optimizer
-- [ ] Bytecode compiler & VM
+- [ ] Bytecode generator (out: Stack-based bytecode)
+- [ ] Stack-based VM
 
 ### 🪵 Built-ins
 
