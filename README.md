@@ -30,15 +30,12 @@
 
 - [ ] Native console out (`print`, `println`)
 - [ ] Native console in (`input`)
-- [ ] Native object id (`id()`, like in Python)
-- [ ] Native type introspection (`type()`, like in Python)
 - [ ] Primitive Types (`int`, `string`, `bool`, ...)
-- [ ] Instance check (`is_instance(1, int)`)
 
 ### 🧩 Standard Library
 
 - [ ] Module System (Imports)
-- [ ] std::buffered (demo)
+- [ ] std::buffered
 - [ ] std::http
 - [ ] std::json
 - [ ] std::itertools
@@ -47,18 +44,17 @@
 - [ ] std::math
 - [ ] std::files
 - [ ] std::time
+- [ ] std::mem
 
 ### 🔩 OOP
 
 - [ ] Method calls (`a.iter()`)
 - [ ] User-defined classes
-- [ ] User-defined type-casts
 - [ ] Abstractions
 
 ### 📢 Errors
 
-- [ ] Line & Column Positioning
-- [ ] Error reporter (Rust like)
+- [x] Error reporter (Rust like)
 - [ ] User-defined Error Throwing
 
 ## Installation
