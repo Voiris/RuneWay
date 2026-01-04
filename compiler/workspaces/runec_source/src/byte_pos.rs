@@ -23,10 +23,26 @@ impl Add for BytePos {
     }
 }
 
+impl Add<usize> for BytePos {
+    type Output = BytePos;
+
+    fn add(self, rhs: usize) -> BytePos {
+        BytePos::from_usize(self.to_usize() + rhs)
+    }
+}
+
 impl Sub for BytePos {
     type Output = BytePos;
 
     fn sub(self, rhs: BytePos) -> BytePos {
         BytePos(self.0 - rhs.0)
+    }
+}
+
+impl Sub<usize> for BytePos {
+    type Output = BytePos;
+
+    fn sub(self, rhs: usize) -> BytePos {
+        BytePos::from_usize(self.to_usize() - rhs)
     }
 }
