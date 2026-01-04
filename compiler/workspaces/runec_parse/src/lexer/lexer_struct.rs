@@ -3,7 +3,6 @@ use fluent::FluentValue;
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::labels::DiagLabel;
 use runec_errors::message::DiagMessage;
-use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceFile, SourceId, SourceMap};
 use runec_source::span::Span;
 use crate::lexer::cursor::Cursor;
@@ -84,6 +83,7 @@ impl<'src, 'diag> Lexer<'src> {
 mod tests {
     use std::path::PathBuf;
     use runec_source::source_map::FileName;
+    use runec_source::byte_pos::BytePos;
     use super::*;
 
     fn generate_source(source: &str) -> (SourceMap, SourceId) {
