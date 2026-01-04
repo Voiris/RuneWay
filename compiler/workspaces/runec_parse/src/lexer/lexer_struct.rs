@@ -31,7 +31,7 @@ impl<'src, 'diag> Lexer<'src> {
         let lo = self.cursor.pos();
         self.cursor.next();
         let hi = self.cursor.pos();
-        Some(SpannedToken::new(token, Span::new(BytePos::from_usize(lo), BytePos::from_usize(hi), self.source_id)))
+        Some(SpannedToken::new(token, Span::new(lo, hi, self.source_id)))
     }
 
     pub fn lex(mut self) -> LexerResult<'diag, Vec<SpannedToken<'src>>> {
@@ -61,8 +61,8 @@ impl<'src, 'diag> Lexer<'src> {
                             ))))
                                 .add_label(
                                     DiagLabel::silent_primary(Span::new(
-                                        BytePos::from_usize(lo),
-                                        BytePos::from_usize(hi),
+                                        lo,
+                                        hi,
                                         self.source_id
                                     ))
                                 )

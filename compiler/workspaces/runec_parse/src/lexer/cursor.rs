@@ -1,5 +1,6 @@
 use std::iter::Peekable;
 use std::str::CharIndices;
+use runec_source::byte_pos::BytePos;
 
 #[derive(Clone, Debug)]
 pub(super) struct Cursor<'src> {
@@ -21,8 +22,8 @@ impl<'src> Cursor<'src> {
     /// Returns the current character first byte position in the source string.
     ///
     /// Note: It accounts for Unicode character lengths.
-    pub fn pos(&self) -> usize {
-        self.pos
+    pub fn pos(&self) -> BytePos {
+        BytePos::from_usize(self.pos)
     }
 
     /// Returns the next character and its first byte index, advancing the cursor.
@@ -106,108 +107,108 @@ mod tests {
     #[test]
     fn next_peek_cursor_test() {
         let mut cursor = Cursor::new("abc");
-        assert_eq!(cursor.pos(), 0);
+        assert_eq!(cursor.pos().to_usize(), 0);
         assert_eq!(cursor.peek(), Some(&(0, 'a')));
-        assert_eq!(cursor.pos(), 0);
+        assert_eq!(cursor.pos().to_usize(), 0);
         assert_eq!(cursor.next(), Some((0, 'a')));
-        assert_eq!(cursor.pos(), 1);
+        assert_eq!(cursor.pos().to_usize(), 1);
         assert_eq!(cursor.peek(), Some(&(1, 'b')));
-        assert_eq!(cursor.pos(), 1);
+        assert_eq!(cursor.pos().to_usize(), 1);
         assert_eq!(cursor.next(), Some((1, 'b')));
-        assert_eq!(cursor.pos(), 2);
+        assert_eq!(cursor.pos().to_usize(), 2);
         assert_eq!(cursor.peek(), Some(&(2, 'c')));
-        assert_eq!(cursor.pos(), 2);
+        assert_eq!(cursor.pos().to_usize(), 2);
         assert_eq!(cursor.next(), Some((2, 'c')));
-        assert_eq!(cursor.pos(), 3);
+        assert_eq!(cursor.pos().to_usize(), 3);
         assert_eq!(cursor.peek(), None);
-        assert_eq!(cursor.pos(), 3);
+        assert_eq!(cursor.pos().to_usize(), 3);
         assert_eq!(cursor.next(), None);
     }
 
     #[test]
     fn different_unicode_length_test() {
         let mut cursor = Cursor::new("aécπ😀cπ🚀");
-        assert_eq!(cursor.pos(), 0);
+        assert_eq!(cursor.pos().to_usize(), 0);
         assert_eq!(cursor.next(), Some((0, 'a')));
-        assert_eq!(cursor.pos(), 1);
+        assert_eq!(cursor.pos().to_usize(), 1);
         assert_eq!(cursor.next(), Some((1, 'é')));
-        assert_eq!(cursor.pos(), 3);
+        assert_eq!(cursor.pos().to_usize(), 3);
         assert_eq!(cursor.next(), Some((3, 'c')));
-        assert_eq!(cursor.pos(), 4);
+        assert_eq!(cursor.pos().to_usize(), 4);
         assert_eq!(cursor.next(), Some((4, 'π')));
-        assert_eq!(cursor.pos(), 6);
+        assert_eq!(cursor.pos().to_usize(), 6);
         assert_eq!(cursor.next(), Some((6, '😀')));
-        assert_eq!(cursor.pos(), 10);
+        assert_eq!(cursor.pos().to_usize(), 10);
         assert_eq!(cursor.next(), Some((10, 'c')));
-        assert_eq!(cursor.pos(), 11);
+        assert_eq!(cursor.pos().to_usize(), 11);
         assert_eq!(cursor.next(), Some((11, 'π')));
-        assert_eq!(cursor.pos(), 13);
+        assert_eq!(cursor.pos().to_usize(), 13);
         assert_eq!(cursor.next(), Some((13, '🚀')));
-        assert_eq!(cursor.pos(), 17);
+        assert_eq!(cursor.pos().to_usize(), 17);
         assert_eq!(cursor.next(), None);
     }
 
     #[test]
     fn slice_test() {
         let mut cursor = Cursor::new("ab😀πcd🚀é ");
-        assert_eq!(cursor.pos(), 0);
+        assert_eq!(cursor.pos().to_usize(), 0);
         assert_eq!(cursor.try_next_slice(4), Some("ab😀π"));
-        assert_eq!(cursor.pos(), 8);
+        assert_eq!(cursor.pos().to_usize(), 8);
         assert_eq!(cursor.try_next_slice(4), Some("cd🚀é"));
-        assert_eq!(cursor.pos(), 16);
+        assert_eq!(cursor.pos().to_usize(), 16);
         assert_eq!(cursor.try_next_slice(2), None);
-        assert_eq!(cursor.pos(), 17);
+        assert_eq!(cursor.pos().to_usize(), 17);
     }
 
     #[test]
     fn skip_until_char_test() {
         let mut cursor = Cursor::new("Hello, World! 😀 How aré you?");
         cursor.skip_until_char(' ');    // "Hello,"
-        assert_eq!(cursor.pos(), 6);
+        assert_eq!(cursor.pos().to_usize(), 6);
         cursor.next();
         cursor.skip_until_char(' ');    // "World!"
-        assert_eq!(cursor.pos(), 13);
+        assert_eq!(cursor.pos().to_usize(), 13);
         cursor.next();
-        assert_eq!(cursor.pos(), 14);
+        assert_eq!(cursor.pos().to_usize(), 14);
         cursor.skip_until_char(' ');    // "😀"
-        assert_eq!(cursor.pos(), 18);
+        assert_eq!(cursor.pos().to_usize(), 18);
         cursor.next();
-        assert_eq!(cursor.pos(), 19);
+        assert_eq!(cursor.pos().to_usize(), 19);
         cursor.skip_until_char(' ');    // "How"
-        assert_eq!(cursor.pos(), 22);
+        assert_eq!(cursor.pos().to_usize(), 22);
         cursor.next();
-        assert_eq!(cursor.pos(), 23);
+        assert_eq!(cursor.pos().to_usize(), 23);
         cursor.skip_until_char(' ');    // "aré"
-        assert_eq!(cursor.pos(), 27);
+        assert_eq!(cursor.pos().to_usize(), 27);
         cursor.next();
-        assert_eq!(cursor.pos(), 28);
+        assert_eq!(cursor.pos().to_usize(), 28);
         cursor.skip_until_char(' ');    // "you?"
-        assert_eq!(cursor.pos(), 32);
+        assert_eq!(cursor.pos().to_usize(), 32);
         cursor.skip_until_char(' ');    // "" - empty
-        assert_eq!(cursor.pos(), 32);
+        assert_eq!(cursor.pos().to_usize(), 32);
     }
 
     #[test]
     fn nth_test() {
         let mut cursor = Cursor::new("aécπ😀cπ🚀");
-        assert_eq!(cursor.pos(), 0);
+        assert_eq!(cursor.pos().to_usize(), 0);
         assert_eq!(cursor.nth(2), Some((3, 'c')));
-        assert_eq!(cursor.pos(), 4);
+        assert_eq!(cursor.pos().to_usize(), 4);
         assert_eq!(cursor.nth(2), Some((10, 'c')));
-        assert_eq!(cursor.pos(), 11);
+        assert_eq!(cursor.pos().to_usize(), 11);
         assert_eq!(cursor.nth(5), None);
-        assert_eq!(cursor.pos(), 17);
+        assert_eq!(cursor.pos().to_usize(), 17);
     }
 
     #[test]
     fn lookahead_test() {
         let mut cursor = Cursor::new("aécπ😀cπ🚀");
-        assert_eq!(cursor.pos(), 0);
+        assert_eq!(cursor.pos().to_usize(), 0);
         assert_eq!(cursor.lookahead(2), Some((3, 'c')));
-        assert_eq!(cursor.pos(), 0);
+        assert_eq!(cursor.pos().to_usize(), 0);
         assert_eq!(cursor.lookahead(5), Some((10, 'c')));
-        assert_eq!(cursor.pos(), 0);
+        assert_eq!(cursor.pos().to_usize(), 0);
         assert_eq!(cursor.lookahead(8), None);
-        assert_eq!(cursor.pos(), 0);
+        assert_eq!(cursor.pos().to_usize(), 0);
     }
 }
