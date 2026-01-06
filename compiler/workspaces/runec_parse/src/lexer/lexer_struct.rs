@@ -33,6 +33,23 @@ impl<'src, 'diag> Lexer<'src> {
         Some(SpannedToken::new(token, Span::new(lo, hi, self.source_id)))
     }
 
+    fn lex_identifier(&mut self) -> SpannedToken<'src> {
+
+        let lo = self.cursor.pos();
+        while let Some(char) = self.cursor.peek_char() {
+            match char {
+                // caller guarantees first char is [A-Za-z_]
+                'A'..='Z' | 'a'..='z' | '0'..='9' | '_' => {
+                    self.cursor.next();
+                }
+                _ => break,
+            }
+        }
+        let hi = self.cursor.pos();
+        let ident = &self.source_file.src[lo.to_usize()..hi.to_usize()];
+        SpannedToken::new(Token::Ident(ident), Span::new(lo, hi, self.source_id))
+    }
+
     pub fn lex(mut self) -> LexerResult<'diag, Vec<SpannedToken<'src>>> {
         let mut tokens = Vec::new();
 
@@ -51,6 +68,9 @@ impl<'src, 'diag> Lexer<'src> {
                     ')' => self.span_one_char(Token::CloseParen),
                     '{' => self.span_one_char(Token::OpenBrace),
                     '}' => self.span_one_char(Token::CloseBrace),
+                    'A'..='Z' | 'a'..='z' | '_' => {
+                        Some(self.lex_identifier())
+                    }
                     _ => {
                         let lo = self.cursor.pos();
                         let hi = lo + ch.len_utf8();
@@ -107,6 +127,26 @@ mod tests {
             SpannedToken::new(Token::CloseParen, span(1, 2, source_id)),
             SpannedToken::new(Token::OpenBrace, span(2, 3, source_id)),
             SpannedToken::new(Token::CloseBrace, span(3, 4, source_id)),
+        ];
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex().unwrap();
+
+        assert_eq!(real_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn ident_lex_test() {
+        let source = "main r DaDa r9_ r_9 _";
+        let (source_map, source_id) = generate_source(source);
+
+        let expected_tokens = [
+            SpannedToken::new(Token::Ident(&source[0..4]), Span::new(BytePos::from_usize(0), BytePos::from_usize(4), source_id)),
+            SpannedToken::new(Token::Ident(&source[5..6]), Span::new(BytePos::from_usize(5), BytePos::from_usize(6), source_id)),
+            SpannedToken::new(Token::Ident(&source[7..11]), Span::new(BytePos::from_usize(7), BytePos::from_usize(11), source_id)),
+            SpannedToken::new(Token::Ident(&source[12..15]), Span::new(BytePos::from_usize(12), BytePos::from_usize(15), source_id)),
+            SpannedToken::new(Token::Ident(&source[16..19]), Span::new(BytePos::from_usize(16), BytePos::from_usize(19), source_id)),
+            SpannedToken::new(Token::Ident(&source[20..21]), Span::new(BytePos::from_usize(20), BytePos::from_usize(21), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
