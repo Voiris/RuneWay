@@ -89,6 +89,19 @@ impl<'src> Cursor<'src> {
         }
     }
 
+    /// Advances the cursor until the given character is found or the end is reached or the max characters count.
+    pub fn skip_until_char_counted(&mut self, c: char, max: usize) {
+        let mut i = 0;
+        while let Some(&char) = self.peek_char() {
+            if i == max || char == c {
+                break;
+            } else {
+                i += 1;
+                self.next_char();
+            }
+        }
+    }
+
     /// Returns the `n`-th character ahead and its first byte index without advancing the cursor.
     pub fn lookahead(&mut self, n: usize) -> Option<(usize, char)> {
         self.clone().nth(n)
