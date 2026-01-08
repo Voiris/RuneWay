@@ -18,7 +18,7 @@
 
 ### 🧱 Architecture
 
-- [ ] Lexer (out: Tokens)
+- [ ] Lexer (out: Tokens) - *in progress*
 - [ ] Parser (out: AST)
 - [ ] IR generator (out: IR)
 - [ ] Semantic Checker
