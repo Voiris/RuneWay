@@ -1,8 +1,9 @@
 use std::borrow::Cow;
 use fluent::FluentValue;
 use runec_errors::diagnostics::Diagnostic;
-use runec_errors::labels::DiagLabel;
+use runec_errors::labels::{DiagHelp, DiagLabel};
 use runec_errors::message::DiagMessage;
+use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceFile, SourceId, SourceMap};
 use runec_source::span::Span;
 use crate::lexer::cursor::Cursor;
@@ -33,6 +34,19 @@ impl<'src, 'diag> Lexer<'src> {
         Some(SpannedToken::new(token, Span::new(lo, hi, self.source_id)))
     }
 
+    fn duplicated_prefix_error(&self, prefix: char, lo: BytePos, hi: BytePos) -> Box<Diagnostic<'diag>> {
+        Diagnostic::error(DiagMessage::new("duplicated-string-literal-prefix", Some(runec_utils::hashmap!(
+                                "char" => FluentValue::String(Cow::Owned(prefix.to_string())),
+                            ))))
+            .add_label(
+                DiagLabel::silent_primary(Span::new(
+                    lo,
+                    hi,
+                    self.source_id
+                ))
+            )
+    }
+
     fn lex_identifier(&mut self) -> SpannedToken<'src> {
 
         let lo = self.cursor.pos();
@@ -48,6 +62,292 @@ impl<'src, 'diag> Lexer<'src> {
         let hi = self.cursor.pos();
         let ident = &self.source_file.src[lo.to_usize()..hi.to_usize()];
         SpannedToken::new(Token::Ident(ident), Span::new(lo, hi, self.source_id))
+    }
+
+    fn handle_string_prefix(&mut self) -> LexerResult<'diag, (bool, bool)> {
+        let lo = self.cursor.pos();
+        let first = self.cursor.next_char().unwrap();
+        let second = self.cursor.peek_char().unwrap().clone();
+
+        match (first, second) {
+            ('r', 'f') | ('f', 'r') => {
+                self.cursor.next();
+                Ok((true, true))
+            },
+            ('f', 'f') | ('r', 'r') => {
+                self.cursor.next();
+                let hi = self.cursor.pos();
+                Err(self.duplicated_prefix_error(first, lo, hi))
+            },
+            ('r', '"') => Ok((true, false)),
+            ('f', '"') => Ok((false, true)),
+            (_, c) => {
+                self.cursor.next();
+                let hi = self.cursor.pos();
+                Err(
+                    Diagnostic::error(DiagMessage::new("invalid-char", Some(runec_utils::hashmap!(
+                                "char" => FluentValue::String(Cow::Owned(c.to_string())),
+                            ))))
+                        .add_label(
+                            DiagLabel::silent_primary(Span::new(
+                                lo,
+                                hi,
+                                self.source_id,
+                            ))
+                        )
+                )
+            }
+        }
+    }
+
+    fn lex_string_literal(&mut self, is_raw: bool, is_format: bool, consume_starter_quote: bool) -> LexerResult<'diag, SpannedToken<'src>> {
+        let lo = self.cursor.pos();
+
+        if consume_starter_quote {
+            self.cursor.next();
+        }
+
+        let raw_str_lo = self.cursor.pos();
+
+        let mut string_opt = Option::<String>::None;
+        let mut is_terminated = false;
+        let mut cursor_clone = self.cursor.clone();
+        let mut raw_chars_count = 0u32; // uses before first escape sequence and if is_raw == false
+        while let Some(char) = self.cursor.peek_char() {
+            match char {
+                '"' => {
+                    is_terminated = true;
+                    break;
+                }
+                '{' if is_format => { unimplemented!() }
+                '\\' if !is_raw => {
+                    let string = string_opt.get_or_insert_with(
+                        || cursor_clone.try_next_slice(raw_chars_count as usize).unwrap().to_string()
+                    );
+                    let escape_lo = self.cursor.pos();
+                    self.cursor.next();
+                    if let Some(char) = self.cursor.next_char() {
+                        match char {
+                            'n' => string.push('\n'),
+                            'r' => string.push('\r'),
+                            't' => string.push('\t'),
+                            '\\' => string.push('\\'),
+                            '"' => string.push('"'),
+                            '\n' => (),
+                            'x' => {
+                                let hex_str_opt = self.cursor.try_next_slice(2);
+
+                                if let Some(hex_str) = hex_str_opt {
+                                    let hex_opt = u8::from_str_radix(hex_str, 16);
+
+                                    if let Ok(hex) = hex_opt {
+                                        const MAX_HEX_ESCAPE: u8 = 0x7f;
+                                        if hex > MAX_HEX_ESCAPE {
+                                            let escape_hi = self.cursor.pos();
+                                            return Err(
+                                                Diagnostic::error(DiagMessage::new_simple("out-of-range-hex-escape"))
+                                                    .add_label(
+                                                        DiagLabel::simple_primary("out-of-range-hex-escape-label", Span::new(
+                                                            escape_lo,
+                                                            escape_hi,
+                                                            self.source_id,
+                                                        ))
+                                                    )
+                                            )
+                                        }
+                                        string.push(hex as char)
+                                    } else {
+                                        let escape_hi = self.cursor.pos();
+                                        return Err(
+                                            Diagnostic::error(DiagMessage::new("invalid-escape-sequence", Some(runec_utils::hashmap!(
+                                                "sequence" => FluentValue::String(Cow::Owned(r"\x".to_string())),
+                                            ))))
+                                                .add_label(
+                                                    DiagLabel::silent_primary(Span::new(
+                                                        escape_lo,
+                                                        escape_hi,
+                                                        self.source_id,
+                                                    ))
+                                                )
+                                        )
+                                    }
+                                } else {
+                                    let escape_hi = self.cursor.pos();
+                                    return Err(
+                                        Diagnostic::error(DiagMessage::new("invalid-escape-sequence", Some(runec_utils::hashmap!(
+                                            "sequence" => FluentValue::String(Cow::Owned(r"\x".to_string())),
+                                        ))))
+                                            .add_label(
+                                                DiagLabel::silent_primary(Span::new(
+                                                    escape_lo,
+                                                    escape_hi,
+                                                    self.source_id,
+                                                ))
+                                            )
+                                    )
+                                }
+                            },
+                            'u' => {
+                                if !matches!(self.cursor.next_char(), Some('{')) {
+                                    let escape_hi = self.cursor.pos();
+                                    return Err(
+                                        Diagnostic::error(DiagMessage::new_simple("incorrect-unicode-escape"))
+                                            .add_label(
+                                                DiagLabel::simple_primary("incorrect-unicode-escape", Span::new(
+                                                    escape_lo,
+                                                    escape_hi,
+                                                    self.source_id,
+                                                ))
+                                            )
+                                            .set_help(
+                                                DiagHelp::new_simple("unicode-escape-sequence-format")
+                                            )
+                                    )
+                                }
+                                let hex_lo = self.cursor.pos();
+                                self.cursor.skip_until_char_counted('}', 6);
+                                if !matches!(self.cursor.peek_char(), Some('}')) {
+                                    let escape_hi = self.cursor.pos();
+                                    return Err(
+                                        Diagnostic::error(DiagMessage::new_simple("unterminated-escape-sequence"))
+                                            .add_label(
+                                                DiagLabel::silent_primary(Span::new(
+                                                    escape_lo,
+                                                    escape_hi,
+                                                    self.source_id,
+                                                ))
+                                            )
+                                            .set_help(
+                                                DiagHelp::new_simple("must have at most 6 hex digits")
+                                            )
+                                    )
+                                }
+                                let hex_hi = self.cursor.pos();
+                                self.cursor.next();
+                                let hex_str = &self.source_file.src[hex_lo.to_usize()..hex_hi.to_usize()];
+                                let hex_opt = u32::from_str_radix(hex_str, 16);
+                                if let Ok(hex) = hex_opt {
+                                    match hex {
+                                        0xD800..=0xDFFF => {
+                                            return Err(
+                                                Diagnostic::error(DiagMessage::new_simple("incorrect-unicode-escape"))
+                                                    .add_label(
+                                                        DiagLabel::silent_primary(Span::new(
+                                                            hex_lo,
+                                                            hex_hi,
+                                                            self.source_id,
+                                                        ))
+                                                    )
+                                                    .set_help(
+                                                        DiagHelp::new_simple("unicode-escape-must-not-be-surrogate")
+                                                    )
+                                            )
+                                        }
+                                        0x110000.. => {
+                                            return Err(
+                                                Diagnostic::error(DiagMessage::new_simple("incorrect-unicode-escape"))
+                                                    .add_label(
+                                                        DiagLabel::silent_primary(Span::new(
+                                                            hex_lo,
+                                                            hex_hi,
+                                                            self.source_id,
+                                                        ))
+                                                    )
+                                                    .set_help(
+                                                        DiagHelp::new_simple("unicode-escape-must-be-in-range")
+                                                    )
+                                            )
+                                        }
+                                        hex => {
+                                            // SAFETY: `hex` is guaranteed to be a valid Unicode scalar value
+                                            string.push(unsafe { char::from_u32_unchecked(hex) })
+                                        }
+                                    }
+                                } else {
+                                    let escape_hi = self.cursor.pos();
+                                    return Err(
+                                        Diagnostic::error(DiagMessage::new_simple("invalid-unicode-escape"))
+                                            .add_label(
+                                                DiagLabel::silent_primary(Span::new(
+                                                    escape_lo,
+                                                    escape_hi,
+                                                    self.source_id,
+                                                ))
+                                            )
+                                    )
+                                }
+                            }
+                            _ => {
+                                let hi = self.cursor.pos();
+                                return Err(
+                                    Diagnostic::error(DiagMessage::new("invalid-escape-sequence", Some(runec_utils::hashmap!(
+                                        "sequence" => FluentValue::String(Cow::Owned(format!("\\{}", char))),
+                                    ))))
+                                        .add_label(
+                                            DiagLabel::silent_primary(Span::new(
+                                                lo,
+                                                hi,
+                                                self.source_id,
+                                            ))
+                                        )
+                                )
+                            }
+                        }
+                    } else {
+                        let hi = self.cursor.pos();
+                        return Err(
+                            Diagnostic::error(DiagMessage::new_simple("unterminated-escape-sequence"))
+                                .add_label(
+                                    DiagLabel::silent_primary(Span::new(
+                                        lo,
+                                        hi,
+                                        self.source_id,
+                                    ))
+                                )
+                        )
+                    }
+                }
+                c => {
+                    if let Some(ref mut string) = string_opt {
+                        string.push(self.cursor.next_char().unwrap());
+                    } else {
+                        self.cursor.next();
+                        raw_chars_count += 1;
+                    }
+                }
+            }
+        }
+
+        let raw_str_hi = self.cursor.pos();
+
+        self.cursor.next();
+
+        let hi = self.cursor.pos();
+
+        if !is_terminated {
+            return Err(
+                Diagnostic::error(DiagMessage::new_simple("unterminated-string"))
+                    .add_label(
+                        DiagLabel::silent_primary(Span::new(
+                            lo,
+                            hi,
+                            self.source_id
+                        ))
+                    )
+            )
+        }
+
+        let token = if let Some(string) = string_opt {
+            Token::StringLiteral(string)
+        } else {
+            Token::RawStringLiteral(&self.source_file.src[raw_str_lo.to_usize()..raw_str_hi.to_usize()])
+        };
+
+        Ok(SpannedToken::new(token, Span::new(lo, hi, self.source_id)))
+    }
+
+    fn lex_string(&mut self, is_raw: bool, is_format: bool) -> LexerResult<'diag, Vec<SpannedToken<'src>>> {
+        unimplemented!()
     }
 
     pub fn lex(mut self) -> LexerResult<'diag, Vec<SpannedToken<'src>>> {
@@ -68,6 +368,15 @@ impl<'src, 'diag> Lexer<'src> {
                     ')' => self.span_one_char(Token::CloseParen),
                     '{' => self.span_one_char(Token::OpenBrace),
                     '}' => self.span_one_char(Token::CloseBrace),
+                    '"' => {
+                        Some(self.lex_string_literal(false, false, true)?)
+                    }
+                    'r' | 'f'
+                    if self.cursor.lookahead_char(1) == Some('"')
+                    || self.cursor.lookahead_char(2) == Some('"') => {
+                        let (is_raw, is_format) = self.handle_string_prefix()?;
+                        unimplemented!()
+                    }
                     'A'..='Z' | 'a'..='z' | '_' => {
                         Some(self.lex_identifier())
                     }
@@ -154,4 +463,38 @@ mod tests {
 
         assert_eq!(real_tokens, expected_tokens);
     }
+
+    #[test]
+    fn basic_string_literal_test() {
+        let source = "\"string\" \"\"";
+        let (source_map, source_id) = generate_source(source);
+
+        let expected_tokens = [
+            SpannedToken::new(Token::RawStringLiteral(&source[1..7]), Span::new(BytePos::from_usize(0), BytePos::from_usize(8), source_id)),
+            SpannedToken::new(Token::RawStringLiteral(&source[10..10]), Span::new(BytePos::from_usize(9), BytePos::from_usize(11), source_id)),
+        ];
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex().unwrap();
+
+        assert_eq!(real_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn escape_sequence_test() {
+        let source = "\"\\x01\\u{0012}\\u{FF}\\t\\r\\n\"";
+        let (source_map, source_id) = generate_source(source);
+
+        let expected_tokens = [
+            SpannedToken::new(Token::StringLiteral("\x01\u{0012}\u{FF}\t\r\n".to_string()), Span::new(BytePos::from_usize(0), BytePos::from_usize(26), source_id)),
+        ];
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex().unwrap();
+
+        assert_eq!(real_tokens, expected_tokens);
+    }
 }
+
+// TODO: remove TOO MANY duplicated code
+// TODO: split `lex_string_literal` function
