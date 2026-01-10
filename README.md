@@ -34,7 +34,7 @@
 
 ### 🧩 Standard Library
 
-- [ ] Module System (Imports)
+- [ ] Module System (Imports: `import some_module::some_submodule`)
 - [ ] std::buffered
 - [ ] std::http
 - [ ] std::json
