@@ -12,6 +12,6 @@ out-of-range-hex-escape-label = must be in range: [\\x00-\\x7f]
 invalid-unicode-escape = invalid unicode character escape
 unicode-escape-must-be-in-range = must be in range: [\\U000000-\\U10FFFF]
 unicode-escape-must-not-be-surrogate = must not be a surrogate
-incorrect-unicode-escape = incorrect unicode escape sequence
 unicode-escape-sequence-format = format of unicode escape sequences is {"`\\u{...}`"}
 unicode-must-be-hex = must be hexadecimal
+unicode-must-have-at-most-6-hex-digits = must have at most 6 hex digits
