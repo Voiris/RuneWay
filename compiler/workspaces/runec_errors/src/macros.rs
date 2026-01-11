@@ -1,4 +1,3 @@
-#[macro_export]
 macro_rules! impl_add_arg {
     ($lifetime:lifetime) => {
         pub fn add_arg(mut self, key: &'static str, arg: FluentValue<$lifetime>) -> Self {
@@ -8,7 +7,6 @@ macro_rules! impl_add_arg {
     }
 }
 
-#[macro_export]
 macro_rules! impl_message_new {
     ($lifetime:lifetime) => {
         pub fn new(message_id: &'static str, args: Option<HashMap<&'static str, FluentValue<$lifetime>>>) -> Self {

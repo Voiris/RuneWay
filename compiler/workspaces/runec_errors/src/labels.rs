@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use fluent::FluentValue;
 use runec_source::span::Span;
-use crate::{impl_add_arg, impl_message_new};
 
 #[derive(Debug)]
 pub enum DiagLabelKind {
