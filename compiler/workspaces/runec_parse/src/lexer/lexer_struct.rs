@@ -47,9 +47,9 @@ impl<'src, 'diag> Lexer<'src> {
             )
     }
 
-    fn invalid_escape_sequence_error(&self, lo: BytePos, hi: BytePos, sequence: &str) -> Box<Diagnostic<'diag>> {
+    fn invalid_escape_sequence_error(&self, lo: BytePos, hi: BytePos, sequence: String) -> Box<Diagnostic<'diag>> {
         Diagnostic::error(DiagMessage::new("invalid-escape-sequence", Some(runec_utils::hashmap!(
-            "sequence" => FluentValue::String(Cow::Owned(sequence.to_string())),
+            "sequence" => FluentValue::String(Cow::Owned(sequence)),
         ))))
             .add_label(
                 DiagLabel::silent_primary(Span::new(
@@ -145,11 +145,11 @@ impl<'src, 'diag> Lexer<'src> {
                             Ok(Some(hex as char))
                         } else {
                             let escape_hi = self.cursor.pos();
-                            Err(self.invalid_escape_sequence_error(escape_lo, escape_hi, r"\x"))
+                            Err(self.invalid_escape_sequence_error(escape_lo, escape_hi, r"\x".to_string()))
                         }
                     } else {
                         let escape_hi = self.cursor.pos();
-                        Err(self.invalid_escape_sequence_error(escape_lo, escape_hi, r"\x"))
+                        Err(self.invalid_escape_sequence_error(escape_lo, escape_hi, r"\x".to_string()))
                     }
                 },
                 'u' => {
@@ -222,16 +222,7 @@ impl<'src, 'diag> Lexer<'src> {
                 _ => {
                     let escape_hi = self.cursor.pos();
                     Err(
-                        Diagnostic::error(DiagMessage::new("invalid-escape-sequence", Some(runec_utils::hashmap!(
-                                        "sequence" => FluentValue::String(Cow::Owned(format!("\\{}", char))),
-                                    ))))
-                            .add_label(
-                                DiagLabel::silent_primary(Span::new(
-                                    escape_lo,
-                                    escape_hi,
-                                    self.source_id,
-                                ))
-                            )
+                        self.invalid_escape_sequence_error(escape_lo, escape_hi, format!("\\{}", char))
                     )
                 }
             }
