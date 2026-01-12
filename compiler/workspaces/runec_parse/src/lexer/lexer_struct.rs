@@ -60,24 +60,6 @@ impl<'src, 'diag> Lexer<'src> {
             )
     }
 
-    fn invalid_unicode_sequence_err_with_help(&self, lo: BytePos, hi: BytePos, help_message_id: &'static str) -> Box<Diagnostic<'diag>> {
-        self.invalid_unicode_sequence_err(lo, hi)
-            .set_help(
-                DiagHelp::new_simple(help_message_id)
-            )
-    }
-
-    fn invalid_unicode_sequence_err(&self, lo: BytePos, hi: BytePos) -> Box<Diagnostic<'diag>> {
-        Diagnostic::error(DiagMessage::new_simple("invalid-unicode-escape"))
-            .add_label(
-                DiagLabel::simple_primary("invalid-unicode-escape", Span::new(
-                    lo,
-                    hi,
-                    self.source_id,
-                ))
-            )
-    }
-
     fn lex_identifier(&mut self) -> SpannedToken<'src> {
         let lo = self.cursor.pos();
         while let Some(char) = self.cursor.peek_char() {
