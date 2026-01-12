@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use fluent::FluentValue;
 use runec_errors::diagnostics::Diagnostic;
-use runec_errors::labels::{DiagHelp, DiagLabel};
+use runec_errors::labels::DiagLabel;
 use runec_errors::message::DiagMessage;
 use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceFile, SourceId, SourceMap};
@@ -238,7 +238,7 @@ impl<'src, 'diag> Lexer<'src> {
         }
     }
 
-    fn lex_string_literal(&mut self, is_raw: bool, is_format: bool, consume_starter_quote: bool) -> LexerResult<'diag, SpannedToken<'src>> {
+    fn lex_string_literal(&mut self, is_raw: bool, is_format: bool, consume_starter_quote: bool) -> LexerResult<'diag, (SpannedToken<'src>, bool)> {
         let lo = self.cursor.pos();
 
         if consume_starter_quote {
@@ -249,18 +249,21 @@ impl<'src, 'diag> Lexer<'src> {
 
         let mut string_opt = Option::<String>::None;
         let mut is_terminated = false;
-        let mut cursor_clone = self.cursor.clone();
-        let mut raw_chars_count = 0u32; // uses before first escape sequence and if is_raw == false
+        let mut is_quote_terminated = false;
         while let Some(char) = self.cursor.peek_char() {
             match char {
                 '"' => {
                     is_terminated = true;
+                    is_quote_terminated = true;
                     break;
                 }
-                '{' if is_format => { unimplemented!() }
+                '{' if is_format => {
+                    is_terminated = true;
+                    break;
+                }
                 '\\' if !is_raw => {
                     let string = string_opt.get_or_insert_with(
-                        || cursor_clone.try_next_slice(raw_chars_count as usize).unwrap().to_string()
+                        || self.source_file.src[raw_str_lo.to_usize()..self.cursor.pos().to_usize()].to_string()
                     );
                     if let Some(char) = self.lex_escape_sequence()? {
                         string.push(char);
@@ -271,7 +274,6 @@ impl<'src, 'diag> Lexer<'src> {
                         string.push(self.cursor.next_char().unwrap());
                     } else {
                         self.cursor.next();
-                        raw_chars_count += 1;
                     }
                 }
             }
@@ -279,7 +281,9 @@ impl<'src, 'diag> Lexer<'src> {
 
         let raw_str_hi = self.cursor.pos();
 
-        self.cursor.next();
+        if is_quote_terminated {
+            self.cursor.next();
+        }
 
         let hi = self.cursor.pos();
 
@@ -299,65 +303,136 @@ impl<'src, 'diag> Lexer<'src> {
             Token::RawStringLiteral(&self.source_file.src[raw_str_lo.to_usize()..raw_str_hi.to_usize()])
         };
 
-        Ok(SpannedToken::new(token, Span::new(lo, hi, self.source_id)))
+        Ok((SpannedToken::new(token, Span::new(lo, hi, self.source_id)), is_quote_terminated))
     }
 
     fn lex_string(&mut self, is_raw: bool, is_format: bool) -> LexerResult<'diag, Vec<SpannedToken<'src>>> {
-        unimplemented!()
+        let lo = self.cursor.pos();
+
+        self.cursor.next();
+
+        let mut tokens = Vec::new();
+
+        if is_format {
+            tokens.push(SpannedToken::new(Token::FormatStringStart, Span::new(lo, lo, self.source_id)))
+        }
+
+        let mut is_terminated = false;
+
+        while let Some(char) = self.cursor.peek_char() {
+            match char {
+                '{' => {
+                    tokens.push(self.span_one_char(Token::OpenBrace).unwrap());
+                    while let Some(char) = self.cursor.peek_char() {
+                        match char {
+                            '}' => {
+                                tokens.push(self.span_one_char(Token::CloseBrace).unwrap());
+                                break;
+                            }
+                            _ => {
+                                tokens.extend(self.lex()?)
+                            }
+                        }
+                    }
+                }
+                '"' => {
+                    is_terminated = true;
+                    break;
+                }
+                _ => {
+                    let (literal, is_quote_terminated) = self.lex_string_literal(is_raw, is_format, false)?;
+
+                    if is_quote_terminated {
+                        // Not count ending quote
+                        tokens.push(SpannedToken::new(literal.node, Span::new(literal.span.lo, literal.span.hi - 1, literal.span.src_id)));
+                        is_terminated = true;
+                        break;
+                    } else {
+                        tokens.push(literal);
+                    }
+                }
+            }
+        }
+
+        if !is_terminated {
+            let hi = self.cursor.pos();
+            return Err(
+                runec_errors::make_simple_diag!(
+                    error;
+                    "unterminated-string",
+                    (self.source_id => lo..hi)
+                )
+            )
+        }
+
+        if is_format {
+            let hi = self.cursor.pos();
+            tokens.push(SpannedToken::new(Token::FormatStringEnd, Span::new(hi, hi, self.source_id)))
+        }
+
+        Ok(tokens)
     }
 
-    pub fn lex(mut self) -> LexerResult<'diag, Vec<SpannedToken<'src>>> {
+    pub fn lex(&mut self) -> LexerResult<'diag, Vec<SpannedToken<'src>>> {
+        while let Some(ch) = self.cursor.peek_char() {
+            if ch.is_whitespace() {
+                self.cursor.next();
+            } else {
+                break;
+            }
+        }
+
+        if let Some(ch) = self.cursor.peek_char().cloned() {
+            let new_token_opt = match ch {
+                '(' => self.span_one_char(Token::OpenParen),
+                ')' => self.span_one_char(Token::CloseParen),
+                '{' => self.span_one_char(Token::OpenBrace),
+                '}' => self.span_one_char(Token::CloseBrace),
+                '"' => {
+                    Some(self.lex_string_literal(false, false, true)?.0)
+                }
+                'r' | 'f'
+                if self.cursor.lookahead_char(1) == Some('"')
+                    || self.cursor.lookahead_char(2) == Some('"') => {
+                    let (is_raw, is_format) = self.handle_string_prefix()?;
+                    return self.lex_string(is_raw, is_format);
+                }
+                'A'..='Z' | 'a'..='z' | '_' => {
+                    Some(self.lex_identifier())
+                }
+                _ => {
+                    let lo = self.cursor.pos();
+                    let hi = lo + ch.len_utf8();
+                    return Err(
+                        Diagnostic::error(DiagMessage::new("invalid-char", Some(runec_utils::hashmap!(
+                                "char" => FluentValue::String(Cow::Owned(ch.to_string())),
+                            ))))
+                            .add_label(
+                                DiagLabel::silent_primary(Span::new(
+                                    lo,
+                                    hi,
+                                    self.source_id
+                                ))
+                            )
+                    )
+                }
+            };
+
+            if let Some(new_token) = new_token_opt {
+                Ok(vec![new_token])
+            } else {
+                Ok(vec![])
+            }
+        } else {
+            Ok(vec![])
+        }
+    }
+
+    pub fn lex_full(mut self) -> LexerResult<'diag, Vec<SpannedToken<'src>>> {
         let mut tokens = Vec::new();
 
         while self.cursor.peek().is_some() {
-            while let Some(ch) = self.cursor.peek_char() {
-                if ch.is_whitespace() {
-                    self.cursor.next();
-                } else {
-                    break;
-                }
-            }
-
-            if let Some(ch) = self.cursor.peek_char().cloned() {
-                let new_token_opt = match ch {
-                    '(' => self.span_one_char(Token::OpenParen),
-                    ')' => self.span_one_char(Token::CloseParen),
-                    '{' => self.span_one_char(Token::OpenBrace),
-                    '}' => self.span_one_char(Token::CloseBrace),
-                    '"' => {
-                        Some(self.lex_string_literal(false, false, true)?)
-                    }
-                    'r' | 'f'
-                    if self.cursor.lookahead_char(1) == Some('"')
-                    || self.cursor.lookahead_char(2) == Some('"') => {
-                        let (is_raw, is_format) = self.handle_string_prefix()?;
-                        unimplemented!()
-                    }
-                    'A'..='Z' | 'a'..='z' | '_' => {
-                        Some(self.lex_identifier())
-                    }
-                    _ => {
-                        let lo = self.cursor.pos();
-                        let hi = lo + ch.len_utf8();
-                        return Err(
-                            Diagnostic::error(DiagMessage::new("invalid-char", Some(runec_utils::hashmap!(
-                                "char" => FluentValue::String(Cow::Owned(ch.to_string())),
-                            ))))
-                                .add_label(
-                                    DiagLabel::silent_primary(Span::new(
-                                        lo,
-                                        hi,
-                                        self.source_id
-                                    ))
-                                )
-                        )
-                    }
-                };
-
-                if let Some(new_token) = new_token_opt {
-                    tokens.push(new_token);
-                }
-            }
+            tokens.extend(self.lex()?);
         }
 
         Ok(tokens)
@@ -395,7 +470,7 @@ mod tests {
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
-        let real_tokens = lexer.lex().unwrap();
+        let real_tokens = lexer.lex_full().unwrap();
 
         assert_eq!(real_tokens, expected_tokens);
     }
@@ -415,7 +490,7 @@ mod tests {
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
-        let real_tokens = lexer.lex().unwrap();
+        let real_tokens = lexer.lex_full().unwrap();
 
         assert_eq!(real_tokens, expected_tokens);
     }
@@ -431,7 +506,7 @@ mod tests {
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
-        let real_tokens = lexer.lex().unwrap();
+        let real_tokens = lexer.lex_full().unwrap();
 
         assert_eq!(real_tokens, expected_tokens);
     }
@@ -446,7 +521,31 @@ mod tests {
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
-        let real_tokens = lexer.lex().unwrap();
+        let real_tokens = lexer.lex_full().unwrap();
+
+        assert_eq!(real_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn format_string_test() {
+        let source = "f\"{var}str{some}ing\\n\"";
+        let (source_map, source_id) = generate_source(source);
+
+        let expected_tokens = [
+            SpannedToken::new(Token::FormatStringStart, Span::new(BytePos::from_usize(1), BytePos::from_usize(1), source_id)),
+            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(2), BytePos::from_usize(3), source_id)),
+            SpannedToken::new(Token::Ident(&source[3..6]), Span::new(BytePos::from_usize(3), BytePos::from_usize(6), source_id)),
+            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(6), BytePos::from_usize(7), source_id)),
+            SpannedToken::new(Token::RawStringLiteral(&source[7..10]), Span::new(BytePos::from_usize(7), BytePos::from_usize(10), source_id)),
+            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(10), BytePos::from_usize(11), source_id)),
+            SpannedToken::new(Token::Ident(&source[11..15]), Span::new(BytePos::from_usize(11), BytePos::from_usize(15), source_id)),
+            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(15), BytePos::from_usize(16), source_id)),
+            SpannedToken::new(Token::StringLiteral("ing\n".to_string()), Span::new(BytePos::from_usize(16), BytePos::from_usize(21), source_id)),
+            SpannedToken::new(Token::FormatStringEnd, Span::new(BytePos::from_usize(22), BytePos::from_usize(22), source_id)),
+        ];
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex_full().unwrap();
 
         assert_eq!(real_tokens, expected_tokens);
     }
