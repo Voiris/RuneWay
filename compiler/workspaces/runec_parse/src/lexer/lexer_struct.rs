@@ -79,7 +79,6 @@ impl<'src, 'diag> Lexer<'src> {
     }
 
     fn lex_identifier(&mut self) -> SpannedToken<'src> {
-
         let lo = self.cursor.pos();
         while let Some(char) = self.cursor.peek_char() {
             match char {
