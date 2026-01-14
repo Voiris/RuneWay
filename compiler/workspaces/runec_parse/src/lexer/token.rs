@@ -67,9 +67,8 @@ pub enum Token<'src> {
     ShrEq,
 
     /* Literals */
-    NonNegIntLiteral(&'src str),  // >= 0
-    NegIntLiteral(&'src str),     //  < 0
-    FloatLiteral(&'src str),
+    IntLiteral(&'src str),      // >= 0
+    FloatLiteral(&'src str),    // >= 0.0
     RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
     StringLiteral(String),      // with escape sequence: "string\n"
     Ident(&'src str),
