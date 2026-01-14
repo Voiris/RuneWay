@@ -1,5 +1,14 @@
 use runec_source::span::Spanned;
 
+#[derive(PartialEq, Clone, Debug)]
+#[repr(u8)]
+enum Radix {
+    Binary,     // 0b
+    Octal,      // 0o
+    Decimal,
+    Hex,        // 0x
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token<'src> {
     /* Expression-operator symbols. */
@@ -67,13 +76,15 @@ pub enum Token<'src> {
     ShrEq,
 
     /* Literals */
-    IntLiteral(&'src str),      // >= 0
-    OctalIntLiteral(&'src str), // >= 0o0
-    HexIntLiteral(&'src str),   // >= 0x0
-    BinIntLiteral(&'src str),   // >= 0b0
-    FloatLiteral(&'src str),    // >= 0.0
+    IntLiteral {                // >= 0
+        digits: & 'src str,
+        radix: Radix,
+    },
+    FloatLiteral {              // >= 0.0
+        literal: & 'src str,
+    },
     RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
-    StringLiteral(String),      // with escape sequence: "string\n"
+    StringLiteral(String),        // with escape sequence: "string\n"
     Ident(&'src str),
 
     /* Format strings control */
