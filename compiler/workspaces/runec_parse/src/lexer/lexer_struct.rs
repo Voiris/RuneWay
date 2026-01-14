@@ -7,7 +7,7 @@ use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceFile, SourceId, SourceMap};
 use runec_source::span::Span;
 use crate::lexer::cursor::Cursor;
-use crate::lexer::token::{SpannedToken, Token};
+use crate::lexer::token::{Radix, SpannedToken, Token};
 
 type LexerResult<'diag, T> = Result<T, Box<Diagnostic<'diag>>>;
 
@@ -373,6 +373,125 @@ impl<'src, 'diag> Lexer<'src> {
         Ok(tokens)
     }
 
+    fn lex_number(&mut self) -> LexerResult<'diag, SpannedToken<'src>> {
+        let lo = self.cursor.pos();
+
+        let mut is_float = false;
+        let mut is_exponent = false;
+
+        let radix: Radix = {
+            let lookahead = self.cursor.lookahead_char(1);
+            match (self.cursor.peek_char(), lookahead) {
+                (Some('0'), Some('b' | 'o' | 'x')) => {
+                    self.cursor.next(); // 0
+                    self.cursor.next(); // b | o | x
+                    match lookahead {
+                        Some('b') => Radix::Binary,
+                        Some('o') => Radix::Octal,
+                        Some('x') => Radix::Hex,
+                        _ => unreachable!()
+                    }
+                }
+                _ => Radix::Decimal
+            }
+        };
+
+        let digits_lo = self.cursor.pos();
+
+        // Digits
+        while let Some(&char) = self.cursor.peek_char() {
+            match char {
+                '0' | '1' if radix == Radix::Binary => {
+                    self.cursor.next();
+                }
+                '0'..='7' if radix == Radix::Octal => {
+                    self.cursor.next();
+                }
+                '0'..='9' if radix == Radix::Decimal => {
+                    self.cursor.next();
+                }
+                '0'..='9' | 'A'..='F' | 'a'..='f' if radix == Radix::Hex => {
+                    self.cursor.next();
+                }
+                '_' => {
+                    self.cursor.next();
+                }
+                '.' if !is_float && radix == Radix::Decimal
+                    && matches!(self.cursor.lookahead_char(1), Some('0'..='9')) => {
+                    self.cursor.next();
+                    is_float = true;
+                }
+                'e' | 'E' if !is_exponent && radix == Radix::Decimal => {
+                    match (
+                        self.cursor.lookahead_char(1),
+                        self.cursor.lookahead_char(2),
+                        ) {
+                        (Some('0'..='9'), _) => {
+                            self.cursor.next(); // e | E
+                            self.cursor.next(); // digit
+                            is_exponent = true;
+                        }
+                        (Some('+') | Some('-'), Some('0'..='9')) => {
+                            self.cursor.next(); // e | E
+                            self.cursor.next(); // + | -
+                            self.cursor.next(); // digit
+                            is_exponent = true;
+                        }
+                        _ => break
+                    }
+                }
+                _ => break
+            }
+        }
+
+        let digits_hi = self.cursor.pos();
+
+        if digits_lo == digits_hi {
+            return Err(
+                runec_errors::make_simple_diag!(
+                    error; "no-valid-digits",
+                    (self.source_id => lo..digits_hi)
+                )
+            )
+        }
+
+        // Suffix
+        while let Some(char) = self.cursor.peek_char() {
+            match char {
+                'a'..='z' | 'A'..='Z' | '0'..='9' => {
+                    self.cursor.next();
+                }
+                _ => break
+            }
+        }
+
+        let hi = self.cursor.pos();
+
+        let suffix = {
+            if digits_hi == hi {
+                None
+            } else {
+                Some(&self.source_file.src[digits_hi.to_usize()..hi.to_usize()])
+            }
+        };
+
+        let slice = &self.source_file.src[digits_lo.to_usize()..digits_hi.to_usize()];
+        let span = Span::new(lo, hi, self.source_id);
+
+        if is_float || is_exponent {
+            Ok(SpannedToken::new(Token::FloatLiteral {
+                literal: slice,
+                suffix
+            }, span))
+        } else {
+            Ok(SpannedToken::new(Token::IntLiteral {
+                digits: slice,
+                radix,
+                suffix
+            }, span))
+        }
+    }
+
     pub fn lex(&mut self) -> LexerResult<'diag, Vec<SpannedToken<'src>>> {
         while let Some(ch) = self.cursor.peek_char() {
             if ch.is_whitespace() {
@@ -399,6 +518,9 @@ impl<'src, 'diag> Lexer<'src> {
                 }
                 'A'..='Z' | 'a'..='z' | '_' => {
                     Some(self.lex_identifier())
+                }
+                '0'..='9' => {
+                    Some(self.lex_number()?)
                 }
                 _ => {
                     let lo = self.cursor.pos();
@@ -542,6 +664,66 @@ mod tests {
             SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(15), BytePos::from_usize(16), source_id)),
             SpannedToken::new(Token::StringLiteral("ing\n".to_string()), Span::new(BytePos::from_usize(16), BytePos::from_usize(21), source_id)),
             SpannedToken::new(Token::FormatStringEnd, Span::new(BytePos::from_usize(22), BytePos::from_usize(22), source_id)),
+        ];
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex_full().unwrap();
+
+        assert_eq!(real_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn basic_int_literal_test() {
+        let source = "123 0 999999999999999 0b0 0o0 0x0";
+        let (source_map, source_id) = generate_source(source);
+
+        let expected_tokens = [
+            SpannedToken::new(Token::IntLiteral { digits: "123", radix: Radix::Decimal, suffix: None }, Span::new(BytePos::from_usize(0), BytePos::from_usize(3), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Decimal, suffix: None }, Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "999999999999999", radix: Radix::Decimal, suffix: None }, Span::new(BytePos::from_usize(6), BytePos::from_usize(21), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Binary, suffix: None }, Span::new(BytePos::from_usize(22), BytePos::from_usize(25), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Octal, suffix: None }, Span::new(BytePos::from_usize(26), BytePos::from_usize(29), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Hex, suffix: None }, Span::new(BytePos::from_usize(30), BytePos::from_usize(33), source_id)),
+        ];
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex_full().unwrap();
+
+        assert_eq!(real_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn int_literal_with_suffix_test() {
+        let source = "123u8 0i8 999999999999999f32 0b0u64 0o0isize 0x0suffix";
+        let (source_map, source_id) = generate_source(source);
+
+        let expected_tokens = [
+            SpannedToken::new(Token::IntLiteral { digits: "123", radix: Radix::Decimal, suffix: Some("u8") }, Span::new(BytePos::from_usize(0), BytePos::from_usize(5), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Decimal, suffix: Some("i8") }, Span::new(BytePos::from_usize(6), BytePos::from_usize(9), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "999999999999999", radix: Radix::Decimal, suffix: Some("f32") }, Span::new(BytePos::from_usize(10), BytePos::from_usize(28), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Binary, suffix: Some("u64") }, Span::new(BytePos::from_usize(29), BytePos::from_usize(35), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Octal, suffix: Some("isize") }, Span::new(BytePos::from_usize(36), BytePos::from_usize(44), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Hex, suffix: Some("suffix") }, Span::new(BytePos::from_usize(45), BytePos::from_usize(54), source_id)),
+        ];
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex_full().unwrap();
+
+        assert_eq!(real_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn float_literal_test() {
+        let source = "3.14 0.0f32 0.0e1 0e+1 0e-1 0e1f64";
+        let (source_map, source_id) = generate_source(source);
+
+        let expected_tokens = [
+            SpannedToken::new(Token::FloatLiteral { literal: "3.14", suffix: None }, Span::new(BytePos::from_usize(0), BytePos::from_usize(4), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "0.0", suffix: Some("f32") }, Span::new(BytePos::from_usize(5), BytePos::from_usize(11), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "0.0e1", suffix: None }, Span::new(BytePos::from_usize(12), BytePos::from_usize(17), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "0e+1", suffix: None }, Span::new(BytePos::from_usize(18), BytePos::from_usize(22), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "0e-1", suffix: None }, Span::new(BytePos::from_usize(23), BytePos::from_usize(27), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "0e1", suffix: Some("f64") }, Span::new(BytePos::from_usize(28), BytePos::from_usize(34), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
