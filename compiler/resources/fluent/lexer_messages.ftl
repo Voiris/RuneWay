@@ -15,3 +15,4 @@ unicode-escape-must-not-be-surrogate = must not be a surrogate
 unicode-escape-sequence-format = format of unicode escape sequences is {"`\\u{...}`"}
 unicode-must-be-hex = must be hexadecimal
 unicode-must-have-at-most-6-hex-digits = must have at most 6 hex digits
+no-valid-digits = no valid digits found
