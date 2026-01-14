@@ -68,6 +68,9 @@ pub enum Token<'src> {
 
     /* Literals */
     IntLiteral(&'src str),      // >= 0
+    OctalIntLiteral(&'src str), // >= 0o0
+    HexIntLiteral(&'src str),   // >= 0x0
+    BinIntLiteral(&'src str),   // >= 0b0
     FloatLiteral(&'src str),    // >= 0.0
     RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
     StringLiteral(String),      // with escape sequence: "string\n"
