@@ -79,9 +79,11 @@ pub enum Token<'src> {
     IntLiteral {                // >= 0
         digits: & 'src str,
         radix: Radix,
+        suffix: Option<&'src str>,
     },
     FloatLiteral {              // >= 0.0
         literal: & 'src str,
+        suffix: Option<&'src str>,
     },
     RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
     StringLiteral(String),        // with escape sequence: "string\n"
