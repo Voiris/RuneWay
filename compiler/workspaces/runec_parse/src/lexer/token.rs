@@ -2,7 +2,7 @@ use runec_source::span::Spanned;
 
 #[derive(PartialEq, Clone, Debug)]
 #[repr(u8)]
-enum Radix {
+pub enum Radix {
     Binary,     // 0b
     Octal,      // 0o
     Decimal,
