@@ -283,7 +283,7 @@ impl<'src, 'diag> Lexer<'src> {
                         string.push(char);
                     }
                 }
-                c => {
+                _ => {
                     if let Some(ref mut string) = string_opt {
                         string.push(self.cursor.next_char().unwrap());
                     } else {
