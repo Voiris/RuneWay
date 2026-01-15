@@ -60,7 +60,7 @@ impl<'src, 'diag> Lexer<'src> {
             )
     }
 
-    fn lex_identifier(&mut self) -> SpannedToken<'src> {
+    fn lex_identifier_or_keyword(&mut self) -> SpannedToken<'src> {
         let lo = self.cursor.pos();
         while let Some(char) = self.cursor.peek_char() {
             match char {
@@ -73,7 +73,21 @@ impl<'src, 'diag> Lexer<'src> {
         }
         let hi = self.cursor.pos();
         let ident = &self.source_file.src[lo.to_usize()..hi.to_usize()];
-        SpannedToken::new(Token::Ident(ident), Span::new(lo, hi, self.source_id))
+
+        let token = match ident {
+            "act" => Token::Act,
+            "let" => Token::Let,
+            "if" => Token::If,
+            "else" => Token::Else,
+            "while" => Token::While,
+            "loop" => Token::Loop,
+            "return" => Token::Return,
+            "true" => Token::True,
+            "false" => Token::False,
+            _ => Token::Ident(ident)
+        };
+
+        SpannedToken::new(token, Span::new(lo, hi, self.source_id))
     }
 
     fn handle_string_prefix(&mut self) -> LexerResult<'diag, (bool, bool)> {
@@ -517,7 +531,7 @@ impl<'src, 'diag> Lexer<'src> {
                     return self.lex_string(is_raw, is_format);
                 }
                 'A'..='Z' | 'a'..='z' | '_' => {
-                    Some(self.lex_identifier())
+                    Some(self.lex_identifier_or_keyword())
                 }
                 '0'..='9' => {
                     Some(self.lex_number()?)
