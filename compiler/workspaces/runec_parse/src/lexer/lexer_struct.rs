@@ -11,6 +11,52 @@ use crate::lexer::token::{Radix, SpannedToken, Token};
 
 type LexerResult<'diag, T> = Result<T, Box<Diagnostic<'diag>>>;
 
+macro_rules! handle_double_char_token {
+    (
+        $self:ident; $one_char_token:expr;
+        $(
+            $ch:pat => $double_char_token:expr
+        ),*
+        $(,)?
+    ) => {
+        match $self.cursor.peek_char() {
+            $(
+                Some($ch) => {
+                    $self.cursor.next();
+                    $double_char_token
+                }
+            ),*
+            _ => $one_char_token
+        }
+    };
+
+    (
+        *;
+        $self:ident; $one_char_token:expr;
+        $(
+            $ch:pat => $double_char_token:expr
+        ),*
+        $(,)?
+    ) => {{
+        handle_double_char_token!(@wrapper $self; token; {
+            let token = handle_double_char_token!(
+                $self; $one_char_token;
+                $(
+                    $ch => $double_char_token
+                ),*
+            )
+        })
+    }};
+
+    (@wrapper $self:ident; $token:ident; {$($code:tt)*}) => {{
+        let lo = $self.cursor.pos();
+        $self.cursor.next();
+        $($code)*;
+        let hi = $self.cursor.pos();
+        Some(SpannedToken::new($token, Span::new(lo, hi, $self.source_id)))
+    }}
+}
+
 pub struct Lexer<'src> {
     cursor: Cursor<'src>,
     source_id: SourceId,
@@ -517,10 +563,54 @@ impl<'src, 'diag> Lexer<'src> {
 
         if let Some(ch) = self.cursor.peek_char().cloned() {
             let new_token_opt = match ch {
+                // One char lexing
                 '(' => self.span_one_char(Token::OpenParen),
                 ')' => self.span_one_char(Token::CloseParen),
                 '{' => self.span_one_char(Token::OpenBrace),
                 '}' => self.span_one_char(Token::CloseBrace),
+                // Multichar lexing
+                '=' => {
+                    handle_double_char_token!(
+                        *; self; Token::Eq;
+                        '=' => Token::EqEq
+                    )
+                    /*let lo = self.cursor.pos();
+                    self.cursor.next();
+                    let token = match self.cursor.peek_char() {
+                        Some('=') => Token::EqEq,
+                        _ => Token::Eq
+                    };
+                    let hi = self.cursor.pos();
+                    Some(SpannedToken::new(token, Span::new(lo, hi, self.source_id)))*/
+                }
+                '<' => {
+                    handle_double_char_token!(
+                        *; self; Token::Lt;
+                        '<' => handle_double_char_token!(
+                            self; Token::Shl;
+                            '=' => Token::ShlEq
+                        ),
+                        '=' => Token::Le
+                    )
+                    /*let lo = self.cursor.pos();
+                    self.cursor.next();
+                    let token = match self.cursor.peek_char() {
+                        Some('<') => {
+                            self.cursor.next();
+                            match self.cursor.peek_char() {
+                                Some('=') => Token::ShlEq,
+                                _ => Token::Shl
+                            }
+                        },
+                        Some('=') => Token::Le,
+                        _ => Token::Lt
+                    };
+                    let hi = self.cursor.pos();
+
+                    Some(SpannedToken::new(token, Span::new(lo, hi, self.source_id)))*/
+                }
+
+                // Complex lexing
                 '"' => {
                     Some(self.lex_string_literal(false, false, true)?.0)
                 }
@@ -738,6 +828,26 @@ mod tests {
             SpannedToken::new(Token::FloatLiteral { literal: "0e+1", suffix: None }, Span::new(BytePos::from_usize(18), BytePos::from_usize(22), source_id)),
             SpannedToken::new(Token::FloatLiteral { literal: "0e-1", suffix: None }, Span::new(BytePos::from_usize(23), BytePos::from_usize(27), source_id)),
             SpannedToken::new(Token::FloatLiteral { literal: "0e1", suffix: Some("f64") }, Span::new(BytePos::from_usize(28), BytePos::from_usize(34), source_id)),
+        ];
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex_full().unwrap();
+
+        assert_eq!(real_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn multichar_tokens_test() {
+        let source = "= == < <= << <<=";
+        let (source_map, source_id) = generate_source(source);
+
+        let expected_tokens = [
+            SpannedToken::new(Token::Eq, Span::new(BytePos::from_usize(0), BytePos::from_usize(1), source_id)),
+            SpannedToken::new(Token::EqEq, Span::new(BytePos::from_usize(2), BytePos::from_usize(4), source_id)),
+            SpannedToken::new(Token::Lt, Span::new(BytePos::from_usize(5), BytePos::from_usize(6), source_id)),
+            SpannedToken::new(Token::Le, Span::new(BytePos::from_usize(7), BytePos::from_usize(9), source_id)),
+            SpannedToken::new(Token::Shl, Span::new(BytePos::from_usize(10), BytePos::from_usize(12), source_id)),
+            SpannedToken::new(Token::ShlEq, Span::new(BytePos::from_usize(13), BytePos::from_usize(16), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
