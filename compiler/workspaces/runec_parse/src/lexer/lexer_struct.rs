@@ -574,14 +574,6 @@ impl<'src, 'diag> Lexer<'src> {
                         *; self; Token::Eq;
                         '=' => Token::EqEq
                     )
-                    /*let lo = self.cursor.pos();
-                    self.cursor.next();
-                    let token = match self.cursor.peek_char() {
-                        Some('=') => Token::EqEq,
-                        _ => Token::Eq
-                    };
-                    let hi = self.cursor.pos();
-                    Some(SpannedToken::new(token, Span::new(lo, hi, self.source_id)))*/
                 }
                 '<' => {
                     handle_double_char_token!(
@@ -592,22 +584,6 @@ impl<'src, 'diag> Lexer<'src> {
                         ),
                         '=' => Token::Le
                     )
-                    /*let lo = self.cursor.pos();
-                    self.cursor.next();
-                    let token = match self.cursor.peek_char() {
-                        Some('<') => {
-                            self.cursor.next();
-                            match self.cursor.peek_char() {
-                                Some('=') => Token::ShlEq,
-                                _ => Token::Shl
-                            }
-                        },
-                        Some('=') => Token::Le,
-                        _ => Token::Lt
-                    };
-                    let hi = self.cursor.pos();
-
-                    Some(SpannedToken::new(token, Span::new(lo, hi, self.source_id)))*/
                 }
 
                 // Complex lexing
