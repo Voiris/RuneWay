@@ -74,6 +74,10 @@ pub enum Token<'src> {
     ShlEq,
     /// `>>=`
     ShrEq,
+    /// `++`
+    PlusPlus,
+    /// `--`
+    MinusMinus,
 
     /* Literals */
     IntLiteral {                // >= 0
