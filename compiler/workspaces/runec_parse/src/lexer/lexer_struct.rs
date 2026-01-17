@@ -568,11 +568,64 @@ impl<'src, 'diag> Lexer<'src> {
                 ')' => self.span_one_char(Token::CloseParen),
                 '{' => self.span_one_char(Token::OpenBrace),
                 '}' => self.span_one_char(Token::CloseBrace),
+                ',' => self.span_one_char(Token::Comma),
+                ';' => self.span_one_char(Token::Semicolon),
                 // Multichar lexing
                 '=' => {
                     handle_double_char_token!(
                         *; self; Token::Eq;
                         '=' => Token::EqEq
+                    )
+                }
+                '+' => {
+                    handle_double_char_token!(
+                        *; self; Token::Plus;
+                        '=' => Token::PlusEq,
+                        '+' => Token::PlusPlus
+                    )
+                }
+                '-' => {
+                    handle_double_char_token!(
+                        *; self; Token::Minus;
+                        '=' => Token::MinusEq,
+                        '-' => Token::MinusMinus,
+                        '>' => Token::Arrow,
+                    )
+                }
+                '*' => {
+                    handle_double_char_token!(
+                        *; self; Token::Star;
+                        '=' => Token::StarEq
+                    )
+                }
+                '/' => {
+                    handle_double_char_token!(
+                        *; self; Token::Slash;
+                        '=' => Token::SlashEq
+                    )
+                }
+                '%' => {
+                    handle_double_char_token!(
+                        *; self; Token::Percent;
+                        '=' => Token::PercentEq
+                    )
+                }
+                '^' => {
+                    handle_double_char_token!(
+                        *; self; Token::Caret;
+                        '=' => Token::CaretEq
+                    )
+                }
+                '&' => {
+                    handle_double_char_token!(
+                        *; self; Token::And;
+                        '=' => Token::AndEq
+                    )
+                }
+                '|' => {
+                    handle_double_char_token!(
+                        *; self; Token::Or;
+                        '=' => Token::OrEq
                     )
                 }
                 '<' => {
@@ -583,6 +636,31 @@ impl<'src, 'diag> Lexer<'src> {
                             '=' => Token::ShlEq
                         ),
                         '=' => Token::Le
+                    )
+                }
+                '>' => {
+                    handle_double_char_token!(
+                        *; self; Token::Gt;
+                        '>' => handle_double_char_token!(
+                            self; Token::Shr;
+                            '=' => Token::ShrEq
+                        ),
+                        '=' => Token::Ge
+                    )
+                }
+                '.' => {
+                    handle_double_char_token!(
+                        *; self; Token::Dot;
+                        '.' => handle_double_char_token!(
+                            self; Token::Range;
+                            '=' => Token::RangeInclusive
+                        )
+                    )
+                }
+                ':' => {
+                    handle_double_char_token!(
+                        *; self; Token::Colon;
+                        ':' => Token::DColon
                     )
                 }
 
@@ -814,16 +892,44 @@ mod tests {
 
     #[test]
     fn multichar_tokens_test() {
-        let source = "= == < <= << <<=";
+        let source = "= == + += ++ - -= -- -> * *= / /= % %= ^ ^= & &= | |= < << <<= <= > >> >>= >= . .. ..= : ::";
         let (source_map, source_id) = generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::Eq, Span::new(BytePos::from_usize(0), BytePos::from_usize(1), source_id)),
             SpannedToken::new(Token::EqEq, Span::new(BytePos::from_usize(2), BytePos::from_usize(4), source_id)),
-            SpannedToken::new(Token::Lt, Span::new(BytePos::from_usize(5), BytePos::from_usize(6), source_id)),
-            SpannedToken::new(Token::Le, Span::new(BytePos::from_usize(7), BytePos::from_usize(9), source_id)),
-            SpannedToken::new(Token::Shl, Span::new(BytePos::from_usize(10), BytePos::from_usize(12), source_id)),
-            SpannedToken::new(Token::ShlEq, Span::new(BytePos::from_usize(13), BytePos::from_usize(16), source_id)),
+            SpannedToken::new(Token::Plus, Span::new(BytePos::from_usize(5), BytePos::from_usize(6), source_id)),
+            SpannedToken::new(Token::PlusEq, Span::new(BytePos::from_usize(7), BytePos::from_usize(9), source_id)),
+            SpannedToken::new(Token::PlusPlus, Span::new(BytePos::from_usize(10), BytePos::from_usize(12), source_id)),
+            SpannedToken::new(Token::Minus, Span::new(BytePos::from_usize(13), BytePos::from_usize(14), source_id)),
+            SpannedToken::new(Token::MinusEq, Span::new(BytePos::from_usize(15), BytePos::from_usize(17), source_id)),
+            SpannedToken::new(Token::MinusMinus, Span::new(BytePos::from_usize(18), BytePos::from_usize(20), source_id)),
+            SpannedToken::new(Token::Arrow, Span::new(BytePos::from_usize(21), BytePos::from_usize(23), source_id)),
+            SpannedToken::new(Token::Star, Span::new(BytePos::from_usize(24), BytePos::from_usize(25), source_id)),
+            SpannedToken::new(Token::StarEq, Span::new(BytePos::from_usize(26), BytePos::from_usize(28), source_id)),
+            SpannedToken::new(Token::Slash, Span::new(BytePos::from_usize(29), BytePos::from_usize(30), source_id)),
+            SpannedToken::new(Token::SlashEq, Span::new(BytePos::from_usize(31), BytePos::from_usize(33), source_id)),
+            SpannedToken::new(Token::Percent, Span::new(BytePos::from_usize(34), BytePos::from_usize(35), source_id)),
+            SpannedToken::new(Token::PercentEq, Span::new(BytePos::from_usize(36), BytePos::from_usize(38), source_id)),
+            SpannedToken::new(Token::Caret, Span::new(BytePos::from_usize(39), BytePos::from_usize(40), source_id)),
+            SpannedToken::new(Token::CaretEq, Span::new(BytePos::from_usize(41), BytePos::from_usize(43), source_id)),
+            SpannedToken::new(Token::And, Span::new(BytePos::from_usize(44), BytePos::from_usize(45), source_id)),
+            SpannedToken::new(Token::AndEq, Span::new(BytePos::from_usize(46), BytePos::from_usize(48), source_id)),
+            SpannedToken::new(Token::Or, Span::new(BytePos::from_usize(49), BytePos::from_usize(50), source_id)),
+            SpannedToken::new(Token::OrEq, Span::new(BytePos::from_usize(51), BytePos::from_usize(53), source_id)),
+            SpannedToken::new(Token::Lt, Span::new(BytePos::from_usize(54), BytePos::from_usize(55), source_id)),
+            SpannedToken::new(Token::Shl, Span::new(BytePos::from_usize(56), BytePos::from_usize(58), source_id)),
+            SpannedToken::new(Token::ShlEq, Span::new(BytePos::from_usize(59), BytePos::from_usize(62), source_id)),
+            SpannedToken::new(Token::Le, Span::new(BytePos::from_usize(63), BytePos::from_usize(65), source_id)),
+            SpannedToken::new(Token::Gt, Span::new(BytePos::from_usize(66), BytePos::from_usize(67), source_id)),
+            SpannedToken::new(Token::Shr, Span::new(BytePos::from_usize(68), BytePos::from_usize(70), source_id)),
+            SpannedToken::new(Token::ShrEq, Span::new(BytePos::from_usize(71), BytePos::from_usize(74), source_id)),
+            SpannedToken::new(Token::Ge, Span::new(BytePos::from_usize(75), BytePos::from_usize(77), source_id)),
+            SpannedToken::new(Token::Dot, Span::new(BytePos::from_usize(78), BytePos::from_usize(79), source_id)),
+            SpannedToken::new(Token::Range, Span::new(BytePos::from_usize(80), BytePos::from_usize(82), source_id)),
+            SpannedToken::new(Token::RangeInclusive, Span::new(BytePos::from_usize(83), BytePos::from_usize(86), source_id)),
+            SpannedToken::new(Token::Colon, Span::new(BytePos::from_usize(87), BytePos::from_usize(88), source_id)),
+            SpannedToken::new(Token::DColon, Span::new(BytePos::from_usize(89), BytePos::from_usize(91), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
