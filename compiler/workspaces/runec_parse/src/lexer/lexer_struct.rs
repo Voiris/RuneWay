@@ -523,20 +523,25 @@ impl<'src, 'diag> Lexer<'src> {
         };
 
         let digits_lo = self.cursor.pos();
+        let mut has_digits = false;
 
         // Digits
         while let Some(&char) = self.cursor.peek_char() {
             match char {
                 '0' | '1' if radix == Radix::Binary => {
+                    has_digits = true;
                     self.cursor.next();
                 }
                 '0'..='7' if radix == Radix::Octal => {
+                    has_digits = true;
                     self.cursor.next();
                 }
                 '0'..='9' if radix == Radix::Decimal => {
+                    has_digits = true;
                     self.cursor.next();
                 }
                 '0'..='9' | 'A'..='F' | 'a'..='f' if radix == Radix::Hex => {
+                    has_digits = true;
                     self.cursor.next();
                 }
                 '_' => {
@@ -572,7 +577,7 @@ impl<'src, 'diag> Lexer<'src> {
 
         let digits_hi = self.cursor.pos();
 
-        if digits_lo == digits_hi {
+        if !has_digits {
             return Err(
                 runec_errors::make_simple_diag!(
                     error; "no-valid-digits",
