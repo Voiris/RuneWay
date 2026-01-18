@@ -470,7 +470,7 @@ impl<'src, 'diag> Lexer<'src> {
                     )
                 )
             }
-            Some(c) => { self.cursor.next_char().unwrap() },
+            Some(_) => { self.cursor.next_char().unwrap() },
             None => {
                 let hi = lo + '\''.len_utf8();
                 return Err(
