@@ -183,6 +183,7 @@ impl<'src, 'diag> Lexer<'src> {
                 't' => Ok(Some('\t')),
                 '\\' => Ok(Some('\\')),
                 '"' => Ok(Some('"')),
+                '\'' => Ok(Some('\'')),
                 '\n' => Ok(None),
                 'x' => {
                     let hex_str_opt = self.cursor.try_next_slice(2);
@@ -433,6 +434,71 @@ impl<'src, 'diag> Lexer<'src> {
         Ok(tokens)
     }
 
+    fn lex_char_literal(&mut self) -> LexerResult<'diag, SpannedToken<'src>> {
+        let lo = self.cursor.pos();
+        // Consume `'` (guaranteed by caller)
+        self.cursor.next();
+
+        let char = match self.cursor.peek_char() {
+            Some('\\') => {
+                let lo = self.cursor.pos();
+                let escape_seq_opt = self.lex_escape_sequence()?;
+                let hi = self.cursor.pos();
+                match escape_seq_opt {
+                    Some(escape_seq) => {
+                        escape_seq
+                    }
+                    None => {
+                        return Err(
+                            runec_errors::make_simple_diag!(
+                                error;
+                                "unterminated-char-literal",
+                                (self.source_id => lo..hi)
+                            )
+                        )
+                    }
+                }
+            }
+            Some('\'') => {
+                self.cursor.next();
+                let hi = self.cursor.pos();
+                return Err(
+                    runec_errors::make_simple_diag!(
+                        error;
+                        "empty-char-literal",
+                        ( : "empty-char-literal" : self.source_id => lo..hi)
+                    )
+                )
+            }
+            Some(c) => { self.cursor.next_char().unwrap() },
+            None => {
+                let hi = lo + '\''.len_utf8();
+                return Err(
+                    runec_errors::make_simple_diag!(
+                        error;
+                        "unterminated-char-literal",
+                        (self.source_id => lo..hi)
+                    )
+                )
+            }
+        };
+
+        if self.cursor.next_char() != Some('\'') {
+            let hi = self.cursor.pos();
+            return Err(
+                runec_errors::make_simple_diag!(
+                    error;
+                    "unterminated-char-literal",
+                    (self.source_id => lo..hi)
+                )
+            )
+        }
+
+        let hi = self.cursor.pos();
+
+        Ok(SpannedToken::new(Token::CharLiteral(char), Span::new(lo, hi, self.source_id)))
+    }
+
     fn lex_number(&mut self) -> LexerResult<'diag, SpannedToken<'src>> {
         let lo = self.cursor.pos();
 
@@ -679,6 +745,9 @@ impl<'src, 'diag> Lexer<'src> {
                 }
                 '0'..='9' => {
                     Some(self.lex_number()?)
+                }
+                '\'' => {
+                    Some(self.lex_char_literal()?)
                 }
                 _ => {
                     let lo = self.cursor.pos();
@@ -930,6 +999,25 @@ mod tests {
             SpannedToken::new(Token::RangeInclusive, Span::new(BytePos::from_usize(83), BytePos::from_usize(86), source_id)),
             SpannedToken::new(Token::Colon, Span::new(BytePos::from_usize(87), BytePos::from_usize(88), source_id)),
             SpannedToken::new(Token::DColon, Span::new(BytePos::from_usize(89), BytePos::from_usize(91), source_id)),
+        ];
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex_full().unwrap();
+
+        assert_eq!(real_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn char_literal_test() {
+        let source = r"'a' '\x30' '\u{30}' '\n' '\''";
+        let (source_map, source_id) = generate_source(source);
+
+        let expected_tokens = [
+            SpannedToken::new(Token::CharLiteral('a'), Span::new(BytePos::from_usize(0), BytePos::from_usize(3), source_id)),
+            SpannedToken::new(Token::CharLiteral('\x30'), Span::new(BytePos::from_usize(4), BytePos::from_usize(10), source_id)),
+            SpannedToken::new(Token::CharLiteral('\u{30}'), Span::new(BytePos::from_usize(11), BytePos::from_usize(19), source_id)),
+            SpannedToken::new(Token::CharLiteral('\n'), Span::new(BytePos::from_usize(20), BytePos::from_usize(24), source_id)),
+            SpannedToken::new(Token::CharLiteral('\''), Span::new(BytePos::from_usize(25), BytePos::from_usize(29), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
