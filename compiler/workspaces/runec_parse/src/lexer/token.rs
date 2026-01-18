@@ -91,6 +91,7 @@ pub enum Token<'src> {
     },
     RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
     StringLiteral(String),        // with escape sequence: "string\n"
+    CharLiteral(char),
     Ident(&'src str),
 
     /* Format strings control */
