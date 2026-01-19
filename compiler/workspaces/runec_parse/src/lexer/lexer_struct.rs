@@ -379,15 +379,29 @@ impl<'src, 'diag> Lexer<'src> {
         }
 
         let mut is_terminated = false;
+        let mut brace_level = 0;
 
         while let Some(char) = self.cursor.peek_char() {
             match char {
                 '{' => {
+                    brace_level += 1;
                     tokens.push(self.span_one_char(Token::OpenBrace).unwrap());
-                    while let Some(char) = self.cursor.peek_char() {
+                    while let Some(char) = { self.cursor.consume_while(|c| c.is_whitespace()); self.cursor.peek_char().cloned() } {
                         match char {
-                            '}' => {
+                            '}' if brace_level == 1 => {
+                                brace_level -= 1;
                                 tokens.push(self.span_one_char(Token::CloseBrace).unwrap());
+                                break;
+                            }
+                            '}' => {
+                                brace_level -= 1;
+                                tokens.push(self.span_one_char(Token::CloseBrace).unwrap());
+                            }
+                            '{' => {
+                                brace_level += 1;
+                                tokens.push(self.span_one_char(Token::OpenBrace).unwrap());
+                            }
+                            '"' => {
                                 break;
                             }
                             _ => {
@@ -398,6 +412,7 @@ impl<'src, 'diag> Lexer<'src> {
                 }
                 '"' => {
                     is_terminated = true;
+                    self.cursor.next();
                     break;
                 }
                 _ => {
@@ -413,6 +428,17 @@ impl<'src, 'diag> Lexer<'src> {
                     }
                 }
             }
+        }
+
+        if brace_level > 0 {
+            let hi = self.cursor.pos();
+            return Err(
+                runec_errors::make_simple_diag!(
+                    error;
+                    "unterminated-code-block",
+                    (self.source_id => lo..hi)
+                )
+            )
         }
 
         if !is_terminated {
@@ -926,6 +952,34 @@ mod tests {
             SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(15), BytePos::from_usize(16), source_id)),
             SpannedToken::new(Token::StringLiteral("ing\n".to_string()), Span::new(BytePos::from_usize(16), BytePos::from_usize(21), source_id)),
             SpannedToken::new(Token::FormatStringEnd, Span::new(BytePos::from_usize(22), BytePos::from_usize(22), source_id)),
+        ];
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex_full().unwrap();
+
+        assert_eq!(real_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn format_string_edge_cases_test() {
+        let source = "f\"{}{  }{  var  }{ {v} }\"";
+        let (source_map, source_id) = generate_source(source);
+
+        let expected_tokens = [
+            SpannedToken::new(Token::FormatStringStart, Span::new(BytePos::from_usize(1), BytePos::from_usize(1), source_id)),
+            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(2), BytePos::from_usize(3), source_id)),
+            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(3), BytePos::from_usize(4), source_id)),
+            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id)),
+            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(7), BytePos::from_usize(8), source_id)),
+            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id)),
+            SpannedToken::new(Token::Ident("var"), Span::new(BytePos::from_usize(11), BytePos::from_usize(14), source_id)),
+            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(16), BytePos::from_usize(17), source_id)),
+            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(17), BytePos::from_usize(18), source_id)),
+            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(19), BytePos::from_usize(20), source_id)),
+            SpannedToken::new(Token::Ident("v"), Span::new(BytePos::from_usize(20), BytePos::from_usize(21), source_id)),
+            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(21), BytePos::from_usize(22), source_id)),
+            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(23), BytePos::from_usize(24), source_id)),
+            SpannedToken::new(Token::FormatStringEnd, Span::new(BytePos::from_usize(25), BytePos::from_usize(25), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);

@@ -3,6 +3,7 @@ invalid-numeric-literal = invalid number literal
 unexpected-eof = unexpected end of file `{ $path }`
 duplicated-string-literal-prefix = string literal cannot have duplicated prefix '{ $prefix }'
 unterminated-string = unterminated string
+unterminated-code-block = unterminated code block in format string
 unterminated-char-literal = unterminated character literal
 unterminated-comment-block = unterminated comment block
 unterminated-escape-sequence = unterminated escape sequence
