@@ -102,6 +102,24 @@ impl<'src> Cursor<'src> {
         }
     }
 
+    /// Consumes characters while the given predicate returns `true`.
+    ///
+    /// The cursor advances for each character that satisfies the predicate.
+    /// Stops at the first character for which the predicate returns `false`
+    /// or when the end of the input is reached.
+    pub fn consume_while<F>(&mut self, predicate: F)
+    where
+        F: Fn(char) -> bool
+    {
+        while let Some(&char) = self.peek_char() {
+            if predicate(char) {
+                self.next_char();
+            } else {
+                break;
+            }
+        }
+    }
+
     /// Returns the `n`-th character ahead and its first byte index without advancing the cursor.
     pub fn lookahead(&mut self, n: usize) -> Option<(usize, char)> {
         self.clone().nth(n)
@@ -223,5 +241,12 @@ mod tests {
         assert_eq!(cursor.pos().to_usize(), 0);
         assert_eq!(cursor.lookahead(8), None);
         assert_eq!(cursor.pos().to_usize(), 0);
+    }
+
+    #[test]
+    fn consume_while_test() {
+        let mut cursor = Cursor::new("abc123");
+        cursor.consume_while(|c| c.is_alphabetic());
+        assert_eq!(cursor.pos().to_usize(), 3);
     }
 }
