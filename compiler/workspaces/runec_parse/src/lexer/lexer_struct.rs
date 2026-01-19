@@ -670,10 +670,40 @@ impl<'src, 'diag> Lexer<'src> {
                     )
                 }
                 '/' => {
-                    handle_double_char_token!(
-                        *; self; Token::Slash;
-                        '=' => Token::SlashEq
-                    )
+                    let lo = self.cursor.pos();
+                    self.cursor.next();
+                    let token = match self.cursor.peek_char() {
+                        Some('=') => {
+                            self.cursor.next();
+                            Some(Token::SlashEq)
+                        }
+                        Some('/') => {
+                            self.cursor.skip_until_char('\n');
+                            None
+                        }
+                        Some('*') => {
+                            loop {
+                                self.cursor.skip_until_char('*');
+                                self.cursor.next();
+                                match self.cursor.next_char() {
+                                    Some('/') => {
+                                        break;
+                                    }
+                                    None => {
+                                        return Err(runec_errors::make_simple_diag!(
+                                            error; "unterminated-comment-block",
+                                        ))
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            None
+                        }
+                        _ => Some(Token::Slash)
+                    };
+                    let hi = self.cursor.pos();
+
+                    token.map(|x| SpannedToken::new(x, Span::new(lo, hi, self.source_id)))
                 }
                 '%' => {
                     handle_double_char_token!(
@@ -1029,5 +1059,16 @@ mod tests {
         let real_tokens = lexer.lex_full().unwrap();
 
         assert_eq!(real_tokens, expected_tokens);
+    }
+
+    #[test]
+    fn comment_test() {
+        let source = r"/* comment block*/  // comment  \n   //comment 2";
+        let (source_map, source_id) = generate_source(source);
+
+        let lexer = Lexer::new(source_id, &source_map);
+        let real_tokens = lexer.lex_full().unwrap();
+
+        assert_eq!(real_tokens, []);
     }
 }
