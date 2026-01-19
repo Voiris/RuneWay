@@ -385,12 +385,12 @@ impl<'src, 'diag> Lexer<'src> {
             match char {
                 '{' => {
                     brace_level += 1;
-                    tokens.push(self.span_one_char(Token::OpenBrace).unwrap());
+                    tokens.push(self.span_one_char(Token::FormatCodeBlockStart).unwrap());
                     while let Some(char) = { self.cursor.consume_while(|c| c.is_whitespace()); self.cursor.peek_char().cloned() } {
                         match char {
                             '}' if brace_level == 1 => {
                                 brace_level -= 1;
-                                tokens.push(self.span_one_char(Token::CloseBrace).unwrap());
+                                tokens.push(self.span_one_char(Token::FormatCodeBlockEnd).unwrap());
                                 break;
                             }
                             '}' => {
@@ -943,13 +943,13 @@ mod tests {
 
         let expected_tokens = [
             SpannedToken::new(Token::FormatStringStart, Span::new(BytePos::from_usize(1), BytePos::from_usize(1), source_id)),
-            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(2), BytePos::from_usize(3), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(2), BytePos::from_usize(3), source_id)),
             SpannedToken::new(Token::Ident(&source[3..6]), Span::new(BytePos::from_usize(3), BytePos::from_usize(6), source_id)),
-            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(6), BytePos::from_usize(7), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(6), BytePos::from_usize(7), source_id)),
             SpannedToken::new(Token::RawStringLiteral(&source[7..10]), Span::new(BytePos::from_usize(7), BytePos::from_usize(10), source_id)),
-            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(10), BytePos::from_usize(11), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(10), BytePos::from_usize(11), source_id)),
             SpannedToken::new(Token::Ident(&source[11..15]), Span::new(BytePos::from_usize(11), BytePos::from_usize(15), source_id)),
-            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(15), BytePos::from_usize(16), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(15), BytePos::from_usize(16), source_id)),
             SpannedToken::new(Token::StringLiteral("ing\n".to_string()), Span::new(BytePos::from_usize(16), BytePos::from_usize(21), source_id)),
             SpannedToken::new(Token::FormatStringEnd, Span::new(BytePos::from_usize(22), BytePos::from_usize(22), source_id)),
         ];
@@ -967,18 +967,18 @@ mod tests {
 
         let expected_tokens = [
             SpannedToken::new(Token::FormatStringStart, Span::new(BytePos::from_usize(1), BytePos::from_usize(1), source_id)),
-            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(2), BytePos::from_usize(3), source_id)),
-            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(3), BytePos::from_usize(4), source_id)),
-            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id)),
-            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(7), BytePos::from_usize(8), source_id)),
-            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(2), BytePos::from_usize(3), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(3), BytePos::from_usize(4), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(7), BytePos::from_usize(8), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id)),
             SpannedToken::new(Token::Ident("var"), Span::new(BytePos::from_usize(11), BytePos::from_usize(14), source_id)),
-            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(16), BytePos::from_usize(17), source_id)),
-            SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(17), BytePos::from_usize(18), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(16), BytePos::from_usize(17), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(17), BytePos::from_usize(18), source_id)),
             SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(19), BytePos::from_usize(20), source_id)),
             SpannedToken::new(Token::Ident("v"), Span::new(BytePos::from_usize(20), BytePos::from_usize(21), source_id)),
             SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(21), BytePos::from_usize(22), source_id)),
-            SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(23), BytePos::from_usize(24), source_id)),
+            SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(23), BytePos::from_usize(24), source_id)),
             SpannedToken::new(Token::FormatStringEnd, Span::new(BytePos::from_usize(25), BytePos::from_usize(25), source_id)),
         ];
 

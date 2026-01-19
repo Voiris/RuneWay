@@ -97,6 +97,8 @@ pub enum Token<'src> {
     /* Format strings control */
     FormatStringStart,
     FormatStringEnd,
+    FormatCodeBlockStart,
+    FormatCodeBlockEnd,
 
     /* Keywords */
     /// act
