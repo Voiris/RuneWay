@@ -34,6 +34,8 @@ pub enum Token<'src> {
     Bang,
     /// `~`
     Tilde,
+    /// `?`
+    Question,
     /// `+`
     Plus,
     /// `-`
