@@ -105,20 +105,52 @@ pub enum Token<'src> {
     Act,
     /// let
     Let,
+    /// mut
+    Mut,
+    /// const
+    Const,
     /// if
     If,
     /// else
     Else,
+    /// for
+    For,
     /// while
     While,
     /// loop
     Loop,
+    /// break
+    Break,
+    /// continue
+    Continue,
     /// return
     Return,
     /// true
     True,
     /// false
     False,
+    /// null
+    Null,
+    /// as
+    As,
+    /// pub
+    Pub,
+    /// alias
+    Alias,
+    /// enum
+    Enum,
+    /// union
+    Union,
+    /// struct
+    Struct,
+    /// impl
+    Impl,
+    /// contract
+    Contract,
+    /// use
+    Use,
+    /// unsafe
+    Unsafe,
 
     /* Brackets */
     /// `(`
