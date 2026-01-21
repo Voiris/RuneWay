@@ -103,55 +103,55 @@ pub enum Token<'src> {
     FormatCodeBlockEnd,
 
     /* Keywords */
-    /// act
+    /// `act`
     Act,
-    /// let
+    /// `let`
     Let,
-    /// mut
+    /// `mut`
     Mut,
-    /// const
+    /// `const`
     Const,
-    /// if
+    /// `if`
     If,
-    /// else
+    /// `else`
     Else,
-    /// for
+    /// `for`
     For,
-    /// while
+    /// `while`
     While,
-    /// loop
+    /// `loop`
     Loop,
-    /// break
+    /// `break`
     Break,
-    /// continue
+    /// `continue`
     Continue,
-    /// return
+    /// `return`
     Return,
-    /// true
+    /// `true`
     True,
-    /// false
+    /// `false`
     False,
-    /// null
+    /// `null`
     Null,
-    /// as
+    /// `as`
     As,
-    /// pub
+    /// `pub`
     Pub,
-    /// alias
+    /// `alias`
     Alias,
-    /// enum
+    /// `enum`
     Enum,
-    /// union
+    /// `union`
     Union,
-    /// struct
+    /// `struct`
     Struct,
-    /// impl
+    /// `impl`
     Impl,
-    /// contract
+    /// `contract`
     Contract,
-    /// use
+    /// `use`
     Use,
-    /// unsafe
+    /// `unsafe`
     Unsafe,
 
     /* Brackets */
@@ -173,11 +173,11 @@ pub enum Token<'src> {
     Arrow,
 
     /* Other */
-    /// .
+    /// `.`
     Dot,
-    /// ..
+    /// `..`
     Range,
-    /// ..=
+    /// `..=`
     RangeInclusive,
     /// `,`
     Comma,
