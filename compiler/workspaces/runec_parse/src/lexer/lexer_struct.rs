@@ -687,7 +687,8 @@ impl<'src, 'diag> Lexer<'src> {
                 '=' => {
                     handle_double_char_token!(
                         *; self; Token::Eq;
-                        '=' => Token::EqEq
+                        '=' => Token::EqEq,
+                        '>' => Token::DArrow,
                     )
                 }
                 '+' => {
@@ -1066,7 +1067,7 @@ mod tests {
 
     #[test]
     fn multichar_tokens_test() {
-        let source = "= == + += ++ - -= -- -> * *= / /= % %= ^ ^= & &= | |= < << <<= <= > >> >>= >= . .. ..= : ::";
+        let source = "= == + += ++ - -= -- -> * *= / /= % %= ^ ^= & &= | |= < << <<= <= > >> >>= >= . .. ..= : :: =>";
         let (source_map, source_id) = generate_source(source);
 
         let expected_tokens = [
@@ -1104,6 +1105,7 @@ mod tests {
             SpannedToken::new(Token::RangeInclusive, Span::new(BytePos::from_usize(83), BytePos::from_usize(86), source_id)),
             SpannedToken::new(Token::Colon, Span::new(BytePos::from_usize(87), BytePos::from_usize(88), source_id)),
             SpannedToken::new(Token::DColon, Span::new(BytePos::from_usize(89), BytePos::from_usize(91), source_id)),
+            SpannedToken::new(Token::DArrow, Span::new(BytePos::from_usize(92), BytePos::from_usize(94), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);

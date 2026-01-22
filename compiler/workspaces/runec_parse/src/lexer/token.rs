@@ -171,6 +171,8 @@ pub enum Token<'src> {
     /* Arrows */
     /// `->`
     Arrow,
+    /// `=>`
+    DArrow,
 
     /* Other */
     /// `.`
