@@ -1,3 +1,3 @@
-mod token;
+pub mod token;
 mod cursor;
-mod lexer_struct;
+pub mod lexer_struct;
