@@ -7,4 +7,5 @@ edition = "2024"
 runec_source = { path = "../runec_source" }
 runec_errors = { path = "../runec_errors" }
 runec_utils = { path = "../runec_utils" }
+runec_ast = { path = "../runec_ast" }
 fluent = "0.17.0"
