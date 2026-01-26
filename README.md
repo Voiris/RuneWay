@@ -24,7 +24,7 @@
 - [ ] Semantic Checker
 - [ ] Optimizer
 - [ ] Bytecode generator (out: Stack-based bytecode)
-- [ ] Stack-based VM
+- [ ] Register-based VM
 
 ### 🪵 Built-ins
 
