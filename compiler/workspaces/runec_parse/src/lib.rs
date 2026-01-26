@@ -1,2 +1,2 @@
-mod lexer;
-mod parser;
+pub(crate) mod lexer;
+pub mod parser;
