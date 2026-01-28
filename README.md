@@ -6,7 +6,7 @@
 
 ### ✨ Language Features
 
-- [ ] Comments (`//`, `/* */`)
+- [x] Comments (`//`, `/* */`)
 - [ ] Variables and Types (`let`, `int`, `float`, `string`, `bool`, `null`)
 - [ ] Binary and Unary Operations
 - [ ] String Interpolation (`f"..."`, `r"..."`)
@@ -18,8 +18,8 @@
 
 ### 🧱 Architecture
 
-- [ ] Lexer (out: Tokens) - *in progress*
-- [ ] Parser (out: AST)
+- [x] Lexer (out: Tokens)
+- [ ] Parser (out: AST. Based on: Recursive Descent + Pratt) - *in progress*
 - [ ] IR generator (out: IR)
 - [ ] Semantic Checker
 - [ ] Optimizer
