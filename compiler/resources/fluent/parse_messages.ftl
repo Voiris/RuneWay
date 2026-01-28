@@ -1,6 +1,9 @@
+# General
+unexpected-eof = unexpected end of file `{ $path }`
+
+# Lexer
 invalid-char = invalid character: { $char }
 invalid-numeric-literal = invalid number literal
-unexpected-eof = unexpected end of file `{ $path }`
 duplicated-string-literal-prefix = string literal cannot have duplicated prefix '{ $prefix }'
 unterminated-string = unterminated string
 unterminated-code-block = unterminated code block in format string
@@ -18,3 +21,5 @@ unicode-must-be-hex = must be hexadecimal
 unicode-must-have-at-most-6-hex-digits = must have at most 6 hex digits
 no-valid-digits = no valid digits found
 empty-char-literal = empty char literal
+
+# Parser
