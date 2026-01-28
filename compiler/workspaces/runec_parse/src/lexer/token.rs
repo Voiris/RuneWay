@@ -10,6 +10,7 @@ pub enum Radix {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[repr(u8)]
 pub enum Token<'src> {
     /* Expression-operator symbols. */
     /// `=`
@@ -82,19 +83,8 @@ pub enum Token<'src> {
     MinusMinus,
 
     /* Literals */
-    IntLiteral {                // >= 0
-        digits: &'src str,
-        radix: Radix,
-        suffix: Option<&'src str>,
-    },
-    FloatLiteral {              // >= 0.0
-        literal: &'src str,
-        suffix: Option<&'src str>,
-    },
-    RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
-    StringLiteral(String),        // with escape sequence: "string\n"
-    CharLiteral(char),
-    Ident(&'src str),
+    ComplexLiteral(Box<ComplexLiteral<'src>>),
+    CharLiteral(char),  // Simple
 
     /* Format strings control */
     FormatStringStart,
@@ -189,6 +179,23 @@ pub enum Token<'src> {
     DColon,
     /// `;`
     Semicolon,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ComplexLiteral<'src> {
+    /* Literals */
+    IntLiteral {                // >= 0
+        digits: &'src str,
+        radix: Radix,
+        suffix: Option<&'src str>,
+    },
+    FloatLiteral {              // >= 0.0
+        literal: &'src str,
+        suffix: Option<&'src str>,
+    },
+    RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
+    StringLiteral(String),        // with escape sequence: "string\n"
+    Ident(&'src str),
 }
 
 pub type SpannedToken<'a> = Spanned<Token<'a>>;
