@@ -3,6 +3,7 @@ use std::vec::IntoIter;
 use runec_ast::expression::Expr;
 use runec_ast::statement::Stmt;
 use runec_errors::diagnostics::Diagnostic;
+use runec_source::source_map::{SourceFile, SourceId};
 use crate::lexer::token::SpannedToken;
 use crate::parser::result::ParseResult;
 
@@ -24,12 +25,14 @@ impl<'diag> InnerParseErr<'diag> {
 }
 
 pub struct Parser<'src> {
-    tokens: Peekable<IntoIter<SpannedToken<'src>>>
+    tokens: Peekable<IntoIter<SpannedToken<'src>>>,
+    source_id: SourceId,
+    source_file: &'src SourceFile,
 }
 
 impl<'src, 'diag> Parser<'src> {
-    pub fn new(tokens: Vec<SpannedToken<'src>>) -> Self {
-        Self { tokens: tokens.into_iter().peekable() }
+    pub fn new(tokens: Vec<SpannedToken<'src>>, source_id: SourceId, source_file: &'src SourceFile) -> Self {
+        Self { tokens: tokens.into_iter().peekable(), source_id, source_file }
     }
 
     fn parse_expression(&mut self) -> InnerParserResult<'diag, Expr<'src>> {
