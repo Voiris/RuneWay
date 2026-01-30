@@ -181,6 +181,93 @@ pub enum Token<'src> {
     Semicolon,
 }
 
+impl Token<'_> {
+    pub fn display(&self) -> &'static str {
+        match self {
+            Token::Eq => "=",
+            Token::Lt => "<",
+            Token::Le => "<=",
+            Token::EqEq => "==",
+            Token::Ne => "!=",
+            Token::Ge => ">=",
+            Token::Gt => ">",
+            Token::AndAnd => "&&",
+            Token::OrOr => "||",
+            Token::Bang => "!",
+            Token::Tilde => "~",
+            Token::Question => "?",
+            Token::Plus => "+",
+            Token::Minus => "-",
+            Token::Star => "*",
+            Token::Slash => "/",
+            Token::Percent => "%",
+            Token::Caret => "^",
+            Token::And => "&",
+            Token::Or => "|",
+            Token::Shl => "<<",
+            Token::Shr => ">>",
+            Token::PlusEq => "+=",
+            Token::MinusEq => "-=",
+            Token::StarEq => "*=",
+            Token::SlashEq => "/=",
+            Token::PercentEq => "%=",
+            Token::CaretEq => "^=",
+            Token::AndEq => "&=",
+            Token::OrEq => "|=",
+            Token::ShlEq => "<<=",
+            Token::ShrEq => ">>=",
+            Token::PlusPlus => "++",
+            Token::MinusMinus => "--",
+            Token::ComplexLiteral(literal) => literal.display(),
+            Token::CharLiteral( .. ) => "char-literal",
+            Token::FormatStringStart => "format-string",
+            Token::FormatStringEnd => "format-string",
+            Token::FormatCodeBlockStart => "format-code-block",
+            Token::FormatCodeBlockEnd => "format-code-block",
+            Token::Act => "act",
+            Token::Let => "let",
+            Token::Mut => "mut",
+            Token::Const => "const",
+            Token::If => "if",
+            Token::Else => "else",
+            Token::For => "for",
+            Token::While => "while",
+            Token::Loop => "loop",
+            Token::Break => "break",
+            Token::Continue => "continue",
+            Token::Return => "return",
+            Token::True => "true",
+            Token::False => "false",
+            Token::Null => "null",
+            Token::As => "as",
+            Token::Pub => "pub",
+            Token::Alias => "alias",
+            Token::Enum => "enum",
+            Token::Union => "union",
+            Token::Struct => "struct",
+            Token::Impl => "impl",
+            Token::Use => "use",
+            Token::Unsafe => "unsafe",
+            Token::Contract => "contract",
+            Token::OpenParen => "(",
+            Token::CloseParen => ")",
+            Token::OpenBrace => "{",
+            Token::CloseBrace => "}",
+            Token::OpenBracket => "[",
+            Token::CloseBracket => "]",
+            Token::Arrow => "->",
+            Token::DArrow => "=>",
+            Token::Dot => ".",
+            Token::Range => "..",
+            Token::RangeInclusive => "..=",
+            Token::Comma => ",",
+            Token::Colon => ":",
+            Token::DColon => "::",
+            Token::Semicolon => ";",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ComplexLiteral<'src> {
     /* Literals */
@@ -196,6 +283,18 @@ pub enum ComplexLiteral<'src> {
     RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
     StringLiteral(String),        // with escape sequence: "string\n"
     Ident(&'src str),
+}
+
+impl<'src> ComplexLiteral<'src> {
+    pub fn display(&self) -> &'static str {
+        match self {
+            ComplexLiteral::IntLiteral { .. } => "int-literal",
+            ComplexLiteral::FloatLiteral { .. } => "float-literal",
+            ComplexLiteral::RawStringLiteral( .. ) => "string-literal",
+            ComplexLiteral::StringLiteral( .. ) => "string-literal",
+            ComplexLiteral::Ident( .. ) => "identifier",
+        }
+    }
 }
 
 pub type SpannedToken<'a> = Spanned<Token<'a>>;
