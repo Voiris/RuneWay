@@ -4,7 +4,7 @@ use runec_ast::expression::Expr;
 use runec_ast::statement::Stmt;
 use runec_errors::diagnostics::Diagnostic;
 use runec_source::source_map::{SourceFile, SourceId};
-use crate::lexer::token::SpannedToken;
+use crate::lexer::token::{SpannedToken, Token};
 use crate::parser::result::ParseResult;
 
 type InnerParserResult<'diag, T> = Result<T, InnerParseErr<'diag>>;
@@ -53,7 +53,12 @@ impl<'src, 'diag> Parser<'src> {
                 Err(err) => {
                     res.diags.push(*err.diag);
                     if err.should_skip_until_new_stmt {
-
+                        for token in self.tokens.by_ref() {
+                            match token.node {
+                                Token::Semicolon | Token::CloseBrace => break,
+                                _ => {}
+                            }
+                        }
                     }
                 }
             }
