@@ -81,8 +81,8 @@ impl<'src, 'diag> Lexer<'src> {
     }
 
     fn duplicated_prefix_error(&self, prefix: char, lo: BytePos, hi: BytePos) -> Box<Diagnostic<'diag>> {
-        Diagnostic::error(DiagMessage::new("duplicated-string-literal-prefix", Some(runec_utils::hashmap!(
-            "char" => FluentValue::String(Cow::Owned(prefix.to_string())),
+        Diagnostic::error(DiagMessage::new_with_args("duplicated-string-literal-prefix", runec_utils::hashmap!(
+            "char" => FluentValue::String(Cow::Owned(prefix.to_string()),
         ))))
             .add_label(
                 DiagLabel::silent_primary(Span::new(
@@ -94,9 +94,9 @@ impl<'src, 'diag> Lexer<'src> {
     }
 
     fn invalid_escape_sequence_error(&self, lo: BytePos, hi: BytePos, sequence: String) -> Box<Diagnostic<'diag>> {
-        Diagnostic::error(DiagMessage::new("invalid-escape-sequence", Some(runec_utils::hashmap!(
+        Diagnostic::error(DiagMessage::new_with_args("invalid-escape-sequence", runec_utils::hashmap!(
             "sequence" => FluentValue::String(Cow::Owned(sequence)),
-        ))))
+        )))
             .add_label(
                 DiagLabel::silent_primary(Span::new(
                     lo,
@@ -173,9 +173,9 @@ impl<'src, 'diag> Lexer<'src> {
                 self.cursor.next();
                 let hi = self.cursor.pos();
                 Err(
-                    Diagnostic::error(DiagMessage::new("invalid-char", Some(runec_utils::hashmap!(
+                    Diagnostic::error(DiagMessage::new_with_args("invalid-char",runec_utils::hashmap!(
                                 "char" => FluentValue::String(Cow::Owned(c.to_string())),
-                            ))))
+                            )))
                         .add_label(
                             DiagLabel::silent_primary(Span::new(
                                 lo,
@@ -831,8 +831,8 @@ impl<'src, 'diag> Lexer<'src> {
                     let lo = self.cursor.pos();
                     let hi = lo + ch.len_utf8();
                     return Err(
-                        Diagnostic::error(DiagMessage::new("invalid-char", Some(runec_utils::hashmap!(
-                                "char" => FluentValue::String(Cow::Owned(ch.to_string())),
+                        Diagnostic::error(DiagMessage::new_with_args("invalid-char", runec_utils::hashmap!(
+                                "char" => FluentValue::String(Cow::Owned(ch.to_string()),
                             ))))
                             .add_label(
                                 DiagLabel::silent_primary(Span::new(
