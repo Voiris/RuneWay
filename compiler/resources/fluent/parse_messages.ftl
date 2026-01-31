@@ -23,3 +23,5 @@ no-valid-digits = no valid digits found
 empty-char-literal = empty char literal
 
 # Parser
+unexpected-token = unexpected token: `{ $token }`
+expected-token-got = expected token: `{ $expected }`. Got: `{ $got }`
