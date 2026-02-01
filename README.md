@@ -46,11 +46,11 @@
 - [ ] std::time
 - [ ] std::mem
 
-### 🔩 OOP
+### 🔩 OOP (or not exactly)
 
 - [ ] Method calls (`a.iter()`)
-- [ ] User-defined classes
-- [ ] Abstractions
+- [ ] User-defined structs
+- [ ] Contracts
 
 ### 📢 Errors
 
