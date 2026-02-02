@@ -9,8 +9,8 @@
 - [x] Comments (`//`, `/* */`)
 - [ ] Variables and Types (`let`, `int`, `float`, `string`, `bool`, `null`)
 - [ ] Binary and Unary Operations
-- [ ] String Interpolation (`f"..."`, `r"..."`)
-- [ ] Logic and Loops (`if`, `while`, `for`)
+- [ ] String Interpolation (`f"..."`, `r"..."`, `fr"..."`)
+- [ ] Logic and Loops (`if`, `while`, `for`, `loop`)
 - [ ] Functions (`act name() {}`)
 - [ ] Static type annotations (`x: int`)
 - [ ] Static type annotations in functions (`act f(x: int) -> int`)
