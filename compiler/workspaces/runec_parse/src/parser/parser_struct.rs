@@ -7,7 +7,7 @@ use runec_ast::statement::Stmt;
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::message::DiagMessage;
 use runec_source::source_map::{SourceFile, SourceId};
-use crate::lexer::token::{SpannedToken, Token};
+use crate::lexer::token::{ComplexLiteral, SpannedToken, Token};
 use crate::parser::result::ParseResult;
 
 macro_rules! expect_token {
@@ -15,30 +15,25 @@ macro_rules! expect_token {
         if let Some(token) = $self.tokens.next() {
             match token.node {
                 $expected => Ok(()),
-                token => Err(
-                    InnerParseErr::with_skip(Diagnostic::error(
-                        DiagMessage::new_with_args(
-                            "unexpected-token",
-                            runec_utils::hashmap!(
-                                "expected" => FluentValue::String(Cow::Borrowed($expected_str)),
-                                "got" => FluentValue::String(Cow::Borrowed(token.display())),
-                            )
-                        )
-                    ))
-                ),
+                token => Err(unexpected_token!(token, $expected_str)),
             }
         } else {
-            Err(InnerParseErr::with_skip(Diagnostic::error(
-                DiagMessage::new_with_args(
-                    "unexpected-eof",
-                    runec_utils::hashmap!(
-                        "path" => FluentValue::String(
-                            Cow::Owned($self.source_file.file_name.to_string())
-                        )
-                    )
-                )
-            )))
+            Err($self.unexpected_eof())
         }
+    }};
+}
+
+macro_rules! unexpected_token {
+    ($token:expr, $expected_str:expr) => {{
+        InnerParseErr::with_skip(Diagnostic::error(
+            DiagMessage::new_with_args(
+                "unexpected-token",
+                runec_utils::hashmap!(
+                    "expected" => FluentValue::String(Cow::Borrowed($expected_str)),
+                    "got" => FluentValue::String(Cow::Borrowed($token.display())),
+                )
+            )
+        ))
     }};
 }
 
@@ -78,6 +73,19 @@ impl<'src, 'diag> Parser<'src> {
         )
     }
 
+    fn unexpected_eof(&self) -> InnerParseErr<'diag> {
+        InnerParseErr::without_skip(Diagnostic::error(
+            DiagMessage::new_with_args(
+                "unexpected-eof",
+                runec_utils::hashmap!(
+                        "path" => FluentValue::String(
+                            Cow::Owned(self.source_file.file_name.to_string())
+                        )
+                    )
+            )
+        ))
+    }
+
     fn parse_statement(&mut self) -> InnerParserResult<'diag, Stmt<'src>> {
         let token = self.tokens.next().unwrap();
         match token.node {
@@ -90,6 +98,20 @@ impl<'src, 'diag> Parser<'src> {
 
     fn parse_act(&mut self) -> InnerParserResult<'diag, Stmt<'src>> {
         expect_token!(self, Token::Act, Token::Act.display())?;
+
+        let ident = if let Some(token) = self.tokens.next() {
+            match &token.node {
+                Token::ComplexLiteral(literal) => {
+                    match **literal {
+                        ComplexLiteral::Ident(ident) => ident,
+                        _ => return Err(unexpected_token!(token, "ident")),
+                    }
+                }
+                _ => return Err(unexpected_token!(token, "ident")),
+            }
+        } else {
+            return Err(self.unexpected_eof());
+        };
 
         unimplemented!()
     }
