@@ -19,13 +19,13 @@ pub enum Stmt<'src> {
     },
     DefineFunction {
         ident: &'src str,
-        args: Vec<FunctionArg<'src>>,
+        args: Box<[FunctionArg<'src>]>,
         ret_ty: &'src str,
         body: StmtBlock<'src>,
     }
 }
 
-pub type StmtBlock<'src> = Vec<Stmt<'src>>;
+pub type StmtBlock<'src> = Box<[Stmt<'src>]>;
 
 pub struct FunctionArg<'src> {
     pub ident: &'src str,
