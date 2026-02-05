@@ -3,7 +3,7 @@ use std::iter::Peekable;
 use std::vec::IntoIter;
 use fluent::FluentValue;
 use runec_ast::expression::Expr;
-use runec_ast::statement::Stmt;
+use runec_ast::statement::{FunctionArg, Stmt};
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::message::DiagMessage;
 use runec_source::source_map::{SourceFile, SourceId};
@@ -14,8 +14,19 @@ macro_rules! expect_token {
     ($self:expr, $expected:pat, $expected_str:expr) => {{
         if let Some(token) = $self.tokens.next() {
             match token.node {
-                $expected => Ok(()),
+                $expected => Ok(token),
                 token => Err(unexpected_token!(token, $expected_str)),
+            }
+        } else {
+            Err($self.unexpected_eof())
+        }
+    }};
+
+    ($self:expr, $expected:pat, [$($expected_str:expr),*], *) => {{
+        if let Some(token) = $self.tokens.next() {
+            match token.node {
+                $expected => Ok(token),
+                token => Err(unexpected_token!(token, [$($expected_str),*], *))
             }
         } else {
             Err($self.unexpected_eof())
@@ -35,6 +46,18 @@ macro_rules! unexpected_token {
             )
         ))
     }};
+
+    ($token:expr, [$($expected_str:expr),*], *) => {{
+        InnerParseErr::with_skip(Diagnostic::error(
+            DiagMessage::new_with_args(
+                "unexpected-token",
+                runec_utils::hashmap!(
+                    "expected" => FluentValue::String(Cow::Owned([$($expected_str),*].join("` or `"))),
+                    "got" => FluentValue::String(Cow::Borrowed($token.display())),
+                )
+            )
+        ))
+    }}
 }
 
 type InnerParserResult<'diag, T> = Result<T, InnerParseErr<'diag>>;
@@ -104,14 +127,54 @@ impl<'src, 'diag> Parser<'src> {
                 Token::ComplexLiteral(literal) => {
                     match **literal {
                         ComplexLiteral::Ident(ident) => ident,
-                        _ => return Err(unexpected_token!(token, "ident")),
+                        _ => return Err(unexpected_token!(token, "identifier")),
                     }
                 }
-                _ => return Err(unexpected_token!(token, "ident")),
+                _ => return Err(unexpected_token!(token, "identifier")),
             }
         } else {
             return Err(self.unexpected_eof());
         };
+
+        expect_token!(self, Token::OpenParen, Token::OpenParen.display())?;
+        let mut args = Vec::new();
+        let mut terminated = false;
+        while let Some(token) = self.tokens.next() {
+            match &token.node {
+                Token::ComplexLiteral(literal) => {
+                    match literal.as_ref() {
+                        ComplexLiteral::Ident(ident) => {
+                            expect_token!(self, Token::Colon, Token::Colon.display())?;
+                            let type_literal_token = expect_token!(self, Token::ComplexLiteral( .. ), "identifier")?;
+                            match &type_literal_token.node {
+                                Token::ComplexLiteral(type_literal) => {
+                                    match type_literal.as_ref() {
+                                        ComplexLiteral::Ident(ty) => {
+                                            args.push(
+                                                FunctionArg { ident, ty }
+                                            );
+                                        }
+                                        _ => return Err(unexpected_token!(type_literal_token, "identifier")),
+                                    }
+                                }
+                                _ => unreachable!()
+                            }
+                        },
+                        _ => return Err(unexpected_token!(token, "identifier")),
+                    }
+                }
+                _ => return Err(unexpected_token!(token, "identifier")),
+            }
+            let token = expect_token!(self, Token::CloseParen | Token::Comma, [Token::CloseParen.display(), Token::Comma.display()], *)?;
+            if token.node == Token::CloseParen {
+                terminated = true;
+                break;
+            } else if self.tokens.peek().map_or(false, |t| t.node == Token::CloseParen) {
+                self.tokens.next();
+                terminated = true;
+                break;
+            }
+        }
 
         unimplemented!()
     }
