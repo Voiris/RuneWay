@@ -26,4 +26,4 @@ empty-char-literal = empty char literal
 unexpected-token = unexpected token: `{ $token }`
 expected-token-got = expected token: `{ $expected }`. Got: `{ $got }`
 unterminated-args-block = unterminated arguments block. Expect: `)`
-unterminated-code-block = unterminated code block. Expect: `}`
+unterminated-code-block = unterminated code block. Expect: `\}`
