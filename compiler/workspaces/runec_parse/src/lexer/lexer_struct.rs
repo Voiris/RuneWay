@@ -451,7 +451,7 @@ impl<'src, 'diag> Lexer<'src> {
             return Err(
                 runec_errors::make_simple_diag!(
                     error;
-                    "unterminated-code-block",
+                    "unterminated-f-string-code-block",
                     (self.source_id => lo..hi)
                 )
             )
