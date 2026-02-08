@@ -24,7 +24,7 @@ pub enum Stmt<'src> {
         ident: &'src str,
         args: Box<[FunctionArg<'src>]>,
         ret_ty: TypeAnnotation<'src>,
-        body: StmtBlock<'src>,
+        body: SpannedStmtBlock<'src>,
     }
 }
 

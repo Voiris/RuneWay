@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 use runec_source::span::Spanned;
-use crate::statement::StmtBlock;
+use crate::statement::{SpannedStmtBlock, StmtBlock};
 
 #[derive(Debug, PartialEq)]
 pub enum Expr<'src> {
     Primitive(PrimitiveValue<'src>),
-    Block(StmtBlock<'src>),
+    Block(SpannedStmtBlock<'src>),
     If(IfExpr<'src>),
 }
 
