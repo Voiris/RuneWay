@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use runec_source::span::Spanned;
 use crate::statement::StmtBlock;
 
 #[derive(Debug, PartialEq)]
@@ -7,6 +8,8 @@ pub enum Expr<'src> {
     Block(StmtBlock<'src>),
     If(IfExpr<'src>),
 }
+
+pub type SpannedExpr<'src> = Spanned<Expr<'src>>;
 
 #[derive(Debug, PartialEq)]
 pub struct IfExpr<'src> {
