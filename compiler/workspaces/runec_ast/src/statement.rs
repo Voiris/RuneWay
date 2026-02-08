@@ -1,3 +1,4 @@
+use runec_source::span::Spanned;
 use crate::ast_type::TypeAnnotation;
 use crate::expression::Expr;
 
@@ -28,6 +29,7 @@ pub enum Stmt<'src> {
 }
 
 pub type StmtBlock<'src> = Box<[Stmt<'src>]>;
+pub type SpannedStmtBlock<'src> = Spanned<StmtBlock<'src>>;
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionArg<'src> {
@@ -35,3 +37,5 @@ pub struct FunctionArg<'src> {
     // TODO: change to TypeAnnotation
     pub ty: &'src str,
 }
+
+pub type SpannedStmt<'src> = Spanned<Stmt<'src>>;
