@@ -868,18 +868,8 @@ impl<'src, 'diag> Lexer<'src> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-    use runec_source::source_map::FileName;
     use runec_source::byte_pos::BytePos;
     use super::*;
-
-    fn generate_source(source: &str) -> (SourceMap, SourceId) {
-        let mut source_map = SourceMap::new();
-        let source_id = source_map.add_file(
-            SourceFile::new(FileName::Real(PathBuf::from("/home/user/main.rnw")), source.to_string()),
-        );
-        (source_map, source_id)
-    }
 
     fn span(lo: usize, hi: usize, src_id: SourceId) -> Span {
         Span::new(BytePos::from_usize(lo), BytePos::from_usize(hi), src_id)
@@ -887,7 +877,7 @@ mod tests {
 
     #[test]
     fn one_char_tokens_test() {
-        let (source_map, source_id) = generate_source("(){}");
+        let (source_map, source_id) = crate::generate_source("(){}");
 
         let expected_tokens = [
             SpannedToken::new(Token::OpenParen, span(0, 1, source_id)),
@@ -905,7 +895,7 @@ mod tests {
     #[test]
     fn ident_lex_test() {
         let source = "main r DaDa r9_ r_9 _";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident(&source[0..4]))), Span::new(BytePos::from_usize(0), BytePos::from_usize(4), source_id)),
@@ -925,7 +915,7 @@ mod tests {
     #[test]
     fn basic_string_literal_test() {
         let source = "\"string\" \"\"";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::RawStringLiteral(&source[1..7]))), Span::new(BytePos::from_usize(0), BytePos::from_usize(8), source_id)),
@@ -941,7 +931,7 @@ mod tests {
     #[test]
     fn escape_sequence_test() {
         let source = "\"\\x01\\u{0012}\\u{FF}\\t\\r\\n\"";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::StringLiteral("\x01\u{0012}\u{FF}\t\r\n".to_string()))), Span::new(BytePos::from_usize(0), BytePos::from_usize(26), source_id)),
@@ -956,7 +946,7 @@ mod tests {
     #[test]
     fn format_string_test() {
         let source = "f\"{var}str{some}ing\\n\"";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::FormatStringStart, Span::new(BytePos::from_usize(1), BytePos::from_usize(1), source_id)),
@@ -980,7 +970,7 @@ mod tests {
     #[test]
     fn format_string_edge_cases_test() {
         let source = "f\"{}{  }{  var  }{ {v} }\"";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::FormatStringStart, Span::new(BytePos::from_usize(1), BytePos::from_usize(1), source_id)),
@@ -1008,7 +998,7 @@ mod tests {
     #[test]
     fn basic_int_literal_test() {
         let source = "123 0 999999999999999 0b0 0o0 0x0";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "123", radix: Radix::Decimal, suffix: None })), Span::new(BytePos::from_usize(0), BytePos::from_usize(3), source_id)),
@@ -1031,7 +1021,7 @@ mod tests {
     #[test]
     fn int_literal_with_suffix_test() {
         let source = "123u8 0i8 999999999999999f32 0b0u64 0o0isize 0x0suffix";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "123", radix: Radix::Decimal, suffix: Some("u8") })), Span::new(BytePos::from_usize(0), BytePos::from_usize(5), source_id)),
@@ -1054,7 +1044,7 @@ mod tests {
     #[test]
     fn float_literal_test() {
         let source = "3.14 0.0f32 0.0e1 0e+1 0e-1 0e1f64";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::FloatLiteral { literal: "3.14", suffix: None })), Span::new(BytePos::from_usize(0), BytePos::from_usize(4), source_id)),
@@ -1074,7 +1064,7 @@ mod tests {
     #[test]
     fn multichar_tokens_test() {
         let source = "= == + += ++ - -= -- -> * *= / /= % %= ^ ^= & &= | |= < << <<= <= > >> >>= >= . .. ..= : :: =>";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::Eq, Span::new(BytePos::from_usize(0), BytePos::from_usize(1), source_id)),
@@ -1123,7 +1113,7 @@ mod tests {
     #[test]
     fn char_literal_test() {
         let source = r"'a' '\x30' '\u{30}' '\n' '\''";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let expected_tokens = [
             SpannedToken::new(Token::CharLiteral('a'), Span::new(BytePos::from_usize(0), BytePos::from_usize(3), source_id)),
@@ -1142,7 +1132,7 @@ mod tests {
     #[test]
     fn comment_test() {
         let source = r"/* comment block*/  // comment  \n   //comment 2";
-        let (source_map, source_id) = generate_source(source);
+        let (source_map, source_id) = crate::generate_source(source);
 
         let lexer = Lexer::new(source_id, &source_map);
         let real_tokens = lexer.lex_full().unwrap();
