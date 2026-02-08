@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum TypeAnnotation<'src> {
     Unit,
     Ident(&'src str),

@@ -1,6 +1,7 @@
 use crate::ast_type::TypeAnnotation;
 use crate::expression::Expr;
 
+#[derive(Debug)]
 pub enum Stmt<'src> {
     SemiExpr(Expr<'src>),
     TailExpr(Expr<'src>),
@@ -28,6 +29,7 @@ pub enum Stmt<'src> {
 
 pub type StmtBlock<'src> = Box<[Stmt<'src>]>;
 
+#[derive(Debug)]
 pub struct FunctionArg<'src> {
     pub ident: &'src str,
     // TODO: change to TypeAnnotation
