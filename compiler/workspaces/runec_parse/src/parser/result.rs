@@ -1,9 +1,9 @@
-use runec_ast::statement::Stmt;
+use runec_ast::statement::SpannedStmt;
 use runec_errors::diagnostics::Diagnostic;
 
 pub struct ParseResult<'src, 'diag>
 where {
-    pub stmts: Vec<Stmt<'src>>,
+    pub stmts: Vec<SpannedStmt<'src>>,
     pub diags: Vec<Diagnostic<'diag>>,
 }
 

@@ -4,11 +4,12 @@ use std::vec::IntoIter;
 use fluent::FluentValue;
 use runec_ast::ast_type::TypeAnnotation;
 use runec_ast::expression::Expr;
-use runec_ast::statement::{FunctionArg, Stmt, StmtBlock};
+use runec_ast::statement::{FunctionArg, SpannedStmt, SpannedStmtBlock, Stmt};
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::message::DiagMessage;
 use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceFile, SourceId, SourceMap};
+use runec_source::span::Span;
 use crate::lexer::token::{ComplexLiteral, SpannedToken, Token};
 use crate::parser::result::ParseResult;
 
@@ -118,8 +119,8 @@ impl<'src, 'diag> Parser<'src> {
         ))
     }
 
-    fn parse_statement(&mut self) -> InnerParserResult<'diag, Stmt<'src>> {
-        let token = self.tokens.next().unwrap();
+    fn parse_statement(&mut self) -> InnerParserResult<'diag, SpannedStmt<'src>> {
+        let token = self.tokens.peek().unwrap();
         match token.node {
             Token::Act => self.parse_act(),
             _ => {
@@ -128,8 +129,8 @@ impl<'src, 'diag> Parser<'src> {
         }
     }
 
-    fn parse_act(&mut self) -> InnerParserResult<'diag, Stmt<'src>> {
-        expect_token!(self, Token::Act, Token::Act.display())?;
+    fn parse_act(&mut self) -> InnerParserResult<'diag, SpannedStmt<'src>> {
+        let lo = expect_token!(self, Token::Act, Token::Act.display())?.span.lo;
 
         let ident = if let Some(token) = self.tokens.next() {
             match &token.node {
@@ -148,9 +149,9 @@ impl<'src, 'diag> Parser<'src> {
         expect_token!(self, Token::OpenParen, Token::OpenParen.display())?;
         let mut args = Vec::new();
         let mut terminated = false;
-        let mut lo_opt = None;
+        let mut args_lo_opt = None;
         while let Some(token) = self.tokens.next() {
-            lo_opt.get_or_insert(token.span.lo);
+            args_lo_opt.get_or_insert(token.span.lo);
             match &token.node {
                 Token::ComplexLiteral(literal) => {
                     match literal.as_ref() {
@@ -188,13 +189,13 @@ impl<'src, 'diag> Parser<'src> {
         }
 
         if !terminated {
-            return if let Some(lo) = lo_opt {
+            return if let Some(args_lo) = args_lo_opt {
                 Err(
                     InnerParseErr::without_skip(
                         runec_errors::make_simple_diag!(
                             error;
                             "unterminated-args-block",
-                            (self.source_id => lo..self.source_hi)
+                            (self.source_id => args_lo..self.source_hi)
                         )
                     )
                 )
@@ -210,13 +211,14 @@ impl<'src, 'diag> Parser<'src> {
         } else { TypeAnnotation::Unit };
 
         let stmt_block = self.parse_stmt_block()?;
+        let hi = stmt_block.span.hi;
 
-        Ok(Stmt::DefineFunction {
+        Ok(SpannedStmt::new(Stmt::DefineFunction {
             ident,
             args: args.into_boxed_slice(),
             ret_ty,
             body: stmt_block
-        })
+        }, Span::new(lo, hi, self.source_id)))
     }
 
     fn parse_type_annotation(&mut self) -> InnerParserResult<'diag, TypeAnnotation<'src>> {
@@ -236,16 +238,17 @@ impl<'src, 'diag> Parser<'src> {
         }
     }
 
-    fn parse_stmt_block(&mut self) -> InnerParserResult<'diag, StmtBlock<'src>> {
+    fn parse_stmt_block(&mut self) -> InnerParserResult<'diag, SpannedStmtBlock<'src>> {
+        let lo = expect_token!(self, Token::OpenBrace, Token::OpenBrace.display())?.span.lo;
+
         let mut stmts = Vec::new();
         let mut terminated = false;
-        let mut lo_opt = None;
+        let mut hi_opt = None;
 
         while let Some(token) = self.tokens.peek() {
-            lo_opt.get_or_insert(token.span.lo);
             match token.node {
                 Token::CloseBrace => {
-                    self.tokens.next();
+                    hi_opt = Some(self.tokens.next().unwrap().span.hi);
                     terminated = true;
                     break;
                 }
@@ -254,22 +257,18 @@ impl<'src, 'diag> Parser<'src> {
         }
 
         if !terminated {
-            return if let Some(lo) = lo_opt {
-                Err(
-                    InnerParseErr::without_skip(
-                        runec_errors::make_simple_diag!(
-                            error;
-                            "unterminated-code-block",
-                            (self.source_id => lo..self.source_hi)
-                        )
+            return Err(
+                InnerParseErr::without_skip(
+                    runec_errors::make_simple_diag!(
+                        error;
+                        "unterminated-code-block",
+                        (self.source_id => lo..self.source_hi)
                     )
                 )
-            } else {
-                Err(self.unexpected_eof())
-            }
+            )
         }
 
-        Ok(stmts.into_boxed_slice() as StmtBlock<'src>)
+        Ok(SpannedStmtBlock::new(stmts.into_boxed_slice(), Span::new(lo, hi_opt.unwrap(), self.source_id)))
     }
 
     fn parse_expression(&mut self) -> InnerParserResult<'diag, Expr<'src>> {
@@ -315,14 +314,31 @@ mod tests {
 
     #[test]
     fn act_parse_test() {
-        let (source_map, source_id) = generate_source("");
+        let (source_map, source_id) = generate_source("act main(a: b, c: d) {}");
         let tokens = lex_source(&source_map, source_id);
         let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
 
         assert_eq!(parse_result.diags.len(), 0);
 
         let expected_stmts = [
-
+            SpannedStmt::new(Stmt::DefineFunction {
+                ident: "main",
+                args: Box::new([
+                    FunctionArg {
+                        ident: "a",
+                        ty: "b",
+                    },
+                    FunctionArg {
+                        ident: "c",
+                        ty: "d",
+                    }
+                ]),
+                ret_ty: TypeAnnotation::Unit,
+                body: SpannedStmtBlock::new(
+                    Box::new([]),
+                    Span::new(BytePos::from_usize(21), BytePos::from_usize(23), source_id)
+                ),
+            }, Span::new(BytePos::from_usize(0), BytePos::from_usize(23), source_id))
         ];
 
         assert_eq!(parse_result.stmts, expected_stmts);
