@@ -34,8 +34,7 @@ pub type SpannedStmtBlock<'src> = Spanned<StmtBlock<'src>>;
 #[derive(Debug, PartialEq)]
 pub struct FunctionArg<'src> {
     pub ident: &'src str,
-    // TODO: change to TypeAnnotation
-    pub ty: &'src str,
+    pub ty: TypeAnnotation<'src>,
 }
 
 pub type SpannedStmt<'src> = Spanned<Stmt<'src>>;

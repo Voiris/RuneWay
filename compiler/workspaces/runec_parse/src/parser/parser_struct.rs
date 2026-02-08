@@ -157,20 +157,8 @@ impl<'src, 'diag> Parser<'src> {
                     match literal.as_ref() {
                         ComplexLiteral::Ident(ident) => {
                             expect_token!(self, Token::Colon, Token::Colon.display())?;
-                            let type_literal_token = expect_token!(self, Token::ComplexLiteral( .. ), "identifier")?;
-                            match &type_literal_token.node {
-                                Token::ComplexLiteral(type_literal) => {
-                                    match type_literal.as_ref() {
-                                        ComplexLiteral::Ident(ty) => {
-                                            args.push(
-                                                FunctionArg { ident, ty }
-                                            );
-                                        }
-                                        _ => return Err(unexpected_token!(type_literal_token, "identifier")),
-                                    }
-                                }
-                                _ => unreachable!()
-                            }
+                            let ty = self.parse_type_annotation()?;
+                            args.push(FunctionArg { ident, ty });
                         },
                         _ => return Err(unexpected_token!(token, "identifier")),
                     }
@@ -314,7 +302,7 @@ mod tests {
 
     #[test]
     fn act_parse_test() {
-        let (source_map, source_id) = generate_source("act main(a: b, c: d) {}");
+        let (source_map, source_id) = generate_source("act main(a: b, c: d) -> e {}");
         let tokens = lex_source(&source_map, source_id);
         let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
 
@@ -326,19 +314,19 @@ mod tests {
                 args: Box::new([
                     FunctionArg {
                         ident: "a",
-                        ty: "b",
+                        ty: TypeAnnotation::Ident("b"),
                     },
                     FunctionArg {
                         ident: "c",
-                        ty: "d",
+                        ty: TypeAnnotation::Ident("d"),
                     }
                 ]),
-                ret_ty: TypeAnnotation::Unit,
+                ret_ty: TypeAnnotation::Ident("e"),
                 body: SpannedStmtBlock::new(
                     Box::new([]),
-                    Span::new(BytePos::from_usize(21), BytePos::from_usize(23), source_id)
+                    Span::new(BytePos::from_usize(26), BytePos::from_usize(28), source_id)
                 ),
-            }, Span::new(BytePos::from_usize(0), BytePos::from_usize(23), source_id))
+            }, Span::new(BytePos::from_usize(0), BytePos::from_usize(28), source_id))
         ];
 
         assert_eq!(parse_result.stmts, expected_stmts);
