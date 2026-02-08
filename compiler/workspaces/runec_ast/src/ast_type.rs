@@ -1,3 +1,5 @@
+use runec_source::span::Spanned;
+
 #[derive(Debug, PartialEq)]
 pub enum TypeAnnotation<'src> {
     Unit,
@@ -15,3 +17,5 @@ pub enum GenericParameter<'src> {
     // TODO: ConstValue(&'src str),
 }
  */
+
+pub type SpannedTypeAnnotation<'src> = Spanned<TypeAnnotation<'src>>;
