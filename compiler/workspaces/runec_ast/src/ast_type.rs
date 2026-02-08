@@ -1,4 +1,5 @@
 pub enum TypeAnnotation<'src> {
+    Unit,
     Ident(&'src str),
     /*Generic {
         ty: &'src str,
