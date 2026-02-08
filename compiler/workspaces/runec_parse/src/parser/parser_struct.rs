@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use fluent::FluentValue;
-use runec_ast::ast_type::TypeAnnotation;
+use runec_ast::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
 use runec_ast::expression::Expr;
 use runec_ast::statement::{FunctionArg, SpannedStmt, SpannedStmtBlock, Stmt};
 use runec_errors::diagnostics::Diagnostic;
@@ -148,8 +148,9 @@ impl<'src, 'diag> Parser<'src> {
 
         expect_token!(self, Token::OpenParen, Token::OpenParen.display())?;
         let mut args = Vec::new();
-        let mut terminated = false;
+        let mut args_terminating_hi = None;
         let mut args_lo_opt = None;
+
         while let Some(token) = self.tokens.next() {
             args_lo_opt.get_or_insert(token.span.lo);
             match &token.node {
@@ -167,57 +168,62 @@ impl<'src, 'diag> Parser<'src> {
             }
             let token = expect_token!(self, Token::CloseParen | Token::Comma, [Token::CloseParen.display(), Token::Comma.display()], *)?;
             if token.node == Token::CloseParen {
-                terminated = true;
+                args_terminating_hi = Some(token.span.hi);
                 break;
             } else if self.tokens.peek().is_some_and(|t| t.node == Token::CloseParen) {
-                self.tokens.next();
-                terminated = true;
+                args_terminating_hi = Some(self.tokens.next().unwrap().span.hi);
                 break;
             }
         }
 
-        if !terminated {
-            return if let Some(args_lo) = args_lo_opt {
-                Err(
-                    InnerParseErr::without_skip(
-                        runec_errors::make_simple_diag!(
-                            error;
-                            "unterminated-args-block",
-                            (self.source_id => args_lo..self.source_hi)
+        match args_terminating_hi {
+            // unterminated arguments block
+            None => {
+                if let Some(args_lo) = args_lo_opt {
+                    Err(
+                        InnerParseErr::without_skip(
+                            runec_errors::make_simple_diag!(
+                                error;
+                                "unterminated-args-block",
+                                (self.source_id => args_lo..self.source_hi)
+                            )
                         )
                     )
-                )
-            } else {
-                Err(self.unexpected_eof())
+                } else {
+                    Err(self.unexpected_eof())
+                }
+            }
+            // terminated arguments block
+            Some(args_hi) => {
+                let ret_ty = if self.tokens.peek().is_some_and(|t| t.node == Token::Arrow) {
+                    self.tokens.next();
+
+                    self.parse_type_annotation()?
+                } else { SpannedTypeAnnotation::new(TypeAnnotation::Unit, Span::new(args_hi, args_hi, self.source_id)) };
+
+                let stmt_block = self.parse_stmt_block()?;
+                let hi = stmt_block.span.hi;
+
+                Ok(SpannedStmt::new(Stmt::DefineFunction {
+                    ident,
+                    args: args.into_boxed_slice(),
+                    ret_ty,
+                    body: stmt_block
+                }, Span::new(lo, hi, self.source_id)))
             }
         }
-
-        let ret_ty = if self.tokens.peek().is_some_and(|t| t.node == Token::Arrow) {
-            self.tokens.next();
-
-            self.parse_type_annotation()?
-        } else { TypeAnnotation::Unit };
-
-        let stmt_block = self.parse_stmt_block()?;
-        let hi = stmt_block.span.hi;
-
-        Ok(SpannedStmt::new(Stmt::DefineFunction {
-            ident,
-            args: args.into_boxed_slice(),
-            ret_ty,
-            body: stmt_block
-        }, Span::new(lo, hi, self.source_id)))
     }
 
-    fn parse_type_annotation(&mut self) -> InnerParserResult<'diag, TypeAnnotation<'src>> {
+    fn parse_type_annotation(&mut self) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
         if let Some(token) = self.tokens.next() {
+            let lo = token.span.lo;
             match &token.node {
                 Token::ComplexLiteral(c_literal) => {
                     let ident = match **c_literal {
                         ComplexLiteral::Ident(ident) => ident,
                         _ => return Err(unexpected_token!(token, "identifier")),
                     };
-                    Ok(TypeAnnotation::Ident(ident))
+                    Ok(SpannedTypeAnnotation::new(TypeAnnotation::Ident(ident), Span::new(lo, token.span.hi, self.source_id)))
                 }
                 _ => todo!()
             }
@@ -290,6 +296,7 @@ impl<'src, 'diag> Parser<'src> {
 
 #[cfg(test)]
 mod tests {
+    use runec_ast::ast_type::SpannedTypeAnnotation;
     use runec_source::source_map::SourceMap;
     use crate::generate_source;
     use crate::lexer::lexer_struct::Lexer;
@@ -314,14 +321,14 @@ mod tests {
                 args: Box::new([
                     FunctionArg {
                         ident: "a",
-                        ty: TypeAnnotation::Ident("b"),
+                        ty: SpannedTypeAnnotation::new(TypeAnnotation::Ident("b"), Span::new(BytePos::from_usize(12), BytePos::from_usize(13), source_id)),
                     },
                     FunctionArg {
                         ident: "c",
-                        ty: TypeAnnotation::Ident("d"),
+                        ty: SpannedTypeAnnotation::new(TypeAnnotation::Ident("d"), Span::new(BytePos::from_usize(18), BytePos::from_usize(19), source_id)),
                     }
                 ]),
-                ret_ty: TypeAnnotation::Ident("e"),
+                ret_ty: SpannedTypeAnnotation::new(TypeAnnotation::Ident("e"), Span::new(BytePos::from_usize(24), BytePos::from_usize(25), source_id)),
                 body: SpannedStmtBlock::new(
                     Box::new([]),
                     Span::new(BytePos::from_usize(26), BytePos::from_usize(28), source_id)
