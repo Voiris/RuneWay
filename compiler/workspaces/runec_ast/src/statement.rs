@@ -28,7 +28,7 @@ pub enum Stmt<'src> {
     }
 }
 
-pub type StmtBlock<'src> = Box<[Stmt<'src>]>;
+pub type StmtBlock<'src> = Box<[SpannedStmt<'src>]>;
 pub type SpannedStmtBlock<'src> = Spanned<StmtBlock<'src>>;
 
 #[derive(Debug, PartialEq)]
