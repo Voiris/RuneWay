@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TypeAnnotation<'src> {
     Unit,
     Ident(&'src str),

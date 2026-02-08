@@ -1,27 +1,27 @@
 use std::borrow::Cow;
 use crate::statement::StmtBlock;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expr<'src> {
     Primitive(PrimitiveValue<'src>),
     Block(StmtBlock<'src>),
     If(IfExpr<'src>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct IfExpr<'src> {
     pub cond: Box<Expr<'src>>,
     pub then: StmtBlock<'src>,
     pub else_: Option<ElseBranch<'src>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ElseBranch<'src> {
     Block(StmtBlock<'src>),
     If(Box<IfExpr<'src>>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum PrimitiveValue<'src> {
     Bool(bool),
     U8(u8),
