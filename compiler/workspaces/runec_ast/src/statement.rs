@@ -1,3 +1,4 @@
+use crate::ast_type::TypeAnnotation;
 use crate::expression::Expr;
 
 pub enum Stmt<'src> {
@@ -5,7 +6,7 @@ pub enum Stmt<'src> {
     TailExpr(Expr<'src>),
     DefineLet {
         ident: &'src str,
-        ty: &'src str,
+        ty: TypeAnnotation<'src>,
         expr: Expr<'src>,
     },
     Assign {
@@ -14,13 +15,13 @@ pub enum Stmt<'src> {
     },
     DefineConst {
         ident: &'src str,
-        ty: &'src str,
+        ty: TypeAnnotation<'src>,
         expr: Expr<'src>,
     },
     DefineFunction {
         ident: &'src str,
         args: Box<[FunctionArg<'src>]>,
-        ret_ty: &'src str,
+        ret_ty: TypeAnnotation<'src>,
         body: StmtBlock<'src>,
     }
 }
