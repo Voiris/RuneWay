@@ -1,27 +1,28 @@
 use runec_source::span::Spanned;
 use crate::ast_type::SpannedTypeAnnotation;
 use crate::expression::Expr;
+use crate::SpannedStr;
 
 #[derive(Debug, PartialEq)]
 pub enum Stmt<'src> {
     SemiExpr(Expr<'src>),
     TailExpr(Expr<'src>),
     DefineLet {
-        ident: &'src str,
+        ident: SpannedStr<'src>,
         ty: SpannedTypeAnnotation<'src>,
         expr: Expr<'src>,
     },
     Assign {
-        ident: &'src str,
+        ident: SpannedStr<'src>,
         expr: Expr<'src>,
     },
     DefineConst {
-        ident: &'src str,
+        ident: SpannedStr<'src>,
         ty: SpannedTypeAnnotation<'src>,
         expr: Expr<'src>,
     },
     DefineFunction {
-        ident: &'src str,
+        ident: SpannedStr<'src>,
         args: Box<[FunctionArg<'src>]>,
         ret_ty: SpannedTypeAnnotation<'src>,
         body: SpannedStmtBlock<'src>,
@@ -33,7 +34,7 @@ pub type SpannedStmtBlock<'src> = Spanned<StmtBlock<'src>>;
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionArg<'src> {
-    pub ident: &'src str,
+    pub ident: SpannedStr<'src>,
     pub ty: SpannedTypeAnnotation<'src>,
 }
 

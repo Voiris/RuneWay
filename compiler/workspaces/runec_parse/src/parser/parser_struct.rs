@@ -4,13 +4,14 @@ use std::vec::IntoIter;
 use fluent::FluentValue;
 use runec_ast::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
 use runec_ast::expression::Expr;
+use runec_ast::SpannedStr;
 use runec_ast::statement::{FunctionArg, SpannedStmt, SpannedStmtBlock, Stmt};
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::message::DiagMessage;
 use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceFile, SourceId, SourceMap};
 use runec_source::span::Span;
-use crate::lexer::token::{ComplexLiteral, SpannedToken, Token};
+use crate::lexer::token::{SpannedToken, Token};
 use crate::parser::result::ParseResult;
 
 macro_rules! expect_token {
@@ -133,12 +134,9 @@ impl<'src, 'diag> Parser<'src> {
         let lo = expect_token!(self, Token::Act, Token::Act.display())?.span.lo;
 
         let ident = if let Some(token) = self.tokens.next() {
-            match &token.node {
-                Token::ComplexLiteral(literal) => {
-                    match **literal {
-                        ComplexLiteral::Ident(ident) => ident,
-                        _ => return Err(unexpected_token!(token, "identifier")),
-                    }
+            match token.node {
+                Token::Ident(ident) => {
+                    (ident, token.span)
                 }
                 _ => return Err(unexpected_token!(token, "identifier")),
             }
@@ -153,16 +151,11 @@ impl<'src, 'diag> Parser<'src> {
 
         while let Some(token) = self.tokens.next() {
             args_lo_opt.get_or_insert(token.span.lo);
-            match &token.node {
-                Token::ComplexLiteral(literal) => {
-                    match literal.as_ref() {
-                        ComplexLiteral::Ident(ident) => {
-                            expect_token!(self, Token::Colon, Token::Colon.display())?;
-                            let ty = self.parse_type_annotation()?;
-                            args.push(FunctionArg { ident, ty });
-                        },
-                        _ => return Err(unexpected_token!(token, "identifier")),
-                    }
+            match token.node {
+                Token::Ident(ident) => {
+                    self.tokens.next();
+                    let ty = self.parse_type_annotation()?;
+                    args.push(FunctionArg { ident: SpannedStr::new(ident, token.span), ty });
                 }
                 _ => return Err(unexpected_token!(token, "identifier")),
             }
@@ -205,7 +198,7 @@ impl<'src, 'diag> Parser<'src> {
                 let hi = stmt_block.span.hi;
 
                 Ok(SpannedStmt::new(Stmt::DefineFunction {
-                    ident,
+                    ident: SpannedStr::new(ident.0, ident.1),
                     args: args.into_boxed_slice(),
                     ret_ty,
                     body: stmt_block
@@ -218,13 +211,7 @@ impl<'src, 'diag> Parser<'src> {
         if let Some(token) = self.tokens.next() {
             let lo = token.span.lo;
             match &token.node {
-                Token::ComplexLiteral(c_literal) => {
-                    let ident = match **c_literal {
-                        ComplexLiteral::Ident(ident) => ident,
-                        _ => return Err(unexpected_token!(token, "identifier")),
-                    };
-                    Ok(SpannedTypeAnnotation::new(TypeAnnotation::Ident(ident), Span::new(lo, token.span.hi, self.source_id)))
-                }
+                Token::Ident(ident) => Ok(SpannedTypeAnnotation::new(TypeAnnotation::Ident(ident), Span::new(lo, token.span.hi, self.source_id))),
                 _ => todo!()
             }
         } else {
@@ -317,14 +304,14 @@ mod tests {
 
         let expected_stmts = [
             SpannedStmt::new(Stmt::DefineFunction {
-                ident: "main",
+                ident: SpannedStr::new("main", Span::new(BytePos::from_usize(4), BytePos::from_usize(8), source_id)),
                 args: Box::new([
                     FunctionArg {
-                        ident: "a",
+                        ident: SpannedStr::new("a", Span::new(BytePos::from_usize(9), BytePos::from_usize(10), source_id)),
                         ty: SpannedTypeAnnotation::new(TypeAnnotation::Ident("b"), Span::new(BytePos::from_usize(12), BytePos::from_usize(13), source_id)),
                     },
                     FunctionArg {
-                        ident: "c",
+                        ident: SpannedStr::new("c", Span::new(BytePos::from_usize(15), BytePos::from_usize(16), source_id)),
                         ty: SpannedTypeAnnotation::new(TypeAnnotation::Ident("d"), Span::new(BytePos::from_usize(18), BytePos::from_usize(19), source_id)),
                     }
                 ]),

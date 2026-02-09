@@ -7,7 +7,7 @@ use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceFile, SourceId, SourceMap};
 use runec_source::span::Span;
 use crate::lexer::cursor::Cursor;
-use crate::lexer::token::{Radix, SpannedToken, Token, ComplexLiteral};
+use crate::lexer::token::{Radix, SpannedToken, Token};
 
 type LexerResult<'diag, T> = Result<T, Box<Diagnostic<'diag>>>;
 
@@ -146,7 +146,7 @@ impl<'src, 'diag> Lexer<'src> {
             "contract" => Token::Contract,
             "use" => Token::Use,
             "unsafe" => Token::Unsafe,
-            _ => Token::ComplexLiteral(Box::new(ComplexLiteral::Ident(ident)))
+            _ => Token::Ident(ident)
         };
 
         SpannedToken::new(token, Span::new(lo, hi, self.source_id))
@@ -375,9 +375,9 @@ impl<'src, 'diag> Lexer<'src> {
         }
 
         let token = if let Some(string) = string_opt {
-            Token::ComplexLiteral(Box::new(ComplexLiteral::StringLiteral(string)))
+            Token::StringLiteral(string)
         } else {
-            Token::ComplexLiteral(Box::new(ComplexLiteral::RawStringLiteral(&self.source_file.src[raw_str_lo.to_usize()..raw_str_hi.to_usize()])))
+            Token::RawStringLiteral(&self.source_file.src[raw_str_lo.to_usize()..raw_str_hi.to_usize()])
         };
 
         Ok((SpannedToken::new(token, Span::new(lo, hi, self.source_id)), is_quote_terminated))
@@ -652,16 +652,16 @@ impl<'src, 'diag> Lexer<'src> {
         let span = Span::new(lo, hi, self.source_id);
 
         if is_float || is_exponent {
-            Ok(SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::FloatLiteral {
+            Ok(SpannedToken::new(Token::FloatLiteral {
                 literal: slice,
                 suffix
-            })), span))
+            }, span))
         } else {
-            Ok(SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral {
+            Ok(SpannedToken::new(Token::IntLiteral {
                 digits: slice,
                 radix,
                 suffix
-            })), span))
+            }, span))
         }
     }
 
@@ -899,12 +899,12 @@ mod tests {
         let (source_map, source_id) = generate_source(source);
 
         let expected_tokens = [
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident(&source[0..4]))), Span::new(BytePos::from_usize(0), BytePos::from_usize(4), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident(&source[5..6]))), Span::new(BytePos::from_usize(5), BytePos::from_usize(6), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident(&source[7..11]))), Span::new(BytePos::from_usize(7), BytePos::from_usize(11), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident(&source[12..15]))), Span::new(BytePos::from_usize(12), BytePos::from_usize(15), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident(&source[16..19]))), Span::new(BytePos::from_usize(16), BytePos::from_usize(19), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident(&source[20..21]))), Span::new(BytePos::from_usize(20), BytePos::from_usize(21), source_id)),
+            SpannedToken::new(Token::Ident(&source[0..4]), Span::new(BytePos::from_usize(0), BytePos::from_usize(4), source_id)),
+            SpannedToken::new(Token::Ident(&source[5..6]), Span::new(BytePos::from_usize(5), BytePos::from_usize(6), source_id)),
+            SpannedToken::new(Token::Ident(&source[7..11]), Span::new(BytePos::from_usize(7), BytePos::from_usize(11), source_id)),
+            SpannedToken::new(Token::Ident(&source[12..15]), Span::new(BytePos::from_usize(12), BytePos::from_usize(15), source_id)),
+            SpannedToken::new(Token::Ident(&source[16..19]), Span::new(BytePos::from_usize(16), BytePos::from_usize(19), source_id)),
+            SpannedToken::new(Token::Ident(&source[20..21]), Span::new(BytePos::from_usize(20), BytePos::from_usize(21), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
@@ -919,8 +919,8 @@ mod tests {
         let (source_map, source_id) = generate_source(source);
 
         let expected_tokens = [
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::RawStringLiteral(&source[1..7]))), Span::new(BytePos::from_usize(0), BytePos::from_usize(8), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::RawStringLiteral(&source[10..10]))), Span::new(BytePos::from_usize(9), BytePos::from_usize(11), source_id)),
+            SpannedToken::new(Token::RawStringLiteral(&source[1..7]), Span::new(BytePos::from_usize(0), BytePos::from_usize(8), source_id)),
+            SpannedToken::new(Token::RawStringLiteral(&source[10..10]), Span::new(BytePos::from_usize(9), BytePos::from_usize(11), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
@@ -935,7 +935,7 @@ mod tests {
         let (source_map, source_id) = generate_source(source);
 
         let expected_tokens = [
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::StringLiteral("\x01\u{0012}\u{FF}\t\r\n".to_string()))), Span::new(BytePos::from_usize(0), BytePos::from_usize(26), source_id)),
+            SpannedToken::new(Token::StringLiteral("\x01\u{0012}\u{FF}\t\r\n".to_string()), Span::new(BytePos::from_usize(0), BytePos::from_usize(26), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
@@ -952,13 +952,13 @@ mod tests {
         let expected_tokens = [
             SpannedToken::new(Token::FormatStringStart, Span::new(BytePos::from_usize(1), BytePos::from_usize(1), source_id)),
             SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(2), BytePos::from_usize(3), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident(&source[3..6]))), Span::new(BytePos::from_usize(3), BytePos::from_usize(6), source_id)),
+            SpannedToken::new(Token::Ident(&source[3..6]), Span::new(BytePos::from_usize(3), BytePos::from_usize(6), source_id)),
             SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(6), BytePos::from_usize(7), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::RawStringLiteral(&source[7..10]))), Span::new(BytePos::from_usize(7), BytePos::from_usize(10), source_id)),
+            SpannedToken::new(Token::RawStringLiteral(&source[7..10]), Span::new(BytePos::from_usize(7), BytePos::from_usize(10), source_id)),
             SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(10), BytePos::from_usize(11), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident(&source[11..15]))), Span::new(BytePos::from_usize(11), BytePos::from_usize(15), source_id)),
+            SpannedToken::new(Token::Ident(&source[11..15]), Span::new(BytePos::from_usize(11), BytePos::from_usize(15), source_id)),
             SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(15), BytePos::from_usize(16), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::StringLiteral("ing\n".to_string()))), Span::new(BytePos::from_usize(16), BytePos::from_usize(21), source_id)),
+            SpannedToken::new(Token::StringLiteral("ing\n".to_string()), Span::new(BytePos::from_usize(16), BytePos::from_usize(21), source_id)),
             SpannedToken::new(Token::FormatStringEnd, Span::new(BytePos::from_usize(22), BytePos::from_usize(22), source_id)),
         ];
 
@@ -980,11 +980,11 @@ mod tests {
             SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id)),
             SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(7), BytePos::from_usize(8), source_id)),
             SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident("var"))), Span::new(BytePos::from_usize(11), BytePos::from_usize(14), source_id)),
+            SpannedToken::new(Token::Ident("var"), Span::new(BytePos::from_usize(11), BytePos::from_usize(14), source_id)),
             SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(16), BytePos::from_usize(17), source_id)),
             SpannedToken::new(Token::FormatCodeBlockStart, Span::new(BytePos::from_usize(17), BytePos::from_usize(18), source_id)),
             SpannedToken::new(Token::OpenBrace, Span::new(BytePos::from_usize(19), BytePos::from_usize(20), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::Ident("v"))), Span::new(BytePos::from_usize(20), BytePos::from_usize(21), source_id)),
+            SpannedToken::new(Token::Ident("v"), Span::new(BytePos::from_usize(20), BytePos::from_usize(21), source_id)),
             SpannedToken::new(Token::CloseBrace, Span::new(BytePos::from_usize(21), BytePos::from_usize(22), source_id)),
             SpannedToken::new(Token::FormatCodeBlockEnd, Span::new(BytePos::from_usize(23), BytePos::from_usize(24), source_id)),
             SpannedToken::new(Token::FormatStringEnd, Span::new(BytePos::from_usize(25), BytePos::from_usize(25), source_id)),
@@ -1002,15 +1002,15 @@ mod tests {
         let (source_map, source_id) = generate_source(source);
 
         let expected_tokens = [
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "123", radix: Radix::Decimal, suffix: None })), Span::new(BytePos::from_usize(0), BytePos::from_usize(3), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "0", radix: Radix::Decimal, suffix: None })), Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "123", radix: Radix::Decimal, suffix: None }, Span::new(BytePos::from_usize(0), BytePos::from_usize(3), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Decimal, suffix: None }, Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id)),
             SpannedToken::new(
-                Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "999999999999999", radix: Radix::Decimal, suffix: None })),
+                Token::IntLiteral { digits: "999999999999999", radix: Radix::Decimal, suffix: None },
                 Span::new(BytePos::from_usize(6), BytePos::from_usize(21), source_id)
             ),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "0", radix: Radix::Binary, suffix: None })), Span::new(BytePos::from_usize(22), BytePos::from_usize(25), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "0", radix: Radix::Octal, suffix: None })), Span::new(BytePos::from_usize(26), BytePos::from_usize(29), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "0", radix: Radix::Hex, suffix: None })), Span::new(BytePos::from_usize(30), BytePos::from_usize(33), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Binary, suffix: None }, Span::new(BytePos::from_usize(22), BytePos::from_usize(25), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Octal, suffix: None }, Span::new(BytePos::from_usize(26), BytePos::from_usize(29), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Hex, suffix: None }, Span::new(BytePos::from_usize(30), BytePos::from_usize(33), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
@@ -1025,15 +1025,15 @@ mod tests {
         let (source_map, source_id) = generate_source(source);
 
         let expected_tokens = [
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "123", radix: Radix::Decimal, suffix: Some("u8") })), Span::new(BytePos::from_usize(0), BytePos::from_usize(5), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "0", radix: Radix::Decimal, suffix: Some("i8") })), Span::new(BytePos::from_usize(6), BytePos::from_usize(9), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "123", radix: Radix::Decimal, suffix: Some("u8") }, Span::new(BytePos::from_usize(0), BytePos::from_usize(5), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Decimal, suffix: Some("i8") }, Span::new(BytePos::from_usize(6), BytePos::from_usize(9), source_id)),
             SpannedToken::new(
-                Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "999999999999999", radix: Radix::Decimal, suffix: Some("f32") })),
+                Token::IntLiteral { digits: "999999999999999", radix: Radix::Decimal, suffix: Some("f32") },
                 Span::new(BytePos::from_usize(10), BytePos::from_usize(28), source_id)
             ),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "0", radix: Radix::Binary, suffix: Some("u64") })), Span::new(BytePos::from_usize(29), BytePos::from_usize(35), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "0", radix: Radix::Octal, suffix: Some("isize") })), Span::new(BytePos::from_usize(36), BytePos::from_usize(44), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::IntLiteral { digits: "0", radix: Radix::Hex, suffix: Some("suffix") })), Span::new(BytePos::from_usize(45), BytePos::from_usize(54), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Binary, suffix: Some("u64") }, Span::new(BytePos::from_usize(29), BytePos::from_usize(35), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Octal, suffix: Some("isize") }, Span::new(BytePos::from_usize(36), BytePos::from_usize(44), source_id)),
+            SpannedToken::new(Token::IntLiteral { digits: "0", radix: Radix::Hex, suffix: Some("suffix") }, Span::new(BytePos::from_usize(45), BytePos::from_usize(54), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);
@@ -1048,12 +1048,12 @@ mod tests {
         let (source_map, source_id) = generate_source(source);
 
         let expected_tokens = [
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::FloatLiteral { literal: "3.14", suffix: None })), Span::new(BytePos::from_usize(0), BytePos::from_usize(4), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::FloatLiteral { literal: "0.0", suffix: Some("f32") })), Span::new(BytePos::from_usize(5), BytePos::from_usize(11), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::FloatLiteral { literal: "0.0e1", suffix: None })), Span::new(BytePos::from_usize(12), BytePos::from_usize(17), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::FloatLiteral { literal: "0e+1", suffix: None })), Span::new(BytePos::from_usize(18), BytePos::from_usize(22), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::FloatLiteral { literal: "0e-1", suffix: None })), Span::new(BytePos::from_usize(23), BytePos::from_usize(27), source_id)),
-            SpannedToken::new(Token::ComplexLiteral(Box::new(ComplexLiteral::FloatLiteral { literal: "0e1", suffix: Some("f64") })), Span::new(BytePos::from_usize(28), BytePos::from_usize(34), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "3.14", suffix: None }, Span::new(BytePos::from_usize(0), BytePos::from_usize(4), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "0.0", suffix: Some("f32") }, Span::new(BytePos::from_usize(5), BytePos::from_usize(11), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "0.0e1", suffix: None }, Span::new(BytePos::from_usize(12), BytePos::from_usize(17), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "0e+1", suffix: None }, Span::new(BytePos::from_usize(18), BytePos::from_usize(22), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "0e-1", suffix: None }, Span::new(BytePos::from_usize(23), BytePos::from_usize(27), source_id)),
+            SpannedToken::new(Token::FloatLiteral { literal: "0e1", suffix: Some("f64") }, Span::new(BytePos::from_usize(28), BytePos::from_usize(34), source_id)),
         ];
 
         let lexer = Lexer::new(source_id, &source_map);

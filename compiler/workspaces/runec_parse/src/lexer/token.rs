@@ -83,7 +83,18 @@ pub enum Token<'src> {
     MinusMinus,
 
     /* Literals */
-    ComplexLiteral(Box<ComplexLiteral<'src>>),
+    IntLiteral {                // >= 0
+        digits: &'src str,
+        radix: Radix,
+        suffix: Option<&'src str>,
+    },
+    FloatLiteral {              // >= 0.0
+        literal: &'src str,
+        suffix: Option<&'src str>,
+    },
+    RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
+    StringLiteral(String),        // with escape sequence: "string\n"
+    Ident(&'src str),
     CharLiteral(char),  // Simple
 
     /* Format strings control */
@@ -218,7 +229,6 @@ impl Token<'_> {
             Token::ShrEq => ">>=",
             Token::PlusPlus => "++",
             Token::MinusMinus => "--",
-            Token::ComplexLiteral(literal) => literal.display(),
             Token::CharLiteral( .. ) => "char-literal",
             Token::FormatStringStart => "format-string",
             Token::FormatStringEnd => "format-string",
@@ -264,35 +274,11 @@ impl Token<'_> {
             Token::Colon => ":",
             Token::DColon => "::",
             Token::Semicolon => ";",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ComplexLiteral<'src> {
-    /* Literals */
-    IntLiteral {                // >= 0
-        digits: &'src str,
-        radix: Radix,
-        suffix: Option<&'src str>,
-    },
-    FloatLiteral {              // >= 0.0
-        literal: &'src str,
-        suffix: Option<&'src str>,
-    },
-    RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
-    StringLiteral(String),        // with escape sequence: "string\n"
-    Ident(&'src str),
-}
-
-impl<'src> ComplexLiteral<'src> {
-    pub fn display(&self) -> &'static str {
-        match self {
-            ComplexLiteral::IntLiteral { .. } => "int-literal",
-            ComplexLiteral::FloatLiteral { .. } => "float-literal",
-            ComplexLiteral::RawStringLiteral( .. ) => "string-literal",
-            ComplexLiteral::StringLiteral( .. ) => "string-literal",
-            ComplexLiteral::Ident( .. ) => "identifier",
+            Token::IntLiteral { .. } => "int-literal",
+            Token::FloatLiteral { .. } => "float-literal",
+            Token::RawStringLiteral( .. ) => "string-literal",
+            Token::StringLiteral( .. ) => "string-literal",
+            Token::Ident( .. ) => "identifier",
         }
     }
 }
