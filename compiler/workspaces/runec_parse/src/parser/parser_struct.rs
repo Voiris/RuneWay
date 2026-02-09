@@ -289,7 +289,7 @@ mod tests {
     use crate::lexer::lexer_struct::Lexer;
     use super::*;
 
-    fn lex_source(source_map: &SourceMap, source_id: SourceId) -> Vec<SpannedToken> {
+    fn lex_source(source_map: &SourceMap, source_id: SourceId) -> Vec<SpannedToken<'_>> {
         let lexer = Lexer::new(source_id, source_map);
         lexer.lex_full().unwrap()
     }
