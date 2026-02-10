@@ -254,7 +254,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         Ok(SpannedStmtBlock::new(stmts.into_boxed_slice(), Span::new(lo, hi_opt.unwrap(), self.source_id)))
     }
 
-    fn parse_expression(&mut self) -> InnerParserResult<'diag, Expr<'src>> {
+    fn parse_expr(&mut self) -> InnerParserResult<'diag, Expr<'src>> {
         todo!()
     }
 
