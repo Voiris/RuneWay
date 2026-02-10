@@ -30,7 +30,8 @@ pub enum ElseBranch<'src> {
 
 #[derive(Debug, PartialEq)]
 pub enum PrimitiveValue<'src> {
-    Bool(bool),
+    True,
+    False,
     U8(u8),
     U16(u16),
     U32(u32),
