@@ -21,7 +21,8 @@ pub const fn lbp(tok: &Token) -> u8 {
 
 pub const fn rbp(tok: &Token) -> u8 {
     match tok {
-        Token::Bang | Token::Tilde | Token::Plus | Token::Minus | Token::PlusPlus | Token::MinusMinus => 150,
+        Token::Bang | Token::Tilde | Token::Plus | Token::Minus => 150,
+        Token::PlusPlus | Token::MinusMinus => 160,
         _ => 0,
     }
 }
