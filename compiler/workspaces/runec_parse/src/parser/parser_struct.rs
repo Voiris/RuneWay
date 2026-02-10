@@ -81,21 +81,23 @@ impl<'diag> InnerParseErr<'diag> {
     }
 }
 
-pub struct Parser<'src> {
+pub struct Parser<'src, 'diag> {
     tokens: Peekable<IntoIter<SpannedToken<'src>>>,
     source_id: SourceId,
     source_file: &'src SourceFile,
-    source_hi: BytePos
+    source_hi: BytePos,
+    res: ParseResult<'src, 'diag>
 }
 
-impl<'src, 'diag> Parser<'src> {
+impl<'src, 'diag> Parser<'src, 'diag> {
     pub fn new(tokens: Vec<SpannedToken<'src>>, source_id: SourceId, source_map: &'src SourceMap) -> Self {
         let source_file = source_map.get_file(&source_id).unwrap();
         Self {
             tokens: tokens.into_iter().peekable(),
             source_id,
             source_hi:BytePos::from_usize(source_file.src.len()),
-            source_file
+            source_file,
+            res: ParseResult::new()
         }
     }
 
@@ -257,14 +259,13 @@ impl<'src, 'diag> Parser<'src> {
     }
 
     pub fn parse_full(mut self) -> ParseResult<'src, 'diag> {
-        let mut res = ParseResult::new();
 
         while self.tokens.peek().is_some() {
             let stmt_res = self.parse_statement();
             match stmt_res {
-                Ok(stmt) => res.stmts.push(stmt),
+                Ok(stmt) => self.res.stmts.push(stmt),
                 Err(err) => {
-                    res.diags.push(*err.diag);
+                    self.res.diags.push(*err.diag);
                     if err.should_skip_until_new_stmt {
                         for token in self.tokens.by_ref() {
                             match token.node {
@@ -277,7 +278,7 @@ impl<'src, 'diag> Parser<'src> {
             }
         }
 
-        res
+        self.res
     }
 }
 
