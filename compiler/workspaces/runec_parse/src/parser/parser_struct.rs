@@ -3,16 +3,18 @@ use std::iter::Peekable;
 use std::vec::IntoIter;
 use fluent::FluentValue;
 use runec_ast::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
-use runec_ast::expression::Expr;
+use runec_ast::expression::{Expr, PrimitiveValue, SpannedExpr};
+use runec_ast::operators::{BinaryOp, UnaryOp};
 use runec_ast::SpannedStr;
 use runec_ast::statement::{FunctionArg, SpannedStmt, SpannedStmtBlock, Stmt};
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::message::DiagMessage;
 use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceFile, SourceId, SourceMap};
-use runec_source::span::Span;
+use runec_source::span::{Span, Spanned};
 use crate::lexer::token::{SpannedToken, Token};
 use crate::parser::result::ParseResult;
+use crate::parser::pratt;
 
 macro_rules! expect_token {
     ($self:expr, $expected:pat, $expected_str:expr) => {{
@@ -122,10 +124,43 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         ))
     }
 
+    fn peek(&mut self) -> InnerParserResult<'diag, &SpannedToken<'src>> {
+        // Keep this as a boolean to avoid overlapping borrows.
+        if self.tokens.peek().is_none() {
+            Err(self.unexpected_eof())
+        } else {
+            Ok(self.tokens.peek().unwrap())
+        }
+    }
+
+    fn bump(&mut self) -> InnerParserResult<'diag, SpannedToken<'src>> {
+        self.tokens.next().ok_or_else(|| self.unexpected_eof())
+    }
+
     fn parse_statement(&mut self) -> InnerParserResult<'diag, SpannedStmt<'src>> {
-        let token = self.tokens.peek().unwrap();
+        let token = self.peek()?;
         match token.node {
             Token::Act => self.parse_act(),
+            Token::Ident( .. ) | Token::IntLiteral { .. } | Token::FloatLiteral { .. } |
+            Token::RawStringLiteral( .. ) | Token::StringLiteral( .. ) | Token::CharLiteral( .. ) |
+            Token::Tilde | Token::Bang | Token::Minus |
+            Token::Plus | Token::PlusPlus | Token::MinusMinus |
+            Token::OpenParen | Token::OpenBrace | Token::OpenBracket |
+            Token::True | Token::False => {
+                let expr = self.parse_expr(0)?;
+                let stmt = match self.tokens.peek() {
+                    Some(t) if t.node == Token::Semicolon => {
+                        let lo = expr.span.lo;
+                        let hi = self.bump()?.span.hi;
+                        SpannedStmt::new(Stmt::SemiExpr(expr), Span::new(lo, hi, self.source_id))
+                    }
+                    _ => {
+                        let span = expr.span;
+                        SpannedStmt::new(Stmt::TailExpr(expr), span)
+                    }
+                };
+                Ok(stmt)
+            }
             _ => {
                 Err(InnerParseErr::with_skip(Self::unexpected_token(token.node.display())))
             }
@@ -254,12 +289,109 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         Ok(SpannedStmtBlock::new(stmts.into_boxed_slice(), Span::new(lo, hi_opt.unwrap(), self.source_id)))
     }
 
-    fn parse_expr(&mut self) -> InnerParserResult<'diag, Expr<'src>> {
-        todo!()
+
+
+    fn parse_expr(&mut self, min_bp: u8) -> InnerParserResult<'diag, SpannedExpr<'src>> {
+        let mut lhs = {
+            let token = self.bump()?;
+            match token.node {
+                Token::Ident(ident) => SpannedExpr::new(Expr::Ident(ident), token.span),
+                Token::True | Token::False => {
+                    let primitive = match token.node {
+                        Token::True => PrimitiveValue::True,
+                        Token::False => PrimitiveValue::False,
+                        _ => unreachable!()
+                    };
+                    SpannedExpr::new(Expr::Primitive(primitive), token.span)
+                }
+                Token::Bang | Token::Tilde | Token::Plus | Token::Minus | Token::PlusPlus | Token::MinusMinus => {
+                    let op = match token.node {
+                        Token::Minus => UnaryOp::Neg,
+                        Token::Plus => UnaryOp::Pos,
+                        Token::Bang => UnaryOp::Not,
+                        Token::Tilde => UnaryOp::BitNot,
+                        Token::PlusPlus => UnaryOp::PrefInc,
+                        Token::MinusMinus => UnaryOp::PrefDec,
+                        _ => unreachable!()
+                    };
+                    let operand = self.parse_expr(pratt::rbp(&token.node))?;
+                    let hi = operand.span.hi;
+
+                    SpannedExpr::new(Expr::Unary { op, operand: Box::new(operand) }, Span::new(token.span.lo, hi, self.source_id))
+                }
+                _ => todo!()
+            }
+        };
+
+        while let Some(op_token) = self.tokens.peek() {
+            let op_lbp = pratt::lbp(&op_token.node);
+            if op_lbp < min_bp {
+                break;
+            }
+
+            match op_token.node {
+                Token::Plus | Token::Minus | Token::Star |
+                Token::Slash | Token::Shl | Token::Shr |
+                Token::EqEq | Token::Ne | Token::Lt |
+                Token::Le | Token::Gt | Token::Ge |
+                Token::AndAnd | Token::OrOr | Token::And |
+                Token::Or | Token::Caret => {
+                    let op = match op_token.node {
+                        Token::Plus => BinaryOp::Add,
+                        Token::Minus => BinaryOp::Sub,
+                        Token::Star => BinaryOp::Mul,
+                        Token::Slash => BinaryOp::Div,
+                        Token::Shl => BinaryOp::Shl,
+                        Token::Shr => BinaryOp::Shr,
+                        Token::EqEq => BinaryOp::Eq,
+                        Token::Ne => BinaryOp::Ne,
+                        Token::Lt => BinaryOp::Lt,
+                        Token::Le => BinaryOp::Le,
+                        Token::Gt => BinaryOp::Gt,
+                        Token::Ge => BinaryOp::Ge,
+                        Token::AndAnd => BinaryOp::And,
+                        Token::OrOr => BinaryOp::Or,
+                        Token::And => BinaryOp::BitAnd,
+                        Token::Or => BinaryOp::BitOr,
+                        Token::Caret => BinaryOp::BitXor,
+                        _ => unreachable!()
+                    };
+                    self.tokens.next();
+                    let rhs = self.parse_expr(op_lbp + 1)?;
+                    let lo = lhs.span.lo;
+                    let hi = rhs.span.hi;
+                    lhs = SpannedExpr::new(Expr::Binary {
+                        lhs: Box::new(lhs),
+                        op,
+                        rhs: Box::new(rhs),
+                    }, Span::new(lo, hi, self.source_id));
+                }
+                Token::PlusPlus | Token::MinusMinus => {
+                    let op = match op_token.node {
+                        Token::PlusPlus => UnaryOp::PostInc,
+                        Token::MinusMinus => UnaryOp::PostDec,
+                        _ => unreachable!()
+                    };
+                    let lo = lhs.span.lo;
+                    let hi = op_token.span.hi;
+                    self.tokens.next();
+                    lhs = SpannedExpr::new(Expr::Unary { operand: Box::new(lhs), op }, Span::new(lo, hi, self.source_id));
+                }
+                Token::OpenParen => {
+                    unimplemented!()
+                }
+                Token::OpenBracket => {
+                    unimplemented!()
+                }
+                Token::OpenBrace => break,
+                _ => break,
+            }
+        }
+
+        Ok(lhs)
     }
 
     pub fn parse_full(mut self) -> ParseResult<'src, 'diag> {
-
         while self.tokens.peek().is_some() {
             let stmt_res = self.parse_statement();
             match stmt_res {
@@ -324,6 +456,34 @@ mod tests {
             }, Span::new(BytePos::from_usize(0), BytePos::from_usize(28), source_id))
         ];
 
+        assert_eq!(parse_result.stmts, expected_stmts);
+    }
+
+    #[test]
+    fn t() {
+        let (source_map, source_id) = generate_source("a * b + c / d");
+        let tokens = lex_source(&source_map, source_id);
+        let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
+
+        let expected_stmts = [
+            SpannedStmt::new(Stmt::TailExpr(
+                SpannedExpr::new(Expr::Binary {
+                    lhs: Box::new(SpannedExpr::new(Expr::Binary {
+                        lhs: Box::new(SpannedExpr::new(Expr::Ident("a"), Span::new(BytePos::from_usize(0), BytePos::from_usize(1), source_id))),
+                        rhs: Box::new(SpannedExpr::new(Expr::Ident("b"), Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id))),
+                        op: BinaryOp::Mul
+                    }, Span::new(BytePos::from_usize(0), BytePos::from_usize(5), source_id))),
+                    rhs: Box::new(SpannedExpr::new(Expr::Binary {
+                        lhs: Box::new(SpannedExpr::new(Expr::Ident("c"), Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id))),
+                        rhs: Box::new(SpannedExpr::new(Expr::Ident("d"), Span::new(BytePos::from_usize(12), BytePos::from_usize(13), source_id))),
+                        op: BinaryOp::Div
+                    }, Span::new(BytePos::from_usize(8), BytePos::from_usize(13), source_id))),
+                    op: BinaryOp::Add,
+                }, Span::new(BytePos::from_usize(0), BytePos::from_usize(13), source_id))
+            ), Span::new(BytePos::from_usize(0), BytePos::from_usize(13), source_id))
+        ];
+
+        assert_eq!(parse_result.diags.len(), 0);
         assert_eq!(parse_result.stmts, expected_stmts);
     }
 }
