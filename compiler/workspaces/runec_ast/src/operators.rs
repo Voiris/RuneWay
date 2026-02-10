@@ -1,7 +1,7 @@
 #[derive(Debug, PartialEq)]
 pub enum BinaryOp {
     /* Arithmetic */
-    Sum,
+    Add,
     Sub,
     Mul,
     Div,
@@ -30,6 +30,7 @@ pub enum BinaryOp {
 pub enum UnaryOp {
     /* Arithmetic */
     Neg,
+    Pos,
 
     /* Logical */
     Not,
