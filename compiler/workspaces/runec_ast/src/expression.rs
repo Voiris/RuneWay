@@ -8,15 +8,16 @@ pub enum Expr<'src> {
     Primitive(PrimitiveValue<'src>),
     Block(SpannedStmtBlock<'src>),
     If(IfExpr<'src>),
-    BinaryOp { lhs: Box<Expr<'src>>, rhs: Box<Expr<'src>>, op: BinaryOp },
-    UnaryOp { operand: Box<Expr<'src>>, op: UnaryOp },
+    Ident(&'src str),
+    BinaryOp { lhs: Box<SpannedExpr<'src>>, rhs: Box<SpannedExpr<'src>>, op: BinaryOp },
+    UnaryOp { operand: Box<SpannedExpr<'src>>, op: UnaryOp },
 }
 
 pub type SpannedExpr<'src> = Spanned<Expr<'src>>;
 
 #[derive(Debug, PartialEq)]
 pub struct IfExpr<'src> {
-    pub cond: Box<Expr<'src>>,
+    pub cond: Box<SpannedExpr<'src>>,
     pub then: StmtBlock<'src>,
     pub else_: Option<ElseBranch<'src>>,
 }
