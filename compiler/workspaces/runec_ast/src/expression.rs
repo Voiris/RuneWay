@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use runec_source::span::Spanned;
+use crate::operators::{BinaryOp, UnaryOp};
 use crate::statement::{SpannedStmtBlock, StmtBlock};
 
 #[derive(Debug, PartialEq)]
@@ -7,6 +8,8 @@ pub enum Expr<'src> {
     Primitive(PrimitiveValue<'src>),
     Block(SpannedStmtBlock<'src>),
     If(IfExpr<'src>),
+    BinaryOp { lhs: Box<Expr<'src>>, rhs: Box<Expr<'src>>, op: BinaryOp },
+    UnaryOp { operand: Box<Expr<'src>>, op: UnaryOp },
 }
 
 pub type SpannedExpr<'src> = Spanned<Expr<'src>>;
