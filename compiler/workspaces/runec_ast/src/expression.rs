@@ -9,8 +9,8 @@ pub enum Expr<'src> {
     Block(SpannedStmtBlock<'src>),
     If(IfExpr<'src>),
     Ident(&'src str),
-    BinaryOp { lhs: Box<SpannedExpr<'src>>, rhs: Box<SpannedExpr<'src>>, op: BinaryOp },
-    UnaryOp { operand: Box<SpannedExpr<'src>>, op: UnaryOp },
+    Binary { lhs: Box<SpannedExpr<'src>>, rhs: Box<SpannedExpr<'src>>, op: BinaryOp },
+    Unary { operand: Box<SpannedExpr<'src>>, op: UnaryOp },
 }
 
 pub type SpannedExpr<'src> = Spanned<Expr<'src>>;
