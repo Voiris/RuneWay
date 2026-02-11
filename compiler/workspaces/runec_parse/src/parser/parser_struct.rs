@@ -11,7 +11,7 @@ use runec_errors::diagnostics::Diagnostic;
 use runec_errors::message::DiagMessage;
 use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceFile, SourceId, SourceMap};
-use runec_source::span::{Span, Spanned};
+use runec_source::span::Span;
 use crate::lexer::token::{SpannedToken, Token};
 use crate::parser::result::ParseResult;
 use crate::parser::pratt;
@@ -319,6 +319,11 @@ impl<'src, 'diag> Parser<'src, 'diag> {
 
                     SpannedExpr::new(Expr::Unary { op, operand: Box::new(operand) }, Span::new(token.span.lo, hi, self.source_id))
                 }
+                Token::OpenParen => {
+                    let expr = self.parse_expr(0)?;
+                    expect_token!(self, Token::CloseParen, Token::CloseParen.display())?;
+                    expr
+                }
                 _ => todo!()
             }
         };
@@ -460,8 +465,8 @@ mod tests {
     }
 
     #[test]
-    fn t() {
-        let (source_map, source_id) = generate_source("a * b + c / d");
+    fn expr_parsing_test() {
+        let (source_map, source_id) = generate_source("a * b + c / (d - e)");
         let tokens = lex_source(&source_map, source_id);
         let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
 
@@ -475,12 +480,16 @@ mod tests {
                     }, Span::new(BytePos::from_usize(0), BytePos::from_usize(5), source_id))),
                     rhs: Box::new(SpannedExpr::new(Expr::Binary {
                         lhs: Box::new(SpannedExpr::new(Expr::Ident("c"), Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id))),
-                        rhs: Box::new(SpannedExpr::new(Expr::Ident("d"), Span::new(BytePos::from_usize(12), BytePos::from_usize(13), source_id))),
+                        rhs: Box::new(SpannedExpr::new(Expr::Binary {
+                            lhs: Box::new(SpannedExpr::new(Expr::Ident("d"), Span::new(BytePos::from_usize(13), BytePos::from_usize(14), source_id))),
+                            rhs: Box::new(SpannedExpr::new(Expr::Ident("e"), Span::new(BytePos::from_usize(17), BytePos::from_usize(18), source_id))),
+                            op: BinaryOp::Sub
+                        }, Span::new(BytePos::from_usize(13), BytePos::from_usize(18), source_id))),
                         op: BinaryOp::Div
-                    }, Span::new(BytePos::from_usize(8), BytePos::from_usize(13), source_id))),
+                    }, Span::new(BytePos::from_usize(8), BytePos::from_usize(18), source_id))),
                     op: BinaryOp::Add,
-                }, Span::new(BytePos::from_usize(0), BytePos::from_usize(13), source_id))
-            ), Span::new(BytePos::from_usize(0), BytePos::from_usize(13), source_id))
+                }, Span::new(BytePos::from_usize(0), BytePos::from_usize(18), source_id))
+            ), Span::new(BytePos::from_usize(0), BytePos::from_usize(18), source_id))
         ];
 
         assert_eq!(parse_result.diags.len(), 0);
