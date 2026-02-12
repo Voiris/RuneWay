@@ -289,14 +289,16 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         Ok(SpannedStmtBlock::new(stmts.into_boxed_slice(), Span::new(lo, hi_opt.unwrap(), self.source_id)))
     }
 
-
-
     fn parse_expr(&mut self, min_bp: u8) -> InnerParserResult<'diag, SpannedExpr<'src>> {
         let mut lhs = {
-            let token = self.bump()?;
+            let token = self.peek()?;
             match token.node {
-                Token::Ident(ident) => SpannedExpr::new(Expr::Ident(ident), token.span),
+                Token::Ident(ident) => {
+                    let token = self.bump()?;
+                    SpannedExpr::new(Expr::Ident(ident), token.span)
+                },
                 Token::True | Token::False => {
+                    let token = self.bump()?;
                     let primitive = match token.node {
                         Token::True => PrimitiveValue::True,
                         Token::False => PrimitiveValue::False,
@@ -305,6 +307,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     SpannedExpr::new(Expr::Primitive(primitive), token.span)
                 }
                 Token::Bang | Token::Tilde | Token::Plus | Token::Minus | Token::PlusPlus | Token::MinusMinus => {
+                    let token = self.bump()?;
                     let op = match token.node {
                         Token::Minus => UnaryOp::Neg,
                         Token::Plus => UnaryOp::Pos,
@@ -320,9 +323,15 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     SpannedExpr::new(Expr::Unary { op, operand: Box::new(operand) }, Span::new(token.span.lo, hi, self.source_id))
                 }
                 Token::OpenParen => {
+                    self.bump()?;
                     let expr = self.parse_expr(0)?;
                     expect_token!(self, Token::CloseParen, Token::CloseParen.display())?;
                     expr
+                }
+                Token::OpenBrace => {
+                    let stmt_block = self.parse_stmt_block()?;
+                    let span = stmt_block.span;
+                    SpannedExpr::new(Expr::Block(stmt_block), span)
                 }
                 _ => todo!()
             }
@@ -422,6 +431,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
 #[cfg(test)]
 mod tests {
     use runec_ast::ast_type::SpannedTypeAnnotation;
+    use runec_ast::statement::StmtBlock;
     use runec_source::source_map::SourceMap;
     use crate::generate_source;
     use crate::lexer::lexer_struct::Lexer;
@@ -490,6 +500,53 @@ mod tests {
                     op: BinaryOp::Add,
                 }, Span::new(BytePos::from_usize(0), BytePos::from_usize(18), source_id))
             ), Span::new(BytePos::from_usize(0), BytePos::from_usize(18), source_id))
+        ];
+
+        assert_eq!(parse_result.diags.len(), 0);
+        assert_eq!(parse_result.stmts, expected_stmts);
+    }
+
+    #[test]
+    fn stmt_block_expr_test() {
+        let (source_map, source_id) = generate_source("{ a; b; c; d }");
+        let tokens = lex_source(&source_map, source_id);
+        let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
+
+        let expected_stmts = [
+            SpannedStmt::new(Stmt::TailExpr(
+                SpannedExpr::new(Expr::Block(
+                    SpannedStmtBlock::new(Box::new([
+                        SpannedStmt::new(
+                            Stmt::SemiExpr(SpannedExpr::new(
+                                Expr::Ident("a"),
+                                Span::new(BytePos::from_usize(2), BytePos::from_usize(3), source_id))
+                            ),
+                            Span::new(BytePos::from_usize(2), BytePos::from_usize(4), source_id)
+                        ),
+                        SpannedStmt::new(
+                            Stmt::SemiExpr(SpannedExpr::new(
+                                Expr::Ident("b"),
+                                Span::new(BytePos::from_usize(5), BytePos::from_usize(6), source_id))
+                            ),
+                            Span::new(BytePos::from_usize(5), BytePos::from_usize(7), source_id)
+                        ),
+                        SpannedStmt::new(
+                            Stmt::SemiExpr(SpannedExpr::new(
+                                Expr::Ident("c"),
+                                Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id))
+                            ),
+                            Span::new(BytePos::from_usize(8), BytePos::from_usize(10), source_id)
+                        ),
+                        SpannedStmt::new(
+                            Stmt::TailExpr(SpannedExpr::new(
+                                Expr::Ident("d"),
+                                Span::new(BytePos::from_usize(11), BytePos::from_usize(12), source_id))
+                            ),
+                            Span::new(BytePos::from_usize(11), BytePos::from_usize(12), source_id)
+                        )
+                    ]) as StmtBlock, Span::new(BytePos::from_usize(0), BytePos::from_usize(14), source_id))
+                ), Span::new(BytePos::from_usize(0), BytePos::from_usize(14), source_id))
+            ), Span::new(BytePos::from_usize(0), BytePos::from_usize(14), source_id))
         ];
 
         assert_eq!(parse_result.diags.len(), 0);
