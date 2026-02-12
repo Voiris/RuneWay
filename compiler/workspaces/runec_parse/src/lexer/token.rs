@@ -1,12 +1,12 @@
 use runec_source::span::Spanned;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 #[repr(u8)]
 pub enum Radix {
-    Binary,     // 0b
-    Octal,      // 0o
-    Decimal,
-    Hex,        // 0x
+    Binary  = 2,    // 0b
+    Octal   = 8,    // 0o
+    Decimal = 10,
+    Hex     = 16,   // 0x
 }
 
 #[derive(Debug, Clone, PartialEq)]
