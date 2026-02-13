@@ -1,18 +1,21 @@
 use std::borrow::Cow;
 use std::iter::Peekable;
+use std::num::IntErrorKind;
 use std::vec::IntoIter;
 use fluent::FluentValue;
 use runec_ast::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
-use runec_ast::expression::{Expr, PrimitiveValue, SpannedExpr};
+use runec_ast::expression::{Expr, PrimitiveValue, SpannedExpr, Suffix};
 use runec_ast::operators::{BinaryOp, UnaryOp};
 use runec_ast::SpannedStr;
 use runec_ast::statement::{FunctionArg, SpannedStmt, SpannedStmtBlock, Stmt};
 use runec_errors::diagnostics::Diagnostic;
+use runec_errors::labels::{DiagLabel, DiagNote};
+use runec_errors::make_simple_diag;
 use runec_errors::message::DiagMessage;
 use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceFile, SourceId, SourceMap};
 use runec_source::span::Span;
-use crate::lexer::token::{SpannedToken, Token};
+use crate::lexer::token::{Radix, SpannedToken, Token};
 use crate::parser::result::ParseResult;
 use crate::parser::pratt;
 
@@ -212,7 +215,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                 if let Some(args_lo) = args_lo_opt {
                     Err(
                         InnerParseErr::without_skip(
-                            runec_errors::make_simple_diag!(
+                            make_simple_diag!(
                                 error;
                                 "unterminated-args-block",
                                 (self.source_id => args_lo..self.source_hi)
@@ -277,7 +280,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         if !terminated {
             return Err(
                 InnerParseErr::without_skip(
-                    runec_errors::make_simple_diag!(
+                    make_simple_diag!(
                         error;
                         "unterminated-code-block",
                         (self.source_id => lo..self.source_hi)
@@ -301,9 +304,10 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                 Token::IntLiteral { .. } | Token::FloatLiteral { .. } |
                 Token::StringLiteral ( .. ) | Token::RawStringLiteral( .. ) => {
                     let token = self.bump()?;
+                    let span = token.span;
                     // SAFETY: all Option variants are handled by match
-                    let primitive_value = unsafe { Self::parse_primitive(token.node)?.unwrap_unchecked() };
-                    SpannedExpr::new(Expr::Primitive(primitive_value), token.span)
+                    let primitive_value = unsafe { Self::parse_primitive(token)?.unwrap_unchecked() };
+                    SpannedExpr::new(Expr::Primitive(primitive_value), span)
                 }
                 Token::Bang | Token::Tilde | Token::Plus | Token::Minus | Token::PlusPlus | Token::MinusMinus => {
                     let token = self.bump()?;
@@ -404,47 +408,79 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         Ok(lhs)
     }
 
-    fn parse_primitive(token: Token<'src>) -> InnerParserResult<'diag, Option<PrimitiveValue<'src>>> {
-        match token {
-            Token::IntLiteral { digits, radix, suffix } => {
-                match suffix {
-                    // unsigned int
-                    Some("u8") => { todo!() },
-                    Some("u16") => { todo!() },
-                    Some("u32") => { todo!() },
-                    Some("u64") => { todo!() },
-                    // int
-                    Some("i8") => { todo!() },
-                    Some("i16") => { todo!() },
-                    Some("i32") => { todo!() },
-                    Some("i64") => { todo!() },
-                    // float
-                    Some("f32") => { todo!() },
-                    Some("f64") => { todo!() },
-                    // unsupported suffix
-                    Some(_) => { todo!() },
-                    // unknown type
-                    None => { todo!() },
-                }
+    fn parse_int(digits: &'src str, radix: Radix, suffix_opt: Option<&'src str>, span: Span) -> InnerParserResult<'diag, PrimitiveValue<'src>> {
+        match u128::from_str_radix(digits, radix as u32) {
+            Ok(value) => {
+                let suffix = match suffix_opt {
+                    Some(suffix) => Some(match suffix {
+                        "u8" => Suffix::U8,
+                        "u16" => Suffix::U16,
+                        "u32" => Suffix::U32,
+                        "u64" => Suffix::U64,
+                        "u128" => Suffix::U128,
+                        "i8" => Suffix::I8,
+                        "i16" => Suffix::I16,
+                        "i32" => Suffix::I32,
+                        "i64" => Suffix::I64,
+                        "i128" => Suffix::I128,
+                        "f32" => Suffix::F32,
+                        "f64" => Suffix::F64,
+                        _ => return Err(
+                            InnerParseErr::with_skip(
+                                make_simple_diag!(
+                                error; "unsupported-suffix",
+                                ( span.src_id => span.lo..span.hi ),
+                                { note = "supported-suffixes-int" }
+                            )
+                            )
+                        )
+                    }),
+                    None => None
+                };
+                Ok(PrimitiveValue::Int {
+                    value,
+                    suffix,
+                })
             },
-            Token::FloatLiteral { literal, suffix } => {
-                match suffix {
-                    // float
-                    Some("f64") => { todo!() }
-                    Some("f32") => { todo!() }
-                    // unsupported suffix
-                    Some(_) => { todo!() }
-                    // unknown type
-                    None => { todo!() }
+
+            Err(err) => {
+                match err.kind() {
+                    IntErrorKind::PosOverflow => {
+                        Err(InnerParseErr::with_skip(
+                            Diagnostic::error(
+                                DiagMessage::new_simple("integer-literal-is-too-large"),
+                            ).add_label(
+                                DiagLabel::silent_primary(span)
+                            ).set_note(
+                                DiagNote::new_simple("integer-literal-value-exceeds-limit")
+                            )
+                        ))
+                    },
+                    IntErrorKind::Empty => unreachable!(),
+                    IntErrorKind::NegOverflow => unreachable!(),
+                    IntErrorKind::InvalidDigit => unreachable!(),
+                    IntErrorKind::Zero => unreachable!(),
+                    _ => unreachable!()
                 }
             }
-            Token::True => Ok(Some(PrimitiveValue::True)),
-            Token::False => Ok(Some(PrimitiveValue::False)),
-            Token::CharLiteral(char) => Ok(Some(PrimitiveValue::Char(char))),
-            Token::StringLiteral(string) => Ok(Some(PrimitiveValue::String(Cow::Owned(string)))),
-            Token::RawStringLiteral(string_ref) => Ok(Some(PrimitiveValue::String(Cow::Borrowed(string_ref)))),
-            _ => Ok(None)
         }
+    }
+
+    fn parse_primitive(token: SpannedToken<'src>) -> InnerParserResult<'diag, Option<PrimitiveValue<'src>>> {
+        Ok(Some(match token.node {
+            Token::IntLiteral { digits, radix, suffix } => {
+                Self::parse_int(digits, radix, suffix, token.span)?
+            },
+            Token::FloatLiteral { literal, suffix } => {
+                todo!()
+            }
+            Token::True => PrimitiveValue::True,
+            Token::False => PrimitiveValue::False,
+            Token::CharLiteral(char) => PrimitiveValue::Char(char),
+            Token::StringLiteral(string) => PrimitiveValue::String(Cow::Owned(string)),
+            Token::RawStringLiteral(string_ref) => PrimitiveValue::String(Cow::Borrowed(string_ref)),
+            _ => return Ok(None)
+        }))
     }
 
     pub fn parse_full(mut self) -> ParseResult<'src, 'diag> {
