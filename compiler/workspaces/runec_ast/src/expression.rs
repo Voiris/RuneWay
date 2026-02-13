@@ -29,7 +29,7 @@ pub enum ElseBranch<'src> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Suffix {
+pub enum IntSuffix {
     U8,
     U16,
     U32,
@@ -40,6 +40,13 @@ pub enum Suffix {
     I32,
     I64,
     I128,
+    // 0f64 - int with float suffix
+    F32,
+    F64
+}
+
+#[derive(Debug, PartialEq)]
+pub enum FloatSuffix {
     F32,
     F64
 }
@@ -48,8 +55,8 @@ pub enum Suffix {
 pub enum PrimitiveValue<'src> {
     True,
     False,
-    Int { value: u128, suffix: Option<Suffix> },
-    Float { value: f64, suffix: Option<Suffix> },
+    Int { value: u128, suffix: Option<IntSuffix> },
+    Float { value: f64, suffix: Option<FloatSuffix> },
     Char(char),
     String(Cow<'src, str>)
 }

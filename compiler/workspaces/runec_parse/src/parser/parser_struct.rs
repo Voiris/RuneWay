@@ -4,7 +4,7 @@ use std::num::IntErrorKind;
 use std::vec::IntoIter;
 use fluent::FluentValue;
 use runec_ast::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
-use runec_ast::expression::{Expr, PrimitiveValue, SpannedExpr, Suffix};
+use runec_ast::expression::{Expr, PrimitiveValue, SpannedExpr, IntSuffix};
 use runec_ast::operators::{BinaryOp, UnaryOp};
 use runec_ast::SpannedStr;
 use runec_ast::statement::{FunctionArg, SpannedStmt, SpannedStmtBlock, Stmt};
@@ -413,18 +413,18 @@ impl<'src, 'diag> Parser<'src, 'diag> {
             Ok(value) => {
                 let suffix = match suffix_opt {
                     Some(suffix) => Some(match suffix {
-                        "u8" => Suffix::U8,
-                        "u16" => Suffix::U16,
-                        "u32" => Suffix::U32,
-                        "u64" => Suffix::U64,
-                        "u128" => Suffix::U128,
-                        "i8" => Suffix::I8,
-                        "i16" => Suffix::I16,
-                        "i32" => Suffix::I32,
-                        "i64" => Suffix::I64,
-                        "i128" => Suffix::I128,
-                        "f32" => Suffix::F32,
-                        "f64" => Suffix::F64,
+                        "u8"   => IntSuffix::U8,
+                        "u16"  => IntSuffix::U16,
+                        "u32"  => IntSuffix::U32,
+                        "u64"  => IntSuffix::U64,
+                        "u128" => IntSuffix::U128,
+                        "i8"   => IntSuffix::I8,
+                        "i16"  => IntSuffix::I16,
+                        "i32"  => IntSuffix::I32,
+                        "i64"  => IntSuffix::I64,
+                        "i128" => IntSuffix::I128,
+                        "f32"  => IntSuffix::F32,
+                        "f64"  => IntSuffix::F64,
                         _ => return Err(
                             InnerParseErr::with_skip(
                                 make_simple_diag!(
