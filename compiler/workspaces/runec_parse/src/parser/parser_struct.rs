@@ -302,7 +302,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                 Token::StringLiteral ( .. ) | Token::RawStringLiteral( .. ) => {
                     let token = self.bump()?;
                     // SAFETY: all Option variants are handled by match
-                    let primitive_value = Self::parse_primitive(token.node)?.unwrap();
+                    let primitive_value = unsafe { Self::parse_primitive(token.node)?.unwrap_unchecked() };
                     SpannedExpr::new(Expr::Primitive(primitive_value), token.span)
                 }
                 Token::Bang | Token::Tilde | Token::Plus | Token::Minus | Token::PlusPlus | Token::MinusMinus => {
