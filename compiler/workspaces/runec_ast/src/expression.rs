@@ -29,21 +29,27 @@ pub enum ElseBranch<'src> {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum Suffix {
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    I8,
+    I16,
+    I32,
+    I64,
+    I128,
+    F32,
+    F64
+}
+
+#[derive(Debug, PartialEq)]
 pub enum PrimitiveValue<'src> {
     True,
     False,
-    U8(u8),
-    U16(u16),
-    U32(u32),
-    U64(u64),
-    U128(u128),
-    I8(i8),
-    I16(i16),
-    I32(i32),
-    I64(i64),
-    I128(i128),
-    F32(f32),
-    F64(f64),
+    Int { value: u128, suffix: Suffix },
+    Float { value: f64, suffix: Suffix },
     Char(char),
     String(Cow<'src, str>)
 }
