@@ -48,8 +48,8 @@ pub enum Suffix {
 pub enum PrimitiveValue<'src> {
     True,
     False,
-    Int { value: u128, suffix: Suffix },
-    Float { value: f64, suffix: Suffix },
+    Int { value: u128, suffix: Option<Suffix> },
+    Float { value: f64, suffix: Option<Suffix> },
     Char(char),
     String(Cow<'src, str>)
 }
