@@ -297,14 +297,13 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let token = self.bump()?;
                     SpannedExpr::new(Expr::Ident(ident), token.span)
                 },
-                Token::True | Token::False => {
+                Token::True | Token::False | Token::CharLiteral( .. ) |
+                Token::IntLiteral { .. } | Token::FloatLiteral { .. } |
+                Token::StringLiteral ( .. ) | Token::RawStringLiteral( .. ) => {
                     let token = self.bump()?;
-                    let primitive = match token.node {
-                        Token::True => PrimitiveValue::True,
-                        Token::False => PrimitiveValue::False,
-                        _ => unreachable!()
-                    };
-                    SpannedExpr::new(Expr::Primitive(primitive), token.span)
+                    // SAFETY: all Option variants are handled by match
+                    let primitive_value = Self::parse_primitive(token.node)?.unwrap();
+                    SpannedExpr::new(Expr::Primitive(primitive_value), token.span)
                 }
                 Token::Bang | Token::Tilde | Token::Plus | Token::Minus | Token::PlusPlus | Token::MinusMinus => {
                     let token = self.bump()?;
@@ -403,6 +402,49 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         }
 
         Ok(lhs)
+    }
+
+    fn parse_primitive(token: Token<'src>) -> InnerParserResult<'diag, Option<PrimitiveValue<'src>>> {
+        match token {
+            Token::IntLiteral { digits, radix, suffix } => {
+                match suffix {
+                    // unsigned int
+                    Some("u8") => { todo!() },
+                    Some("u16") => { todo!() },
+                    Some("u32") => { todo!() },
+                    Some("u64") => { todo!() },
+                    // int
+                    Some("i8") => { todo!() },
+                    Some("i16") => { todo!() },
+                    Some("i32") => { todo!() },
+                    Some("i64") => { todo!() },
+                    // float
+                    Some("f32") => { todo!() },
+                    Some("f64") => { todo!() },
+                    // unsupported suffix
+                    Some(_) => { todo!() },
+                    // unknown type
+                    None => { todo!() },
+                }
+            },
+            Token::FloatLiteral { literal, suffix } => {
+                match suffix {
+                    // float
+                    Some("f64") => { todo!() }
+                    Some("f32") => { todo!() }
+                    // unsupported suffix
+                    Some(_) => { todo!() }
+                    // unknown type
+                    None => { todo!() }
+                }
+            }
+            Token::True => Ok(Some(PrimitiveValue::True)),
+            Token::False => Ok(Some(PrimitiveValue::False)),
+            Token::CharLiteral(char) => Ok(Some(PrimitiveValue::Char(char))),
+            Token::StringLiteral(string) => Ok(Some(PrimitiveValue::String(Cow::Owned(string)))),
+            Token::RawStringLiteral(string_ref) => Ok(Some(PrimitiveValue::String(Cow::Borrowed(string_ref)))),
+            _ => Ok(None)
+        }
     }
 
     pub fn parse_full(mut self) -> ParseResult<'src, 'diag> {
