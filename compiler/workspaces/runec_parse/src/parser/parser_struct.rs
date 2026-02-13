@@ -100,7 +100,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         Self {
             tokens: tokens.into_iter().peekable(),
             source_id,
-            source_hi:BytePos::from_usize(source_file.src.len()),
+            source_hi: BytePos::from_usize(source_file.src.len()),
             source_file,
             res: ParseResult::new()
         }
