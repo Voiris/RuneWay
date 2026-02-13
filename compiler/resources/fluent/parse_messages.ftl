@@ -28,3 +28,6 @@ expected-token-got = expected token: `{ $expected }`. Got: `{ $got }`
 unterminated-args-block = unterminated arguments block. Expect: `)`
 unterminated-code-block = unterminated code block. Expect: \u007D
 expect-code-block = expect code block
+unsupported-number-suffix = unsupported suffix `{ $suffix }` for number literal
+unsupported-float-suffix = unsupported suffix `{ $suffix }` for float literal
+literal-out-of-range-for = literal out of range for `{ $suffix }`
