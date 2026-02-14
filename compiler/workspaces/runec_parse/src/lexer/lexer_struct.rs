@@ -4,7 +4,7 @@ use runec_errors::diagnostics::Diagnostic;
 use runec_errors::labels::DiagLabel;
 use runec_errors::message::DiagMessage;
 use runec_source::byte_pos::BytePos;
-use runec_source::source_map::{SourceFile, SourceId, SourceMap};
+use runec_source::source_map::{Source, SourceId, SourceMap};
 use runec_source::span::Span;
 use crate::lexer::cursor::Cursor;
 use crate::lexer::token::{Radix, SpannedToken, Token};
@@ -60,14 +60,14 @@ macro_rules! handle_double_char_token {
 pub struct Lexer<'src> {
     cursor: Cursor<'src>,
     source_id: SourceId,
-    source_file: &'src SourceFile,
+    source_file: &'src Source,
 }
 
 impl<'src, 'diag> Lexer<'src> {
     pub fn new(source_id: SourceId, source_map: &'src SourceMap) -> Self {
         let source_file = source_map.get_file(&source_id).unwrap();
         Self {
-            cursor: Cursor::new(source_file.src.as_ref()),
+            cursor: Cursor::new(source_file.src()),
             source_id,
             source_file,
         }
@@ -118,7 +118,7 @@ impl<'src, 'diag> Lexer<'src> {
             }
         }
         let hi = self.cursor.pos();
-        let ident = &self.source_file.src[lo.to_usize()..hi.to_usize()];
+        let ident = &self.source_file.src()[lo.to_usize()..hi.to_usize()];
 
         let token = match ident {
             "act" => Token::Act,
@@ -256,7 +256,7 @@ impl<'src, 'diag> Lexer<'src> {
                     }
                     let hex_hi = self.cursor.pos();
                     self.cursor.next();
-                    let hex_str = &self.source_file.src[hex_lo.to_usize()..hex_hi.to_usize()];
+                    let hex_str = &self.source_file.src()[hex_lo.to_usize()..hex_hi.to_usize()];
                     let hex_opt = u32::from_str_radix(hex_str, 16);
                     if let Ok(hex) = hex_opt {
                         match hex {
@@ -340,7 +340,7 @@ impl<'src, 'diag> Lexer<'src> {
                 }
                 '\\' if !is_raw => {
                     let string = string_opt.get_or_insert_with(
-                        || self.source_file.src[raw_str_lo.to_usize()..self.cursor.pos().to_usize()].to_string()
+                        || self.source_file.src()[raw_str_lo.to_usize()..self.cursor.pos().to_usize()].to_string()
                     );
                     if let Some(char) = self.lex_escape_sequence()? {
                         string.push(char);
@@ -377,7 +377,7 @@ impl<'src, 'diag> Lexer<'src> {
         let token = if let Some(string) = string_opt {
             Token::StringLiteral(string)
         } else {
-            Token::RawStringLiteral(&self.source_file.src[raw_str_lo.to_usize()..raw_str_hi.to_usize()])
+            Token::RawStringLiteral(&self.source_file.src()[raw_str_lo.to_usize()..raw_str_hi.to_usize()])
         };
 
         Ok((SpannedToken::new(token, Span::new(lo, hi, self.source_id)), is_quote_terminated))
@@ -644,11 +644,11 @@ impl<'src, 'diag> Lexer<'src> {
             if digits_hi == hi {
                 None
             } else {
-                Some(&self.source_file.src[digits_hi.to_usize()..hi.to_usize()])
+                Some(&self.source_file.src()[digits_hi.to_usize()..hi.to_usize()])
             }
         };
 
-        let slice = &self.source_file.src[digits_lo.to_usize()..digits_hi.to_usize()];
+        let slice = &self.source_file.src()[digits_lo.to_usize()..digits_hi.to_usize()];
         let span = Span::new(lo, hi, self.source_id);
 
         if is_float || is_exponent {

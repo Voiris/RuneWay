@@ -1,0 +1,8 @@
+[package]
+name = "runec_test_utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+memmap2 = "0.9.9"
+runec_source = { path = "../runec_source" }

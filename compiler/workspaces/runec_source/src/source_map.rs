@@ -1,6 +1,7 @@
-use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
+
+use memmap2::Mmap;
+
 use crate::byte_pos::BytePos;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -84,41 +85,41 @@ impl SourceLineStarts {
 }
 
 #[derive(Debug)]
-pub enum FileName {
-    Real(PathBuf),
-    // Maybe other... Maybe later...
-}
-
-impl Display for FileName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        match self {
-            FileName::Real(path) => write!(f, "{}", path.display()),
-        }
+pub enum Source {
+    File {
+        path: PathBuf,
+        mmap: Mmap,
+        lines: SourceLineStarts,
     }
 }
 
-#[derive(Debug)]
-pub struct SourceFile {
-    pub file_name: FileName,
-    pub src: Arc<String>,
-    pub lines: SourceLineStarts,
-}
-
-impl SourceFile {
+impl Source {
     pub const MAX_FILE_SIZE: usize = BytePos::MAX;
 
-    pub fn new(file_name: FileName, src: String) -> SourceFile {
-        SourceFile {
-            file_name,
-            lines: SourceLineStarts::compute_from_source(&src),
-            src: Arc::new(src),
+    pub fn src(&self) -> &str {
+        match self {
+            Source::File { mmap, .. } => {
+                unsafe { str::from_utf8_unchecked(mmap) }
+            }
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        match self {
+            Source::File { path, .. } => path,
+        }
+    }
+
+    pub fn lines(&self) -> &SourceLineStarts {
+        match self {
+            Source::File { lines, .. } => lines,
         }
     }
 }
 
 #[derive(Debug)]
 pub struct SourceMap {
-    files: Vec<SourceFile>,
+    files: Vec<Source>,
 }
 
 impl Default for SourceMap {
@@ -128,17 +129,17 @@ impl Default for SourceMap {
 }
 
 impl SourceMap {
-    pub fn new() -> SourceMap {
-        SourceMap { files: Vec::new() }
+    pub fn new() -> Self {
+        Self { files: Vec::new() }
     }
 
-    pub fn add_file(&mut self, source_file: SourceFile) -> SourceId {
+    pub fn add_file(&mut self, source_file: Source) -> SourceId {
         let new_id = SourceId::from_usize(self.files.len());
         self.files.push(source_file);
         new_id
     }
 
-    pub fn get_file(&self, id: &SourceId) -> Option<&SourceFile> {
+    pub fn get_file(&self, id: &SourceId) -> Option<&Source> {
         self.files.get(id.to_usize())
     }
 }

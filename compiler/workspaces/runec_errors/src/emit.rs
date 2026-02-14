@@ -56,7 +56,7 @@ impl<'diag> Diagnostic<'diag> {
         let max_line_number = source_labels.keys().map(
             |id| source_map
                 .get_file(id).unwrap()
-                .lines.last_line_number()
+                .lines().last_line_number()
                 .to_usize() + 1
         ).max().unwrap();
         number_length(max_line_number) + 1
@@ -76,15 +76,15 @@ impl<'diag> Diagnostic<'diag> {
                 out,
                 "\n{}\x1b[1;96m-->\x1b[0m {}",
                 " ".repeat(separator_offset - 1),
-                source_file.file_name
+                source_file.path().display()
             ).unwrap();
-            let source_text = source_file.src.as_ref();
+            let source_text = source_file.src();
             if !labels.is_empty() {
                 write!(out, "\n\x1b[1;96m{}|", " ".repeat(separator_offset)).unwrap()
             }
             for label in labels {
                 let (line, line_start) = {
-                    let (line_idx, line_start) = source_file.lines.line_search(label.span.lo);
+                    let (line_idx, line_start) = source_file.lines().line_search(label.span.lo);
                     (line_idx.to_usize() + 1, line_start.to_usize())
                 };
                 let line_end = line_start + source_text[line_start..].chars().position(|c| c == '\n').unwrap_or(source_text.len());
@@ -198,18 +198,24 @@ impl<'diag> Diagnostic<'diag> {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+
     use runec_source::byte_pos::BytePos;
-    use runec_source::source_map::{FileName, SourceFile};
     use runec_source::span::Span;
+
     use crate::labels::{DiagHelp, DiagNote};
     use crate::message::DiagMessage;
     use super::*;
 
+    use runec_test_utils::MockSourceFileLoader;
+
     #[test]
     fn test_emit() {
         let mut source_map = SourceMap::new();
+        let path = PathBuf::from("/home/user/main.rnw");
+        let source = "01234567\n8\n\n\t987654321\n";
+        let mock = MockSourceFileLoader { source };
         let source_id = source_map.add_file(
-            SourceFile::new(FileName::Real(PathBuf::from("/home/user/main.rnw")), "01234567\n8\n\n\t987654321\n".to_owned())
+            mock.load(path).unwrap()
         );
         let diagnostic = Diagnostic::error_with_code(
             DiagMessage::new_simple("void"),

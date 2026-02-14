@@ -5,6 +5,8 @@ members = [
     "compiler/workspaces/runec_errors",
     "compiler/workspaces/runec_parse",
     "compiler/workspaces/runec_source",
-    "compiler/workspaces/runec_fluent_messages"
-, "compiler/workspaces/runec_ast"]
+    "compiler/workspaces/runec_fluent_messages",
+    "compiler/workspaces/runec_ast",
+    "compiler/workspaces/runec_test_utils",
+]
 resolver = "3"

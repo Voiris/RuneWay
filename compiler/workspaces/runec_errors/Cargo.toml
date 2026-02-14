@@ -9,3 +9,6 @@ indexmap = "2.12.1"
 runec_source = { path = "../runec_source" }
 runec_utils = { path = "../runec_utils" }
 runec_fluent_messages = { path = "../runec_fluent_messages" }
+
+[dev-dependencies]
+runec_test_utils = { path = "../runec_test_utils" }

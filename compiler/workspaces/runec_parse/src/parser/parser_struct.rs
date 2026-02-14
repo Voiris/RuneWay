@@ -13,7 +13,7 @@ use runec_errors::labels::{DiagLabel, DiagNote};
 use runec_errors::make_simple_diag;
 use runec_errors::message::DiagMessage;
 use runec_source::byte_pos::BytePos;
-use runec_source::source_map::{SourceFile, SourceId, SourceMap};
+use runec_source::source_map::{Source, SourceId, SourceMap};
 use runec_source::span::Span;
 use crate::lexer::token::{Radix, SpannedToken, Token};
 use crate::parser::result::ParseResult;
@@ -89,7 +89,7 @@ impl<'diag> InnerParseErr<'diag> {
 pub struct Parser<'src, 'diag> {
     tokens: Peekable<IntoIter<SpannedToken<'src>>>,
     source_id: SourceId,
-    source_file: &'src SourceFile,
+    source_file: &'src Source,
     source_hi: BytePos,
     res: ParseResult<'src, 'diag>
 }
@@ -100,7 +100,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         Self {
             tokens: tokens.into_iter().peekable(),
             source_id,
-            source_hi: BytePos::from_usize(source_file.src.len()),
+            source_hi: BytePos::from_usize(source_file.src().len()),
             source_file,
             res: ParseResult::new()
         }
@@ -120,7 +120,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                 "unexpected-eof",
                 runec_utils::hashmap!(
                         "path" => FluentValue::String(
-                            Cow::Owned(self.source_file.file_name.to_string())
+                            Cow::Owned(self.source_file.path().display().to_string())
                         )
                     )
             )

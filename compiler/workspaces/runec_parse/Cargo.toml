@@ -9,3 +9,6 @@ runec_errors = { path = "../runec_errors" }
 runec_utils = { path = "../runec_utils" }
 runec_ast = { path = "../runec_ast" }
 fluent = "0.17.0"
+
+[dev-dependencies]
+runec_test_utils = { path = "../runec_test_utils" }
