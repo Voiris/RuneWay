@@ -395,12 +395,47 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     lhs = SpannedExpr::new(Expr::Unary { operand: Box::new(lhs), op }, Span::new(lo, hi, self.source_id));
                 }
                 Token::OpenParen => {
-                    unimplemented!()
+                    self.tokens.next();
+                    let mut args = Vec::new();
+                    let mut terminating_hi = None;
+                    while let Some(token) = self.tokens.peek() {
+                        match token.node {
+                            Token::CloseParen => {
+                                terminating_hi = Some(self.bump()?.span.hi);
+                                break;
+                            }
+                            _ => {
+                                args.push(self.parse_expr(0)?);
+                                if self.tokens.peek().is_some_and(|t| t.node == Token::Comma) {
+                                    self.tokens.next();
+                                }
+                            }
+                        }
+                    }
+                    let lo = lhs.span.lo;
+                    if let Some(hi) = terminating_hi {
+                        lhs = SpannedExpr::new(Expr::Call {
+                            callee: Box::new(lhs),
+                            args: args.into_boxed_slice()
+                        }, Span::new(lo, hi, self.source_id));
+                    } else {
+                        return Err(
+                            InnerParseErr::without_skip(
+                                make_simple_diag!(
+                                    error;
+                                    "unterminated-args-block",
+                                    (self.source_id => lo..self.source_hi)
+                                )
+                            )
+                        )
+                    }
                 }
                 Token::OpenBracket => {
                     unimplemented!()
                 }
-                Token::OpenBrace => break,
+                Token::OpenBrace => {
+                    unimplemented!()
+                },
                 _ => break,
             }
         }
