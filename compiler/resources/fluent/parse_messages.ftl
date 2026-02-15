@@ -33,3 +33,4 @@ integer-literal-value-exceeds-limit = value exceeds limit `340282366920938463463
 unsupported-suffix = unsupported suffix
 supported-suffixes-int = supported suffixes: u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64
 supported-suffixes-float = supported float suffixes: f32, f64
+unable-to-parse-float-number = unable to parse float number

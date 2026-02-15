@@ -4,7 +4,7 @@ use std::num::IntErrorKind;
 use std::vec::IntoIter;
 use fluent::FluentValue;
 use runec_ast::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
-use runec_ast::expression::{Expr, PrimitiveValue, SpannedExpr, IntSuffix};
+use runec_ast::expression::{Expr, PrimitiveValue, SpannedExpr, IntSuffix, FloatSuffix};
 use runec_ast::operators::{BinaryOp, UnaryOp};
 use runec_ast::SpannedStr;
 use runec_ast::statement::{FunctionArg, SpannedStmt, SpannedStmtBlock, Stmt};
@@ -466,13 +466,48 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         }
     }
 
+    fn parse_float(literal: &'src str, suffix_opt: Option<&'src str>, span: Span) -> InnerParserResult<'diag, PrimitiveValue<'src>> {
+        match literal.parse::<f64>() {
+            Ok(value) => {
+                let suffix = match suffix_opt {
+                    Some(suffix) => Some(match suffix {
+                        "f32"  => FloatSuffix::F32,
+                        "f64"  => FloatSuffix::F64,
+                        _ => return Err(
+                            InnerParseErr::with_skip(
+                                make_simple_diag!(
+                                    error; "unsupported-float-suffix",
+                                    ( span.src_id => span.lo..span.hi ),
+                                    { note = "supported-suffixes-float" }
+                                )
+                            )
+                        )
+                    }),
+                    None => None
+                };
+                Ok(PrimitiveValue::Float {
+                    value,
+                    suffix
+                })
+            }
+            Err(_) => Err(
+                InnerParseErr::with_skip(
+                    make_simple_diag!(
+                        error; "unable-to-parse-float-number",
+                        ( span.src_id => span.lo..span.hi ),
+                    )
+                )
+            ),
+        }
+    }
+
     fn parse_primitive(token: SpannedToken<'src>) -> InnerParserResult<'diag, Option<PrimitiveValue<'src>>> {
         Ok(Some(match token.node {
             Token::IntLiteral { digits, radix, suffix } => {
                 Self::parse_int(digits, radix, suffix, token.span)?
             },
             Token::FloatLiteral { literal, suffix } => {
-                todo!()
+                Self::parse_float(literal, suffix, token.span)?
             }
             Token::True => PrimitiveValue::True,
             Token::False => PrimitiveValue::False,
