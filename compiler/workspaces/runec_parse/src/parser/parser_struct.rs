@@ -140,7 +140,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         self.tokens.next().ok_or_else(|| self.unexpected_eof())
     }
 
-    fn parse_statement(&mut self) -> InnerParserResult<'diag, SpannedStmt<'src>> {
+    fn parse_stmt(&mut self) -> InnerParserResult<'diag, SpannedStmt<'src>> {
         let token = self.peek()?;
         match token.node {
             Token::Act => self.parse_act(),
@@ -273,7 +273,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     terminated = true;
                     break;
                 }
-                _ => stmts.push(self.parse_statement()?)
+                _ => stmts.push(self.parse_stmt()?)
             }
         }
 
@@ -555,7 +555,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
 
     pub fn parse_full(mut self) -> ParseResult<'src, 'diag> {
         while self.tokens.peek().is_some() {
-            let stmt_res = self.parse_statement();
+            let stmt_res = self.parse_stmt();
             match stmt_res {
                 Ok(stmt) => self.res.stmts.push(stmt),
                 Err(err) => {
