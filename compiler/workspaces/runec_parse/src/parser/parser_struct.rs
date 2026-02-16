@@ -700,4 +700,35 @@ mod tests {
         assert_eq!(parse_result.diags.len(), 0);
         assert_eq!(parse_result.stmts, expected_stmts);
     }
+
+    #[test]
+    fn function_call_parse_test() {
+        let (source_map, source_id) = generate_source("print(a, b)");
+        let tokens = lex_source(&source_map, source_id);
+        let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
+
+        let expected_stmts = [
+            SpannedStmt::new(Stmt::TailExpr(
+                SpannedExpr::new(Expr::Call {
+                    callee: Box::new(SpannedExpr::new(
+                        Expr::Ident("print"),
+                        Span::new(BytePos::from_usize(0), BytePos::from_usize(5), source_id)
+                    )),
+                    args: Box::new([
+                        SpannedExpr::new(
+                            Expr::Ident("a"),
+                            Span::new(BytePos::from_usize(6), BytePos::from_usize(7), source_id)
+                        ),
+                        SpannedExpr::new(
+                            Expr::Ident("b"),
+                            Span::new(BytePos::from_usize(9), BytePos::from_usize(10), source_id)
+                        )
+                    ]),
+                }, Span::new(BytePos::from_usize(0), BytePos::from_usize(11), source_id))
+            ), Span::new(BytePos::from_usize(0), BytePos::from_usize(11), source_id))
+        ];
+
+        assert_eq!(parse_result.diags.len(), 0);
+        assert_eq!(parse_result.stmts, expected_stmts);
+    }
 }
