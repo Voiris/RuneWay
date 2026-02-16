@@ -336,7 +336,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let span = stmt_block.span;
                     SpannedExpr::new(Expr::Block(stmt_block), span)
                 }
-                _ => todo!()
+                _ => return Err(InnerParseErr::with_skip(Self::unexpected_token(token.node.display())))
             }
         };
 
