@@ -8,7 +8,7 @@ pub enum Stmt<'src> {
     SemiExpr(SpannedExpr<'src>),
     TailExpr(SpannedExpr<'src>),
     DefineLet {
-        ident: SpannedStr<'src>,
+        ident: SpannedDestructPattern<'src>,
         ty: SpannedTypeAnnotation<'src>,
         expr: SpannedExpr<'src>,
     },
@@ -39,3 +39,11 @@ pub struct FunctionArg<'src> {
 }
 
 pub type SpannedStmt<'src> = Spanned<Stmt<'src>>;
+
+#[derive(Debug, PartialEq)]
+pub enum DestructPattern<'src> {
+    Ident(&'src str),
+    Tuple(Box<[SpannedDestructPattern<'src>]>),
+}
+
+pub type SpannedDestructPattern<'src> = Spanned<DestructPattern<'src>>;

@@ -22,6 +22,7 @@ pub enum Expr<'src> {
         operand: Box<SpannedExpr<'src>>,
         op: UnaryOp
     },
+    Tuple(Box<[SpannedExpr<'src>]>),
 }
 
 pub type SpannedExpr<'src> = Spanned<Expr<'src>>;
