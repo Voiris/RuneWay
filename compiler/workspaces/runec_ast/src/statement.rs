@@ -1,6 +1,6 @@
 use runec_source::span::Spanned;
 use crate::ast_type::SpannedTypeAnnotation;
-use crate::expression::{Expr, SpannedExpr};
+use crate::expression::SpannedExpr;
 use crate::SpannedStr;
 
 #[derive(Debug, PartialEq)]
@@ -9,6 +9,7 @@ pub enum Stmt<'src> {
     TailExpr(SpannedExpr<'src>),
     DefineLet {
         pattern: SpannedDestructPattern<'src>,
+        is_mutable: bool,
         ty: Option<SpannedTypeAnnotation<'src>>,
         init_expr: Option<SpannedExpr<'src>>,
     },
