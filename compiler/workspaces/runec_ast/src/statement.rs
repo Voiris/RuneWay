@@ -8,7 +8,7 @@ pub enum Stmt<'src> {
     SemiExpr(SpannedExpr<'src>),
     TailExpr(SpannedExpr<'src>),
     DefineLet {
-        ident: SpannedDestructPattern<'src>,
+        pattern: SpannedDestructPattern<'src>,
         ty: SpannedTypeAnnotation<'src>,
         init_expr: Option<SpannedExpr<'src>>,
     },
