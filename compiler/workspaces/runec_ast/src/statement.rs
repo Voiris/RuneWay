@@ -10,7 +10,7 @@ pub enum Stmt<'src> {
     DefineLet {
         ident: SpannedDestructPattern<'src>,
         ty: SpannedTypeAnnotation<'src>,
-        expr: SpannedExpr<'src>,
+        init_expr: Option<SpannedExpr<'src>>,
     },
     Assign {
         ident: SpannedStr<'src>,
