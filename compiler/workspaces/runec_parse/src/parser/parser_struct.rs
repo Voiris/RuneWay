@@ -7,7 +7,7 @@ use runec_ast::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
 use runec_ast::expression::{Expr, PrimitiveValue, SpannedExpr, IntSuffix, FloatSuffix};
 use runec_ast::operators::{BinaryOp, UnaryOp};
 use runec_ast::SpannedStr;
-use runec_ast::statement::{FunctionArg, SpannedStmt, SpannedStmtBlock, Stmt};
+use runec_ast::statement::{DestructPattern, FunctionArg, SpannedDestructPattern, SpannedStmt, SpannedStmtBlock, Stmt};
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::labels::{DiagLabel, DiagNote};
 use runec_errors::make_simple_diag;
@@ -144,6 +144,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         let token = self.peek()?;
         match token.node {
             Token::Act => self.parse_act(),
+            Token::Let => self.parse_let(),
             Token::Ident( .. ) | Token::IntLiteral { .. } | Token::FloatLiteral { .. } |
             Token::RawStringLiteral( .. ) | Token::StringLiteral( .. ) | Token::CharLiteral( .. ) |
             Token::Tilde | Token::Bang | Token::Minus |
@@ -244,6 +245,75 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     body: stmt_block
                 }, Span::new(lo, hi, self.source_id)))
             }
+        }
+    }
+
+    fn parse_let(&mut self) -> InnerParserResult<'diag, SpannedStmt<'src>> {
+        let lo = expect_token!(self, Token::Let, Token::Let.display())?.span.lo;
+
+        let is_mutable = if self.tokens.peek().is_some_and(|t| t.node == Token::Mut) {
+            self.tokens.next();
+            true
+        } else {
+            false
+        };
+
+        let pattern = self.parse_destruct_pattern()?;
+
+        let ty = if self.tokens.peek().is_some_and(|t| t.node == Token::Colon) {
+            self.tokens.next();
+            Some(self.parse_type_annotation()?)
+        } else {
+            None
+        };
+
+        let init_expr = if self.tokens.peek().is_some_and(|t| t.node == Token::Eq) {
+            self.tokens.next();
+            Some(self.parse_expr(0)?)
+        } else {
+            None
+        };
+
+        let hi = expect_token!(self, Token::Semicolon, Token::Semicolon.display())?.span.hi;
+
+        Ok(SpannedStmt::new(Stmt::DefineLet {
+            pattern,
+            is_mutable,
+            ty,
+            init_expr,
+        }, Span::new(lo, hi, self.source_id)))
+    }
+
+    fn parse_destruct_pattern(&mut self) -> InnerParserResult<'diag, SpannedDestructPattern<'src>> {
+        let token = expect_token!(self, Token::Ident ( .. ) | Token::OpenParen, ["identifier", Token::OpenParen.display()], *)?;
+        match token.node {
+            Token::Ident(ident) => Ok(
+                SpannedDestructPattern::new(
+                    DestructPattern::Ident(ident),
+                    token.span
+                )
+            ),
+            Token::OpenParen => {
+                let lo = token.span.lo;
+                let mut patterns = Vec::new();
+                let mut terminating_hi = None;
+                while self.tokens.peek().is_some() {
+                    let pattern = self.parse_destruct_pattern()?;
+                    patterns.push(pattern);
+                    let token = expect_token!(self, Token::Comma | Token::CloseParen, [Token::Comma.display(), Token::CloseParen.display()], *)?;
+                    if token.node == Token::CloseParen {
+                        terminating_hi = Some(token.span.hi);
+                        break;
+                    }
+                }
+
+                if let Some(hi) = terminating_hi {
+                    Ok(SpannedDestructPattern::new(DestructPattern::Tuple(patterns.into_boxed_slice()), Span::new(lo, hi, self.source_id)))
+                } else {
+                    Err(self.unexpected_eof())
+                }
+            }
+            _ => unreachable!()
         }
     }
 
