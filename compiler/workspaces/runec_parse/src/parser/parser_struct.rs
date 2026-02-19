@@ -801,4 +801,86 @@ mod tests {
         assert_eq!(parse_result.diags.len(), 0);
         assert_eq!(parse_result.stmts, expected_stmts);
     }
+
+    #[test]
+    fn let_parse_test() {
+        let (source_map, source_id) = generate_source("let a = a;let b: u8 = b;let c;let e: i8;let mut f;let mut g: f32;");
+        let tokens = lex_source(&source_map, source_id);
+        let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
+
+        let expected_stmts = [
+            SpannedStmt::new(Stmt::DefineLet {
+                pattern: SpannedDestructPattern::new(
+                    DestructPattern::Ident("a"),
+                    Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id),
+                ),
+                         is_mutable: false,
+                         ty: None,
+                         init_expr: Some(SpannedExpr::new(
+                             Expr::Ident("a"),
+                Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id),
+                )),
+            }, Span::new(BytePos::from_usize(0), BytePos::from_usize(10), source_id)),
+            SpannedStmt::new(Stmt::DefineLet {
+                pattern: SpannedDestructPattern::new(
+                    DestructPattern::Ident("b"),
+                    Span::new(BytePos::from_usize(14), BytePos::from_usize(15), source_id),
+                ),
+                is_mutable: false,
+                ty: Some(SpannedTypeAnnotation::new(
+                    TypeAnnotation::Ident("u8"),
+                    Span::new(BytePos::from_usize(17), BytePos::from_usize(19), source_id),
+                )),
+                init_expr: Some(SpannedExpr::new(
+                    Expr::Ident("b"),
+                    Span::new(BytePos::from_usize(22), BytePos::from_usize(23), source_id),
+                )),
+            }, Span::new(BytePos::from_usize(10), BytePos::from_usize(24), source_id)),
+            SpannedStmt::new(Stmt::DefineLet {
+                pattern: SpannedDestructPattern::new(
+                    DestructPattern::Ident("c"),
+                    Span::new(BytePos::from_usize(28), BytePos::from_usize(29), source_id),
+                ),
+                is_mutable: false,
+                ty: None,
+                init_expr: None,
+            }, Span::new(BytePos::from_usize(24), BytePos::from_usize(30), source_id)),
+            SpannedStmt::new(Stmt::DefineLet {
+                pattern: SpannedDestructPattern::new(
+                    DestructPattern::Ident("e"),
+                    Span::new(BytePos::from_usize(34), BytePos::from_usize(35), source_id),
+                ),
+                is_mutable: false,
+                ty: Some(SpannedTypeAnnotation::new(
+                    TypeAnnotation::Ident("i8"),
+                    Span::new(BytePos::from_usize(37), BytePos::from_usize(39), source_id),
+                )),
+                init_expr: None,
+            }, Span::new(BytePos::from_usize(30), BytePos::from_usize(40), source_id)),
+            SpannedStmt::new(Stmt::DefineLet {
+                pattern: SpannedDestructPattern::new(
+                    DestructPattern::Ident("f"),
+                    Span::new(BytePos::from_usize(48), BytePos::from_usize(49), source_id),
+                ),
+                is_mutable: true,
+                ty: None,
+                init_expr: None,
+            }, Span::new(BytePos::from_usize(40), BytePos::from_usize(50), source_id)),
+            SpannedStmt::new(Stmt::DefineLet {
+                pattern: SpannedDestructPattern::new(
+                    DestructPattern::Ident("g"),
+                    Span::new(BytePos::from_usize(58), BytePos::from_usize(59), source_id),
+                ),
+                is_mutable: true,
+                ty: Some(SpannedTypeAnnotation::new(
+                    TypeAnnotation::Ident("f32"),
+                    Span::new(BytePos::from_usize(61), BytePos::from_usize(64), source_id),
+                )),
+                init_expr: None,
+            }, Span::new(BytePos::from_usize(50), BytePos::from_usize(65), source_id)),
+        ];
+
+        assert_eq!(parse_result.diags.len(), 0);
+        assert_eq!(parse_result.stmts, expected_stmts);
+    }
 }
