@@ -995,4 +995,37 @@ mod tests {
             )
         );
     }
+
+    #[test]
+    fn type_annotation_parse_test() {
+        let (source_map, source_id) = generate_source("() (a, b)");
+        let tokens = lex_source(&source_map, source_id);
+        let mut parser = Parser::new(tokens, source_id, &source_map);
+
+        assert_eq!(
+            parser.parse_type_annotation().unwrap(),
+            SpannedTypeAnnotation::new(
+                TypeAnnotation::Unit,
+                Span::new(BytePos::from_usize(0), BytePos::from_usize(2), source_id),
+            )
+        );
+        assert_eq!(
+            parser.parse_type_annotation().unwrap(),
+            SpannedTypeAnnotation::new(
+                TypeAnnotation::Tuple(
+                    Box::new([
+                        SpannedTypeAnnotation::new(
+                            TypeAnnotation::Ident("a"),
+                            Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id),
+                        ),
+                        SpannedTypeAnnotation::new(
+                            TypeAnnotation::Ident("b"),
+                            Span::new(BytePos::from_usize(7), BytePos::from_usize(8), source_id),
+                        )
+                    ])
+                ),
+                Span::new(BytePos::from_usize(3), BytePos::from_usize(9), source_id),
+            )
+        );
+    }
 }
