@@ -814,11 +814,11 @@ mod tests {
                     DestructPattern::Ident("a"),
                     Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id),
                 ),
-                         is_mutable: false,
-                         ty: None,
-                         init_expr: Some(SpannedExpr::new(
-                             Expr::Ident("a"),
-                Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id),
+                is_mutable: false,
+                ty: None,
+                init_expr: Some(SpannedExpr::new(
+                    Expr::Ident("a"),
+                    Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id),
                 )),
             }, Span::new(BytePos::from_usize(0), BytePos::from_usize(10), source_id)),
             SpannedStmt::new(Stmt::DefineLet {
