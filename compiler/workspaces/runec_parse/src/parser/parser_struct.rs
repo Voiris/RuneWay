@@ -884,4 +884,80 @@ mod tests {
         assert_eq!(parse_result.diags.len(), 0);
         assert_eq!(parse_result.stmts, expected_stmts);
     }
+
+    #[test]
+    fn destruct_pattern_ident_parse_test() {
+        let (source_map, source_id) = generate_source("ident (a, b) ((a, b), c)");
+        let tokens = lex_source(&source_map, source_id);
+        let mut parser = Parser::new(tokens, source_id, &source_map);
+
+        assert_eq!(
+            parser.parse_destruct_pattern().unwrap(),
+            SpannedDestructPattern::new(
+                DestructPattern::Ident("ident"),
+                Span::new(BytePos::from_usize(0), BytePos::from_usize(5), source_id),
+            )
+        );
+    }
+
+    #[test]
+    fn destruct_pattern_tuple_parse_test() {
+        let (source_map, source_id) = generate_source("(a, b)");
+        let tokens = lex_source(&source_map, source_id);
+        let mut parser = Parser::new(tokens, source_id, &source_map);
+
+        assert_eq!(
+            parser.parse_destruct_pattern().unwrap(),
+            SpannedDestructPattern::new(
+                DestructPattern::Tuple(
+                    Box::new([
+                        SpannedDestructPattern::new(
+                            DestructPattern::Ident("a"),
+                            Span::new(BytePos::from_usize(1), BytePos::from_usize(2), source_id),
+                        ),
+                        SpannedDestructPattern::new(
+                            DestructPattern::Ident("b"),
+                            Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id),
+                        )
+                    ])
+                ),
+                Span::new(BytePos::from_usize(0), BytePos::from_usize(6), source_id),
+            )
+        );
+    }
+
+    #[test]
+    fn destruct_pattern_multilevel_tuple_parse_test() {
+        let (source_map, source_id) = generate_source("((a, b), c)");
+        let tokens = lex_source(&source_map, source_id);
+        let mut parser = Parser::new(tokens, source_id, &source_map);
+
+        assert_eq!(
+            parser.parse_destruct_pattern().unwrap(),
+            SpannedDestructPattern::new(
+                DestructPattern::Tuple(
+                    Box::new([
+                        SpannedDestructPattern::new(
+                            DestructPattern::Tuple(Box::new([
+                                SpannedDestructPattern::new(
+                                    DestructPattern::Ident("a"),
+                                    Span::new(BytePos::from_usize(2), BytePos::from_usize(3), source_id),
+                                ),
+                                SpannedDestructPattern::new(
+                                    DestructPattern::Ident("b"),
+                                    Span::new(BytePos::from_usize(5), BytePos::from_usize(6), source_id),
+                                ),
+                            ])),
+                            Span::new(BytePos::from_usize(1), BytePos::from_usize(7), source_id),
+                        ),
+                        SpannedDestructPattern::new(
+                            DestructPattern::Ident("c"),
+                            Span::new(BytePos::from_usize(9), BytePos::from_usize(10), source_id),
+                        )
+                    ])
+                ),
+                Span::new(BytePos::from_usize(0), BytePos::from_usize(11), source_id),
+            )
+        );
+    }
 }
