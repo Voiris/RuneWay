@@ -71,6 +71,7 @@ macro_rules! unexpected_token {
 
 type InnerParserResult<'diag, T> = Result<T, InnerParseErr<'diag>>;
 
+#[derive(Debug)]
 struct InnerParseErr<'diag> {
     diag: Box<Diagnostic<'diag>>,
     should_skip_until_new_stmt: bool
