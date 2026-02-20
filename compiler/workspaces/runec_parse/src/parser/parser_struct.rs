@@ -323,6 +323,41 @@ impl<'src, 'diag> Parser<'src, 'diag> {
             let lo = token.span.lo;
             match &token.node {
                 Token::Ident(ident) => Ok(SpannedTypeAnnotation::new(TypeAnnotation::Ident(ident), Span::new(lo, token.span.hi, self.source_id))),
+                Token::OpenParen => {
+                    let mut items = Vec::new();
+                    let mut terminating_hi = None;
+                    while let Some(token) = self.tokens.peek() {
+                        if token.node == Token::CloseParen {
+                            terminating_hi = Some(token.span.hi);
+                            self.tokens.next();
+                            break;
+                        }
+                        items.push(self.parse_type_annotation()?);
+                        if self.tokens.peek().is_some_and(|t| t.node == Token::Comma) {
+                            self.tokens.next();
+                        }
+                    }
+                    if let Some(hi) = terminating_hi {
+                        Ok(SpannedTypeAnnotation::new(
+                            {
+                                if items.is_empty() {
+                                    TypeAnnotation::Unit
+                                } else {
+                                    TypeAnnotation::Tuple(items.into_boxed_slice())
+                                }
+                            },
+                            Span::new(lo, hi, self.source_id)
+                        ))
+                    } else {
+                        Err(InnerParseErr::without_skip(
+                            make_simple_diag!(
+                                error;
+                                "unterminated-tuple-type-annotation",
+                                (self.source_id => lo..self.source_hi)
+                            )
+                        ))
+                    }
+                }
                 _ => todo!()
             }
         } else {
