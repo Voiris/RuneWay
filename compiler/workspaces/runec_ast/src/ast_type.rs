@@ -4,6 +4,7 @@ use runec_source::span::Spanned;
 pub enum TypeAnnotation<'src> {
     Unit,
     Ident(&'src str),
+    Tuple(Box<[SpannedTypeAnnotation<'src>]>)
     /*Generic {
         ty: &'src str,
         params: Box<[GenericParameter<'src>]>,
