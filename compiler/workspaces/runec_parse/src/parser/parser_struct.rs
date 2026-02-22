@@ -211,41 +211,34 @@ impl<'src, 'diag> Parser<'src, 'diag> {
             }
         }
 
-        match args_terminating_hi {
-            // unterminated arguments block
-            None => {
-                if let Some(args_lo) = args_lo_opt {
-                    Err(
-                        InnerParseErr::without_skip(
-                            make_simple_diag!(
-                                error;
-                                "unterminated-args-block",
-                                (self.source_id => args_lo..self.source_hi)
-                            )
-                        )
-                    )
-                } else {
-                    Err(self.unexpected_eof())
-                }
-            }
-            // terminated arguments block
-            Some(args_hi) => {
-                let ret_ty = if self.tokens.peek().is_some_and(|t| t.node == Token::Arrow) {
-                    self.tokens.next();
+        if let Some(args_hi) = args_terminating_hi {
+            let ret_ty = if self.tokens.peek().is_some_and(|t| t.node == Token::Arrow) {
+                self.tokens.next();
 
-                    self.parse_type_annotation()?
-                } else { SpannedTypeAnnotation::new(TypeAnnotation::Unit, Span::new(args_hi, args_hi, self.source_id)) };
+                self.parse_type_annotation()?
+            } else { SpannedTypeAnnotation::new(TypeAnnotation::Unit, Span::new(args_hi, args_hi, self.source_id)) };
 
-                let stmt_block = self.parse_stmt_block()?;
-                let hi = stmt_block.span.hi;
+            let stmt_block = self.parse_stmt_block()?;
+            let hi = stmt_block.span.hi;
 
-                Ok(SpannedStmt::new(Stmt::DefineFunction {
-                    ident: SpannedStr::new(ident.0, ident.1),
-                    args: args.into_boxed_slice(),
-                    ret_ty,
-                    body: stmt_block
-                }, Span::new(lo, hi, self.source_id)))
-            }
+            Ok(SpannedStmt::new(Stmt::DefineFunction {
+                ident: SpannedStr::new(ident.0, ident.1),
+                args: args.into_boxed_slice(),
+                ret_ty,
+                body: stmt_block
+            }, Span::new(lo, hi, self.source_id)))
+        }
+        else if let Some(args_lo) = args_lo_opt {
+            Err(InnerParseErr::without_skip(
+                make_simple_diag!(
+                    error;
+                    "unterminated-args-block",
+                    (self.source_id => args_lo..self.source_hi)
+                )
+            ))
+        }
+        else {
+            Err(self.unexpected_eof())
         }
     }
 
