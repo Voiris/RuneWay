@@ -921,7 +921,7 @@ mod tests {
     }
 
     #[test]
-    fn destruct_pattern_ident_parse_test() {
+    fn ident_destruct_pattern_parse_test() {
         let (source_map, source_id) = generate_source("ident (a, b) ((a, b), c)");
         let tokens = lex_source(&source_map, source_id);
         let mut parser = Parser::new(tokens, source_id, &source_map);
@@ -936,7 +936,7 @@ mod tests {
     }
 
     #[test]
-    fn destruct_pattern_tuple_parse_test() {
+    fn tuple_destruct_pattern_parse_test() {
         let (source_map, source_id) = generate_source("(a, b)");
         let tokens = lex_source(&source_map, source_id);
         let mut parser = Parser::new(tokens, source_id, &source_map);
@@ -962,7 +962,7 @@ mod tests {
     }
 
     #[test]
-    fn destruct_pattern_multilevel_tuple_parse_test() {
+    fn multilevel_tuple_destruct_pattern_parse_test() {
         let (source_map, source_id) = generate_source("((a, b), c)");
         let tokens = lex_source(&source_map, source_id);
         let mut parser = Parser::new(tokens, source_id, &source_map);
