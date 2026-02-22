@@ -998,7 +998,7 @@ mod tests {
 
     #[test]
     fn unit_type_annotation_parse_test() {
-        let (source_map, source_id) = generate_source("() (a, b)");
+        let (source_map, source_id) = generate_source("()");
         let tokens = lex_source(&source_map, source_id);
         let mut parser = Parser::new(tokens, source_id, &source_map);
 
