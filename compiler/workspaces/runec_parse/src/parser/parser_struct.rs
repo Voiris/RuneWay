@@ -425,10 +425,42 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     SpannedExpr::new(Expr::Unary { op, operand: Box::new(operand) }, Span::new(token.span.lo, hi, self.source_id))
                 }
                 Token::OpenParen => {
-                    self.bump()?;
+                    let lo = self.bump()?.span.lo;
                     let expr = self.parse_expr(0)?;
-                    expect_token!(self, Token::CloseParen, Token::CloseParen.display())?;
-                    expr
+                    if self.tokens.peek().is_some_and(|t| t.node == Token::Comma) {
+                        self.tokens.next();
+                        let mut exprs = vec![expr];
+                        let mut terminating_hi = None;
+                        while self.tokens.peek().is_some() {
+                            exprs.push(self.parse_expr(0)?);
+                            if self.tokens.peek().is_some_and(|t| t.node == Token::Comma) {
+                                self.tokens.next();
+                            }
+                            if self.tokens.peek().is_some_and(|t| t.node == Token::CloseParen) {
+                                terminating_hi = Some(self.tokens.next().unwrap().span.hi);
+                                break;
+                            }
+                        }
+                        if let Some(hi) = terminating_hi {
+                            SpannedExpr::new(
+                                Expr::Tuple(exprs.into_boxed_slice()),
+                                Span::new(lo, hi, self.source_id),
+                            )
+                        }
+                        else {
+                            return Err(InnerParseErr::without_skip(
+                                make_simple_diag!(
+                                    error;
+                                    "unterminated-tuple",
+                                    (self.source_id => lo..self.source_hi)
+                                )
+                            ))
+                        }
+                    }
+                    else {
+                        expect_token!(self, Token::CloseParen, Token::CloseParen.display())?;
+                        expr
+                    }
                 }
                 Token::OpenBrace => {
                     let stmt_block = self.parse_stmt_block()?;
