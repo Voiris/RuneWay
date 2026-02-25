@@ -65,9 +65,12 @@ To be continued...
 
 To be continued...
 
+<!--Temporary removed
+
 ## 🤝 Contributing
 
 We welcome your issues about bugs, ideas, or suggestions.
+-->
 
 ## 📬 Contact me
 
