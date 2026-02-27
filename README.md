@@ -77,6 +77,7 @@ We welcome your issues about bugs, ideas, or suggestions.
 - Telegram: [@voiris](https://t.me/voiris)
 - Telegram Channel: [Потёмки Войриса](https://t.me/voiris_shadow)
 - Github: [github.com/Voiris](https://github.com/Voiris)
+- Carrd: [Voiris](https://voiris.carrd.co/)
 
 ## 📄 License
 
