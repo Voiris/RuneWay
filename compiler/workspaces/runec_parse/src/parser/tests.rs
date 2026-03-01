@@ -356,3 +356,40 @@ fn tuple_type_annotation_parse_test() {
         )
     );
 }
+
+#[test]
+fn multilevel_tuple_type_annotation_parse_test() {
+    let (source_map, source_id) = generate_source("(a, (b, c))");
+    let tokens = lex_source(&source_map, source_id);
+    let mut parser = Parser::new(tokens, source_id, &source_map);
+
+    assert_eq!(
+        parser.parse_type_annotation().unwrap(),
+        SpannedTypeAnnotation::new(
+            TypeAnnotation::Tuple(
+                Box::new([
+                    SpannedTypeAnnotation::new(
+                        TypeAnnotation::Ident("a"),
+                        Span::new(BytePos::from_usize(1), BytePos::from_usize(2), source_id),
+                    ),
+                    SpannedTypeAnnotation::new(
+                        TypeAnnotation::Tuple(
+                            Box::new([
+                                SpannedTypeAnnotation::new(
+                                    TypeAnnotation::Ident("b"),
+                                    Span::new(BytePos::from_usize(5), BytePos::from_usize(6), source_id),
+                                ),
+                                SpannedTypeAnnotation::new(
+                                    TypeAnnotation::Ident("c"),
+                                    Span::new(BytePos::from_usize(8), BytePos::from_usize(9), source_id),
+                                )
+                            ])
+                        ),
+                        Span::new(BytePos::from_usize(4), BytePos::from_usize(10), source_id),
+                    )
+                ])
+            ),
+            Span::new(BytePos::from_usize(0), BytePos::from_usize(11), source_id),
+        )
+    );
+}
