@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use runec_source::span::Spanned;
+use crate::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
 use crate::operators::{BinaryOp, UnaryOp};
 use crate::statement::{SpannedStmtBlock, StmtBlock};
 
@@ -9,6 +10,10 @@ pub enum Expr<'src> {
     Block(SpannedStmtBlock<'src>),
     If(IfExpr<'src>),
     Ident(&'src str),
+    TypeCast {
+        from: Box<SpannedExpr<'src>>,
+        ty: SpannedTypeAnnotation<'src>
+    },
     Call {
         callee: Box<SpannedExpr<'src>>,
         args: Box<[SpannedExpr<'src>]>,
