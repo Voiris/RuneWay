@@ -567,6 +567,15 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                 Token::OpenBrace => {
                     unimplemented!()
                 },
+                Token::As => {
+                    self.tokens.next();
+                    let ty = self.parse_type_annotation()?;
+                    let span = Span::new(lhs.span.lo, ty.span.hi, self.source_id);
+                    lhs = SpannedExpr::new(Expr::TypeCast {
+                        from: Box::new(lhs),
+                        ty
+                    }, span)
+                }
                 _ => break,
             }
         }
