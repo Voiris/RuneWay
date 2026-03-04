@@ -28,6 +28,7 @@ pub enum Expr<'src> {
         op: UnaryOp
     },
     Tuple(Box<[SpannedExpr<'src>]>),
+    FullyDefinedArray(Box<[SpannedExpr<'src>]>),
 }
 
 pub type SpannedExpr<'src> = Spanned<Expr<'src>>;
