@@ -29,6 +29,10 @@ pub enum Expr<'src> {
     },
     Tuple(Box<[SpannedExpr<'src>]>),
     FullyDefinedArray(Box<[SpannedExpr<'src>]>),
+    RepeatingArray {
+        value: Box<SpannedExpr<'src>>,
+        count: Box<SpannedExpr<'src>>
+    }
 }
 
 pub type SpannedExpr<'src> = Spanned<Expr<'src>>;
