@@ -29,6 +29,7 @@ unterminated-args-block = unterminated arguments block. Expect: `)`
 unterminated-code-block = unterminated code block. Expect: `\u007D`
 unterminated-tuple-type-annotation = unterminated tuple type annotation. Expect: `)`
 unterminated-tuple = unterminated tuple. Expect: `)`
+unterminated-array = unterminated array. Expect: `]`
 expect-code-block = expect code block
 integer-literal-is-too-large = integer literal is too large
 integer-literal-value-exceeds-limit = value exceeds limit `340282366920938463463374607431768211455`
