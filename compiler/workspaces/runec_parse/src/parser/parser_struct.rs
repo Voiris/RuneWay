@@ -467,6 +467,56 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let span = stmt_block.span;
                     SpannedExpr::new(Expr::Block(stmt_block), span)
                 }
+                Token::OpenBracket => {
+                    let lo = self.bump()?.span.lo;
+                    let expr = self.parse_expr(0)?;
+                    match self.tokens.peek() {
+                        Some(spanned_token) => {
+                            match spanned_token.node {
+                                Token::Comma => {
+                                    self.tokens.next();
+                                    let mut exprs = vec![expr];
+                                    let mut terminating_hi = None;
+                                    while self.tokens.peek().is_some() {
+                                        exprs.push(self.parse_expr(0)?);
+                                        if self.tokens.peek().is_some_and(|t| t.node == Token::Comma) {
+                                            self.tokens.next();
+                                        }
+                                        if self.tokens.peek().is_some_and(|t| t.node == Token::CloseBracket) {
+                                            terminating_hi = Some(self.bump()?.span.hi);
+                                            break;
+                                        }
+                                    }
+                                    if let Some(hi) = terminating_hi {
+                                        SpannedExpr::new(Expr::FullyDefinedArray(exprs.into_boxed_slice()), Span::new(lo, hi, self.source_id))
+                                    }
+                                    else {
+                                        return Err(InnerParseErr::without_skip(
+                                            make_simple_diag!(
+                                                error;
+                                                "unterminated-array",
+                                                (self.source_id => lo..self.source_hi)
+                                            )
+                                        ))
+                                    }
+                                }
+                                Token::Semicolon => {
+                                    unimplemented!()
+                                }
+                                _ => return Err(unexpected_token!(spanned_token.node, [Token::Comma.display(), Token::Semicolon.display()], *))
+                            }
+                        }
+                        None => {
+                            return Err(InnerParseErr::without_skip(
+                                make_simple_diag!(
+                                    error;
+                                    "unterminated-array",
+                                    (self.source_id => lo..self.source_hi)
+                                )
+                            ))
+                        }
+                    }
+                }
                 _ => return Err(InnerParseErr::with_skip(Self::unexpected_token(token.node.display())))
             }
         };
