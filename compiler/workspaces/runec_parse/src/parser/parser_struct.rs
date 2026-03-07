@@ -501,7 +501,13 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                                     }
                                 }
                                 Token::Semicolon => {
-                                    unimplemented!()
+                                    self.tokens.next();
+                                    let count = self.parse_expr(0)?;
+                                    let hi = expect_token!(self, Token::CloseBracket, Token::CloseBracket.display())?.span.hi;
+                                    SpannedExpr::new(Expr::RepeatingArray {
+                                        value: Box::new(expr),
+                                        count: Box::new(count),
+                                    }, Span::new(lo, hi, self.source_id))
                                 }
                                 _ => return Err(unexpected_token!(spanned_token.node, [Token::Comma.display(), Token::Semicolon.display()], *))
                             }
