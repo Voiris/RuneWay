@@ -681,6 +681,8 @@ impl<'src, 'diag> Lexer<'src> {
                 ')' => self.span_one_char(Token::CloseParen),
                 '{' => self.span_one_char(Token::OpenBrace),
                 '}' => self.span_one_char(Token::CloseBrace),
+                '[' => self.span_one_char(Token::OpenBracket),
+                ']' => self.span_one_char(Token::CloseBracket),
                 ',' => self.span_one_char(Token::Comma),
                 ';' => self.span_one_char(Token::Semicolon),
                 // Multichar lexing
