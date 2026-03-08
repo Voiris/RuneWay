@@ -393,3 +393,33 @@ fn multilevel_tuple_type_annotation_parse_test() {
         )
     );
 }
+
+#[test]
+fn fully_defined_array_parse_test() {
+    let (source_map, source_id) = generate_source("[a, b, c]");
+    let tokens = lex_source(&source_map, source_id);
+    let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
+
+    assert_eq!(parse_result.diags.len(), 0);
+
+    assert_eq!(
+        parse_result.stmts,
+        [
+            SpannedStmt::new(
+                Stmt::TailExpr(
+                    SpannedExpr::new(
+                        Expr::FullyDefinedArray(
+                            Box::new([
+                                SpannedExpr::new(Expr::Ident("a"), Span::new(BytePos::from_usize(1), BytePos::from_usize(2), source_id)),
+                                SpannedExpr::new(Expr::Ident("b"), Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id)),
+                                SpannedExpr::new(Expr::Ident("c"), Span::new(BytePos::from_usize(7), BytePos::from_usize(8), source_id)),
+                            ])
+                        ),
+                        Span::new(BytePos::from_usize(0), BytePos::from_usize(9), source_id)
+                    )
+                ),
+                Span::new(BytePos::from_usize(0), BytePos::from_usize(9), source_id)
+            )
+        ]
+    );
+}
