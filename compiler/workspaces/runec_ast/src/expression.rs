@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use runec_source::span::Spanned;
-use crate::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
+use crate::ast_type::SpannedTypeAnnotation;
 use crate::operators::{BinaryOp, UnaryOp};
 use crate::statement::{SpannedStmtBlock, StmtBlock};
 
@@ -32,7 +32,8 @@ pub enum Expr<'src> {
     RepeatingArray {
         value: Box<SpannedExpr<'src>>,
         count: Box<SpannedExpr<'src>>
-    }
+    },
+    Deref(Box<SpannedExpr<'src>>)
 }
 
 pub type SpannedExpr<'src> = Spanned<Expr<'src>>;

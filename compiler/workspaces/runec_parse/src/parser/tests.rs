@@ -424,7 +424,6 @@ fn fully_defined_array_parse_test() {
     );
 }
 
-
 #[test]
 fn repeating_array_parse_test() {
     let (source_map, source_id) = generate_source("[a; b]");
