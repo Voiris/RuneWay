@@ -12,7 +12,7 @@ pub enum Expr<'src> {
     Ident(&'src str),
     TypeCast {
         from: Box<SpannedExpr<'src>>,
-        ty: SpannedTypeAnnotation<'src>
+        ty: Box<SpannedTypeAnnotation<'src>>
     },
     Call {
         callee: Box<SpannedExpr<'src>>,

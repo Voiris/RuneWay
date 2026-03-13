@@ -629,7 +629,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let span = Span::new(lhs.span.lo, ty.span.hi, self.source_id);
                     lhs = SpannedExpr::new(Expr::TypeCast {
                         from: Box::new(lhs),
-                        ty
+                        ty: Box::new(ty)
                     }, span)
                 }
                 _ => break,
