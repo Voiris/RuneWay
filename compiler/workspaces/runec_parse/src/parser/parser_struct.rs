@@ -311,7 +311,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         }
     }
 
-    pub(super) fn parse_type_annotation(&mut self) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
+    pub(super) fn parse_type_primary(&mut self) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
         if let Some(token) = self.tokens.next() {
             let lo = token.span.lo;
             match &token.node {
@@ -356,6 +356,12 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         } else {
             Err(self.unexpected_eof())
         }
+    }
+
+    pub(super) fn parse_type_annotation(&mut self) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
+        let ty = self.parse_type_primary()?;
+        
+        Ok(ty)
     }
 
     fn parse_stmt_block(&mut self) -> InnerParserResult<'diag, SpannedStmtBlock<'src>> {
