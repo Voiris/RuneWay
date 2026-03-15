@@ -311,7 +311,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         }
     }
 
-    pub(super) fn parse_type_primary(&mut self) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
+    fn parse_type_primary(&mut self) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
         if let Some(token) = self.tokens.next() {
             let lo = token.span.lo;
             match &token.node {
@@ -358,9 +358,31 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         }
     }
 
+    fn parse_array_type_postfix(&mut self, ty: SpannedTypeAnnotation<'src>) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
+        expect_token!(self, Token::OpenBracket, Token::OpenBracket.display())?;
+
+        let length = self.parse_expr(0)?;
+
+        let hi = expect_token!(self, Token::CloseBracket, Token::CloseBracket.display())?.span.hi;
+        let lo = ty.span.lo;
+
+        Ok(SpannedTypeAnnotation::new(TypeAnnotation::Array {
+            item: Box::new(ty),
+            length,
+        }, Span::new(lo, hi, self.source_id)))
+    }
+
     pub(super) fn parse_type_annotation(&mut self) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
-        let ty = self.parse_type_primary()?;
-        
+        let mut ty = self.parse_type_primary()?;
+
+        loop {
+            match self.tokens.peek().map(|t| &t.node) {
+                Some(Token::OpenBracket) => ty = self.parse_array_type_postfix(ty)?,
+                Some(Token::Lt) => todo!(),
+                _ => break,
+            }
+        }
+
         Ok(ty)
     }
 
