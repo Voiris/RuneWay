@@ -1,3 +1,5 @@
+//! Operator binding powers for Pratt parser.
+
 use crate::lexer::token::Token;
 
 pub const fn lbp(tok: &Token) -> u8 {
