@@ -9,19 +9,17 @@ pub enum TypeAnnotation<'src> {
     Array { 
         item: Box<SpannedTypeAnnotation<'src>>,
         length: SpannedExpr<'src>
-    }
-    /*Generic {
-        ty: &'src str,
+    },
+    Generic {
+        ty: Box<SpannedTypeAnnotation<'src>>,
         params: Box<[GenericParameter<'src>]>,
     },
-     */
 }
 
-/*
+#[derive(Debug, PartialEq)]
 pub enum GenericParameter<'src> {
-    Type(TypeAnnotation<'src>),
+    Type(SpannedTypeAnnotation<'src>),
     // TODO: ConstValue(&'src str),
 }
- */
 
 pub type SpannedTypeAnnotation<'src> = Spanned<TypeAnnotation<'src>>;
