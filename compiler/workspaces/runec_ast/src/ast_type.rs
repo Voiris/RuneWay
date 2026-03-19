@@ -19,7 +19,7 @@ pub enum TypeAnnotation<'src> {
 #[derive(Debug, PartialEq)]
 pub enum GenericParameter<'src> {
     Type(SpannedTypeAnnotation<'src>),
-    // TODO: ConstValue(&'src str),
+    Expr(SpannedExpr<'src>),
 }
 
 pub type SpannedTypeAnnotation<'src> = Spanned<TypeAnnotation<'src>>;
