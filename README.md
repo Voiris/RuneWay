@@ -15,6 +15,7 @@
 - [ ] Static type annotations (`x: int`)
 - [ ] Static type annotations in functions (`act f(x: int) -> int`)
 - [ ] Constants (`const PI: float = 3.14`)
+- [ ] Generic types (`SomeType<T, E, 3>`)
 
 ### 🧱 Architecture
 
