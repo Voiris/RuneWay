@@ -372,13 +372,17 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         }, Span::new(lo, hi, self.source_id)))
     }
 
+    fn parse_generic_type_annotation(&mut self, ty: SpannedTypeAnnotation<'src>) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
+        todo!()
+    }
+
     pub(super) fn parse_type_annotation(&mut self) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
         let mut ty = self.parse_type_primary()?;
 
         loop {
             match self.tokens.peek().map(|t| &t.node) {
                 Some(Token::OpenBracket) => ty = self.parse_array_type_postfix(ty)?,
-                Some(Token::Lt) => todo!(),
+                Some(Token::Lt) => ty = self.parse_generic_type_annotation(ty)?,
                 _ => break,
             }
         }
