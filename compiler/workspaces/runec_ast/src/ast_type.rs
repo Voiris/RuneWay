@@ -12,12 +12,12 @@ pub enum TypeAnnotation<'src> {
     },
     Generic {
         ty: Box<SpannedTypeAnnotation<'src>>,
-        params: Box<[GenericParameter<'src>]>,
+        args: Box<[GenericArgument<'src>]>,
     },
 }
 
 #[derive(Debug, PartialEq)]
-pub enum GenericParameter<'src> {
+pub enum GenericArgument<'src> {
     Type(SpannedTypeAnnotation<'src>),
     Expr(SpannedExpr<'src>),
 }
