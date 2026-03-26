@@ -652,6 +652,21 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                         )
                     }
                 }
+                Token::Dot => {
+                    self.tokens.next();
+                    let ident_token = expect_token!(self, Token::Ident(..), "identifier")?;
+                    let span = ident_token.span;
+                    let lo = lhs.span.lo;
+                    let hi = ident_token.span.hi;
+                    let Token::Ident(ident) = ident_token.node else { unreachable!() };
+                    lhs = SpannedExpr::new(Expr::AttributeAccess {
+                        value: Box::new(lhs),
+                        name: SpannedStr::new(ident, span),
+                    }, Span::new(lo, hi, self.source_id))
+                }
+                Token::DColon => {
+                    todo!()
+                }
                 Token::OpenBracket => {
                     unimplemented!()
                 }
