@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use runec_source::span::Spanned;
 use crate::ast_type::SpannedTypeAnnotation;
 use crate::operators::{BinaryOp, UnaryOp};
+use crate::SpannedStr;
 use crate::statement::{SpannedStmtBlock, StmtBlock};
 
 #[derive(Debug, PartialEq)]
@@ -33,7 +34,11 @@ pub enum Expr<'src> {
         value: Box<SpannedExpr<'src>>,
         count: Box<SpannedExpr<'src>>
     },
-    Deref(Box<SpannedExpr<'src>>)
+    Deref(Box<SpannedExpr<'src>>),
+    AttributeAccess {
+        value: Box<SpannedExpr<'src>>,
+        name: SpannedStr<'src>,
+    }
 }
 
 pub type SpannedExpr<'src> = Spanned<Expr<'src>>;
