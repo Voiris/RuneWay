@@ -516,3 +516,40 @@ fn attribute_access_parse_test() {
         ]
     );
 }
+
+#[test]
+fn attribute_access_call_parse_test() {
+    let (source_map, source_id) = generate_source("a.b.c()");
+    let tokens = lex_source(&source_map, source_id);
+    let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
+
+    assert_eq!(parse_result.diags.len(), 0);
+
+    assert_eq!(
+        parse_result.stmts,
+        [
+            SpannedStmt::new(
+                Stmt::TailExpr(
+                    SpannedExpr::new(Expr::Call {
+                        callee: Box::new(SpannedExpr::new(Expr::AttributeAccess {
+                            value: Box::new(SpannedExpr::new(
+                                Expr::AttributeAccess {
+                                    value: Box::new(SpannedExpr::new(
+                                        Expr::Ident("a"),
+                                        Span::new(BytePos::from_usize(0), BytePos::from_usize(1), source_id)
+                                    )),
+                                    name: SpannedStr::new("b", Span::new(BytePos::from_usize(2), BytePos::from_usize(3), source_id)),
+                                },
+                                Span::new(BytePos::from_usize(0), BytePos::from_usize(3), source_id),
+                            )),
+                            name: SpannedStr::new("c", Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id)),
+                        }, Span::new(BytePos::from_usize(0), BytePos::from_usize(5), source_id))),
+                        args: Box::new([]),
+                    }, Span::new(BytePos::from_usize(0), BytePos::from_usize(7), source_id)),
+                ),
+                Span::new(BytePos::from_usize(0), BytePos::from_usize(7), source_id)
+            )
+        ]
+    );
+}
+
