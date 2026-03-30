@@ -45,6 +45,10 @@ pub type SpannedStmt<'src> = Spanned<Stmt<'src>>;
 pub enum DestructPattern<'src> {
     Ident(&'src str),
     Tuple(Box<[SpannedDestructPattern<'src>]>),
+    AttributeAccess {
+        pattern: Box<SpannedDestructPattern<'src>>,
+        attribute: SpannedStr<'src>,
+    },
 }
 
 pub type SpannedDestructPattern<'src> = Spanned<DestructPattern<'src>>;
