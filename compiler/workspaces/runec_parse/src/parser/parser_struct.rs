@@ -278,7 +278,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         }, Span::new(lo, hi, self.source_id)))
     }
 
-    pub(super) fn parse_destruct_pattern(&mut self) -> InnerParserResult<'diag, SpannedDestructPattern<'src>> {
+    fn parse_destruct_primary(&mut self) -> InnerParserResult<'diag, SpannedDestructPattern<'src>> {
         let token = expect_token!(self, Token::Ident ( .. ) | Token::OpenParen, ["identifier", Token::OpenParen.display()], *)?;
         match token.node {
             Token::Ident(ident) => Ok(
@@ -309,6 +309,28 @@ impl<'src, 'diag> Parser<'src, 'diag> {
             }
             _ => unreachable!()
         }
+    }
+
+    pub(super) fn parse_destruct_pattern(&mut self) -> InnerParserResult<'diag, SpannedDestructPattern<'src>> {
+        let mut pat = self.parse_destruct_primary()?;
+        while let Some(token) = self.tokens.peek() {
+            match token.node {
+                Token::Dot => {
+                    self.tokens.next();
+                    let token = expect_token!(self, Token::Ident ( .. ), "identifier")?;
+                    let Token::Ident(attr) = token.node else { unreachable!() };
+                    let span = Span::new(pat.span.lo, token.span.hi, self.source_id);
+                    pat = SpannedDestructPattern::new(
+                        DestructPattern::AttributeAccess {
+                            pattern: Box::new(pat),
+                            attribute: SpannedStr::new(attr, token.span),
+                        }, span
+                    );
+                }
+                _ => break,
+            }
+        }
+        Ok(pat)
     }
 
     fn parse_type_primary(&mut self) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
