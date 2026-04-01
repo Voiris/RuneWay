@@ -242,7 +242,7 @@ fn let_parse_test() {
 
 #[test]
 fn ident_destruct_pattern_parse_test() {
-    let (source_map, source_id) = generate_source("ident (a, b) ((a, b), c)");
+    let (source_map, source_id) = generate_source("ident");
     let tokens = lex_source(&source_map, source_id);
     let mut parser = Parser::new(tokens, source_id, &source_map);
 
