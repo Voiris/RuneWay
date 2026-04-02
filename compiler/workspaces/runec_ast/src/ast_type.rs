@@ -1,11 +1,13 @@
 use runec_source::span::Spanned;
 use crate::expression::SpannedExpr;
+use crate::SpannedStr;
 
 #[derive(Debug, PartialEq)]
 pub enum TypeAnnotation<'src> {
     Unit,
     Ident(&'src str),
     Tuple(Box<[SpannedTypeAnnotation<'src>]>),
+    Path(Box<[SpannedStr<'src>]>),
     Array { 
         item: Box<SpannedTypeAnnotation<'src>>,
         length: SpannedExpr<'src>
