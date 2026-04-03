@@ -11,6 +11,7 @@ pub enum Expr<'src> {
     Block(SpannedStmtBlock<'src>),
     If(IfExpr<'src>),
     Ident(&'src str),
+    Path(Box<[SpannedStr<'src>]>),
     TypeCast {
         from: Box<SpannedExpr<'src>>,
         ty: Box<SpannedTypeAnnotation<'src>>
