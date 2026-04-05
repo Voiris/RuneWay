@@ -400,14 +400,34 @@ impl<'src, 'diag> Parser<'src, 'diag> {
 
     pub(super) fn parse_type_annotation(&mut self) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
         let ty = self.parse_type_primary()?;
-        self.parse_type_secondary(ty)
+        self.parse_type_secondary(ty, true)
     }
 
-    fn parse_type_secondary(&mut self, mut ty: SpannedTypeAnnotation<'src>) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
+    fn parse_path_type_annotation(&mut self, ty: SpannedTypeAnnotation<'src>) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
+        let mut path = vec![ty];
+        while let Some(token) = self.tokens.peek() {
+            if token.node == Token::DColon {
+                self.tokens.next();
+                let ty = self.parse_type_primary()?;
+                let ty = self.parse_type_secondary(ty, false)?;
+                path.push(ty)
+            }
+            else {
+                break;
+            }
+        }
+        // SAFETY: `path` always has more than 2 elements
+        let lo = path.first().unwrap().span.lo;
+        let hi = path.last().unwrap().span.hi;
+        Ok(SpannedTypeAnnotation::new(TypeAnnotation::Path(path.into_boxed_slice()), Span::new(lo, hi, self.source_id)))
+    }
+
+    fn parse_type_secondary(&mut self, mut ty: SpannedTypeAnnotation<'src>, parse_path: bool) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
         loop {
             match self.tokens.peek().map(|t| &t.node) {
                 Some(Token::OpenBracket) => ty = self.parse_array_type_postfix(ty)?,
                 Some(Token::Lt) => ty = self.parse_generic_type_annotation(ty)?,
+                Some(Token::DColon) if !parse_path => ty = self.parse_path_type_annotation(ty)?,
                 _ => break,
             }
         }
