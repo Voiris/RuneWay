@@ -419,7 +419,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         // SAFETY: `path` always has more than 2 elements
         let lo = path.first().unwrap().span.lo;
         let hi = path.last().unwrap().span.hi;
-        Ok(SpannedTypeAnnotation::new(TypeAnnotation::Path(path.into_boxed_slice()), Span::new(lo, hi, self.source_id)))
+        Ok(SpannedTypeAnnotation::new(TypeAnnotation::Path { from_root: false, path: path.into_boxed_slice() }, Span::new(lo, hi, self.source_id)))
     }
 
     fn parse_type_secondary(&mut self, mut ty: SpannedTypeAnnotation<'src>, parse_path: bool) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {

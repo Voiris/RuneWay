@@ -6,7 +6,10 @@ pub enum TypeAnnotation<'src> {
     Unit,
     Ident(&'src str),
     Tuple(Box<[SpannedTypeAnnotation<'src>]>),
-    Path(Box<[SpannedTypeAnnotation<'src>]>),
+    Path {
+        from_root: bool,
+        path: Box<[SpannedTypeAnnotation<'src>]>
+    },
     Array {
         item: Box<SpannedTypeAnnotation<'src>>,
         length: SpannedExpr<'src>
