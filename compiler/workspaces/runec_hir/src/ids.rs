@@ -6,7 +6,7 @@ impl HirId {
         assert!(id <= u32::MAX as usize, "HirId overflow");
         HirId(id as u32)
     }
-    pub fn to_usize(&self) -> usize {
+    pub fn to_usize(self) -> usize {
         self.0 as usize
     }
 }
