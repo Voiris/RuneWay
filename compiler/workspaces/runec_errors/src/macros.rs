@@ -38,7 +38,7 @@ macro_rules! make_simple_diag {
         $crate::make_simple_diag!(@internal diag; $( $rest, )*)
     }};
     (weak_warning; $message_id:literal  $(, $rest:tt )* $(,)?) => {{
-        let diag = ;$crate::diagnostics::Diagnostic::warning($crate::message::DiagMessage::new_simple($message_id));
+        let diag = $crate::diagnostics::Diagnostic::warning($crate::message::DiagMessage::new_simple($message_id));
         $crate::make_simple_diag!(@internal diag; $( $rest, )*)
     }};
     (
