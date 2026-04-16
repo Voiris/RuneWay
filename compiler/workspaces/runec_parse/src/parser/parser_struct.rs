@@ -195,7 +195,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
             args_lo_opt.get_or_insert(token.span.lo);
             match token.node {
                 Token::Ident(ident) => {
-                    self.tokens.next();
+                    expect_token!(self, Token::Colon, Token::Colon.display())?;
                     let ty = self.parse_type_annotation()?;
                     args.push(FunctionArg { ident: SpannedStr::new(ident, token.span), ty });
                 }
