@@ -19,13 +19,37 @@
 
 ### 🧱 Architecture
 
+RuneWay is a compiled language. The pipeline is:
+
+```
+source (.rnw)
+   │
+   ▼
+ Lexer ──► Tokens
+   │
+   ▼
+ Parser (Recursive Descent + Pratt) ──► AST
+   │
+   ▼
+ HIR lowering + name resolution ──► HIR
+   │
+   ▼
+ Semantic / type checking
+   │
+   ▼
+ MIR lowering ──► MIR
+   │
+   ▼
+ Cranelift IR codegen ──► native binary
+```
+
 - [x] Lexer (out: Tokens)
-- [ ] Parser (out: AST. Based on: Recursive Descent + Pratt) - *in progress*
-- [ ] IR generator (out: IR)
-- [ ] Semantic Checker
-- [ ] Optimizer
-- [ ] Bytecode generator (out: Stack-based bytecode)
-- [ ] Register-based VM
+- [ ] Parser (out: AST. Based on: Recursive Descent + Pratt) — *in progress*
+- [ ] HIR (out: HIR) — *in progress*
+- [ ] Name resolution
+- [ ] Semantic / type checker
+- [ ] MIR (out: MIR)
+- [ ] Cranelift IR codegen (out: native binary)
 
 ### 🪵 Built-ins
 
