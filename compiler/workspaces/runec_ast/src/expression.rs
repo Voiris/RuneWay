@@ -57,7 +57,7 @@ pub enum ElseBranch<'src> {
     If(Box<IfExpr<'src>>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum IntSuffix {
     U8,
     U16,
@@ -74,7 +74,7 @@ pub enum IntSuffix {
     F64
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FloatSuffix {
     F32,
     F64
