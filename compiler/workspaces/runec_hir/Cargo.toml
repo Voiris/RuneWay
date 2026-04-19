@@ -4,3 +4,6 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+runec_source = { path = "../runec_source" }
+runec_ast    = { path = "../runec_ast" }
+runec_errors = { path = "../runec_errors" }
