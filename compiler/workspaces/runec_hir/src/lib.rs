@@ -1,5 +1,7 @@
-mod item;
-mod ids;
-mod expression;
-mod statement;
-mod map;
+pub mod ids;
+pub mod path;
+pub mod ty;
+pub mod expression;
+pub mod statement;
+pub mod item;
+pub mod map;
