@@ -468,6 +468,33 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         Ok(SpannedStmtBlock::new(stmts.into_boxed_slice(), Span::new(lo, hi_opt.unwrap(), self.source_id)))
     }
 
+    fn parse_comma_sep_exprs(
+        &mut self,
+        closing: Token<'src>,
+        unterminated_msg: &'static str,
+        lo: BytePos,
+        first: Option<SpannedExpr<'src>>,
+    ) -> InnerParserResult<'diag, (Vec<SpannedExpr<'src>>, BytePos)> {
+        let mut exprs = first.map_or_else(Vec::new, |e| vec![e]);
+        loop {
+            if self.tokens.peek().is_some_and(|t| t.node == closing) {
+                let hi = self.bump()?.span.hi;
+                return Ok((exprs, hi));
+            }
+            if self.tokens.peek().is_none() {
+                break;
+            }
+            exprs.push(self.parse_expr(0)?);
+            if self.tokens.peek().is_some_and(|t| t.node == Token::Comma) {
+                self.tokens.next();
+            }
+        }
+        Err(InnerParseErr::without_skip(
+            Diagnostic::error(DiagMessage::new_simple(unterminated_msg))
+                .add_label(DiagLabel::silent_primary(Span::new(lo, self.source_hi, self.source_id)))
+        ))
+    }
+
     fn parse_expr(&mut self, min_bp: u8) -> InnerParserResult<'diag, SpannedExpr<'src>> {
         let mut lhs = {
             let token = self.peek()?;
@@ -506,33 +533,10 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let expr = self.parse_expr(0)?;
                     if self.tokens.peek().is_some_and(|t| t.node == Token::Comma) {
                         self.tokens.next();
-                        let mut exprs = vec![expr];
-                        let mut terminating_hi = None;
-                        while self.tokens.peek().is_some() {
-                            exprs.push(self.parse_expr(0)?);
-                            if self.tokens.peek().is_some_and(|t| t.node == Token::Comma) {
-                                self.tokens.next();
-                            }
-                            if self.tokens.peek().is_some_and(|t| t.node == Token::CloseParen) {
-                                terminating_hi = Some(self.tokens.next().unwrap().span.hi);
-                                break;
-                            }
-                        }
-                        if let Some(hi) = terminating_hi {
-                            SpannedExpr::new(
-                                Expr::Tuple(exprs.into_boxed_slice()),
-                                Span::new(lo, hi, self.source_id),
-                            )
-                        }
-                        else {
-                            return Err(InnerParseErr::without_skip(
-                                make_simple_diag!(
-                                    error;
-                                    "unterminated-tuple",
-                                    (self.source_id => lo..self.source_hi)
-                                )
-                            ))
-                        }
+                        let (exprs, hi) = self.parse_comma_sep_exprs(
+                            Token::CloseParen, "unterminated-tuple", lo, Some(expr),
+                        )?;
+                        SpannedExpr::new(Expr::Tuple(exprs.into_boxed_slice()), Span::new(lo, hi, self.source_id))
                     }
                     else {
                         expect_token!(self, Token::CloseParen, Token::CloseParen.display())?;
@@ -552,30 +556,10 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                             match spanned_token.node {
                                 Token::Comma => {
                                     self.tokens.next();
-                                    let mut exprs = vec![expr];
-                                    let mut terminating_hi = None;
-                                    while self.tokens.peek().is_some() {
-                                        exprs.push(self.parse_expr(0)?);
-                                        if self.tokens.peek().is_some_and(|t| t.node == Token::Comma) {
-                                            self.tokens.next();
-                                        }
-                                        if self.tokens.peek().is_some_and(|t| t.node == Token::CloseBracket) {
-                                            terminating_hi = Some(self.bump()?.span.hi);
-                                            break;
-                                        }
-                                    }
-                                    if let Some(hi) = terminating_hi {
-                                        SpannedExpr::new(Expr::FullyDefinedArray(exprs.into_boxed_slice()), Span::new(lo, hi, self.source_id))
-                                    }
-                                    else {
-                                        return Err(InnerParseErr::without_skip(
-                                            make_simple_diag!(
-                                                error;
-                                                "unterminated-array",
-                                                (self.source_id => lo..self.source_hi)
-                                            )
-                                        ))
-                                    }
+                                    let (exprs, hi) = self.parse_comma_sep_exprs(
+                                        Token::CloseBracket, "unterminated-array", lo, Some(expr),
+                                    )?;
+                                    SpannedExpr::new(Expr::FullyDefinedArray(exprs.into_boxed_slice()), Span::new(lo, hi, self.source_id))
                                 }
                                 Token::Semicolon => {
                                     self.tokens.next();
@@ -660,39 +644,14 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                 }
                 Token::OpenParen => {
                     self.tokens.next();
-                    let mut args = Vec::new();
-                    let mut terminating_hi = None;
-                    while let Some(token) = self.tokens.peek() {
-                        match token.node {
-                            Token::CloseParen => {
-                                terminating_hi = Some(self.bump()?.span.hi);
-                                break;
-                            }
-                            _ => {
-                                args.push(self.parse_expr(0)?);
-                                if self.tokens.peek().is_some_and(|t| t.node == Token::Comma) {
-                                    self.tokens.next();
-                                }
-                            }
-                        }
-                    }
                     let lo = lhs.span.lo;
-                    if let Some(hi) = terminating_hi {
-                        lhs = SpannedExpr::new(Expr::Call {
-                            callee: Box::new(lhs),
-                            args: args.into_boxed_slice()
-                        }, Span::new(lo, hi, self.source_id));
-                    } else {
-                        return Err(
-                            InnerParseErr::without_skip(
-                                make_simple_diag!(
-                                    error;
-                                    "unterminated-args-block",
-                                    (self.source_id => lo..self.source_hi)
-                                )
-                            )
-                        )
-                    }
+                    let (args, hi) = self.parse_comma_sep_exprs(
+                        Token::CloseParen, "unterminated-args-block", lo, None,
+                    )?;
+                    lhs = SpannedExpr::new(Expr::Call {
+                        callee: Box::new(lhs),
+                        args: args.into_boxed_slice()
+                    }, Span::new(lo, hi, self.source_id));
                 }
                 Token::Dot => {
                     self.tokens.next();
