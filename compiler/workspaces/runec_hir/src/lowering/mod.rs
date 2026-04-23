@@ -222,3 +222,6 @@ impl<'src, 'diag> Default for HirLowerer<'src, 'diag> {
 impl<'src, 'diag> Default for HirLowerResult<'src, 'diag> {
     fn default() -> Self { Self::new() }
 }
+
+#[cfg(test)]
+mod tests;
