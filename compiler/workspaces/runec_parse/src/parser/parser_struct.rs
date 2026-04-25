@@ -191,13 +191,19 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         let mut args_terminating_hi = None;
         let mut args_lo_opt = None;
 
-        while let Some(token) = self.tokens.next() {
+        while let Some(token) = self.tokens.peek() {
             args_lo_opt.get_or_insert(token.span.lo);
             match token.node {
                 Token::Ident(ident) => {
+                    let token = self.tokens.next().unwrap();
                     expect_token!(self, Token::Colon, Token::Colon.display())?;
                     let ty = self.parse_type_annotation()?;
                     args.push(FunctionArg { ident: SpannedStr::new(ident, token.span), ty });
+                }
+                Token::CloseParen => {
+                    let hi = expect_token!(self, Token::CloseParen, Token::CloseParen.display())?.span.hi;
+                    args_terminating_hi = Some(hi);
+                    break;
                 }
                 _ => return Err(unexpected_token!(token, "identifier")),
             }
