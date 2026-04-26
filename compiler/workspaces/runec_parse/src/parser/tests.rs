@@ -18,6 +18,31 @@ fn lex_source(source_map: &SourceMap, source_id: SourceId) -> Vec<SpannedToken<'
 
 #[test]
 fn act_parse_test() {
+    let (source_map, source_id) = generate_source("act main() {}");
+    let tokens = lex_source(&source_map, source_id);
+    let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
+
+    println!("{:?}",parse_result.diags);
+
+    assert_eq!(parse_result.diags.len(), 0);
+
+    let expected_stmts = [
+        SpannedStmt::new(Stmt::DefineFunction {
+            ident: SpannedStr::new("main", Span::new(BytePos::from_usize(4), BytePos::from_usize(8), source_id)),
+            args: Box::new([]),
+            ret_ty: SpannedTypeAnnotation::new(TypeAnnotation::Unit, Span::new(BytePos::from_usize(10), BytePos::from_usize(10), source_id)),
+            body: SpannedStmtBlock::new(
+                Box::new([]),
+                Span::new(BytePos::from_usize(11), BytePos::from_usize(13), source_id)
+            ),
+        }, Span::new(BytePos::from_usize(0), BytePos::from_usize(13), source_id))
+    ];
+
+    assert_eq!(parse_result.stmts, expected_stmts);
+}
+
+#[test]
+fn act_with_args_parse_test() {
     let (source_map, source_id) = generate_source("act main(a: b, c: d) -> e {}");
     let tokens = lex_source(&source_map, source_id);
     let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
