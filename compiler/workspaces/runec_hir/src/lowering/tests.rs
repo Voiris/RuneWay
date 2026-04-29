@@ -169,7 +169,6 @@ fn lower_semi_expr_becomes_stmt() {
 
 #[test]
 fn lower_tail_expr_not_last_becomes_stmt() {
-    // A TailExpr that is not the final statement lowers to HirStmt::Expr, not the block tail.
     let body = s(Box::new([
         s(Stmt::TailExpr(int_expr(1))),
         s(Stmt::SemiExpr(int_expr(2))),
@@ -340,7 +339,6 @@ fn lower_multiple_fns_get_distinct_ids() {
 
 #[test]
 fn lower_nested_block_expr() {
-    // Expr::Block inside a function body becomes HirExpr::Block recursively.
     let inner = s(Box::new([s(Stmt::TailExpr(int_expr(99)))]) as Box<[_]>);
     let body = s(Box::new([s(Stmt::TailExpr(s(Expr::Block(inner))))]) as Box<[_]>);
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
