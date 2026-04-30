@@ -136,14 +136,14 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
             }),
 
             Expr::Path(segments) => {
-                let segs: Box<[_]> = segments.iter().map(|s| HirPathSegment {
+                let segments: Box<[_]> = segments.iter().map(|s| HirPathSegment {
                     name: SpannedStr::new(s.node, s.span),
                     generics: None,
                     span: s.span,
                 }).collect();
                 HirExpr::Path(HirPath {
                     from_root: false,
-                    segments: segs,
+                    segments,
                     span: expr.span,
                 })
             }
