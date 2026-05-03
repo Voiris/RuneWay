@@ -1,0 +1,13 @@
+[package]
+name = "runec_parse"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+runec_source = { path = "../runec_source" }
+runec_errors = { path = "../runec_errors" }
+runec_utils = { path = "../runec_utils" }
+runec_ast = { path = "../runec_ast" }
+
+[dev-dependencies]
+runec_test_utils = { path = "../runec_test_utils" }

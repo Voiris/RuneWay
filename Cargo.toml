@@ -1,12 +1,12 @@
 [workspace]
 members = [
-    "compiler/workspaces/runec",
-    "compiler/workspaces/runec_utils",
-    "compiler/workspaces/runec_errors",
-    "compiler/workspaces/runec_parse",
-    "compiler/workspaces/runec_source",
-    "compiler/workspaces/runec_fluent_messages",
-    "compiler/workspaces/runec_ast",
-    "compiler/workspaces/runec_test_utils", "compiler/workspaces/runec_hir",
+    "compiler/runec",
+    "compiler/runec_utils",
+    "compiler/runec_errors",
+    "compiler/runec_parse",
+    "compiler/runec_source",
+    "compiler/runec_ast",
+    "compiler/runec_test_utils",
+    "compiler/runec_hir",
 ]
 resolver = "3"

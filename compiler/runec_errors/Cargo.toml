@@ -1,0 +1,12 @@
+[package]
+name = "runec_errors"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+indexmap = "2.12.1"
+runec_source = { path = "../runec_source" }
+runec_utils = { path = "../runec_utils" }
+
+[dev-dependencies]
+runec_test_utils = { path = "../runec_test_utils" }
