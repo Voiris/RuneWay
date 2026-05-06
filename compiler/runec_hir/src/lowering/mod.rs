@@ -225,3 +225,4 @@ impl<'src, 'diag> Default for HirLowerResult<'src, 'diag> {
 
 #[cfg(test)]
 mod tests;
+mod messages;
