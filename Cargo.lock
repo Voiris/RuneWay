@@ -117,6 +117,7 @@ dependencies = [
  "runec_ast",
  "runec_errors",
  "runec_source",
+ "runec_utils",
 ]
 
 [[package]]
