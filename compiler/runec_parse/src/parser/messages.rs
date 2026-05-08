@@ -1,6 +1,6 @@
-use runec_utils::define_message;
+use runec_utils::define_messages;
 
-define_message! {
+define_messages! {
     UNEXPECTED_TOKEN => "unexpected token: `{ token }`",
     EXPECTED_TOKEN_GOT => "expected token: `{ expected }`. Got: `{ got }`",
     UNTERMINATED_ARGS_BLOCK => "unterminated arguments block. Expect: `)`",

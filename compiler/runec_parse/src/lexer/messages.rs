@@ -1,6 +1,6 @@
-use runec_utils::define_message;
+use runec_utils::define_messages;
 
-define_message! {
+define_messages! {
     INVALID_CHAR => "invalid character: `{ char }`",
     INVALID_NUMERIC_LITERAL => "invalid number literal",
     DUPLICATED_STRING_LITERAL_PREFIX => "string literal cannot have duplicated prefix '{ prefix }'",
