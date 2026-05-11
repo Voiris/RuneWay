@@ -123,6 +123,12 @@ dependencies = [
 [[package]]
 name = "runec_mir"
 version = "0.1.0"
+dependencies = [
+ "runec_errors",
+ "runec_hir",
+ "runec_source",
+ "runec_utils",
+]
 
 [[package]]
 name = "runec_parse"
