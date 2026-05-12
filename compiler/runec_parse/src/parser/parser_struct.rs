@@ -14,7 +14,7 @@ use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{Source, SourceId, SourceMap};
 use runec_source::span;
 use runec_source::span::Span;
-use crate::lexer::token::{Radix, SpannedToken, Token};
+use crate::lexer::token::{token_display, Radix, SpannedToken, Token};
 use crate::parser::result::ParseResult;
 use crate::parser::pratt;
 
@@ -182,7 +182,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                 Token::Ident(ident) => {
                     (ident, token.span)
                 }
-                _ => return Err(unexpected_token!(token, "identifier")),
+                _ => return Err(unexpected_token!(token, token_display::IDENTIFIER)),
             }
         } else {
             return Err(self.unexpected_eof());
@@ -207,7 +207,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     args_terminating_hi = Some(hi);
                     break;
                 }
-                _ => return Err(unexpected_token!(token, "identifier")),
+                _ => return Err(unexpected_token!(token, token_display::IDENTIFIER)),
             }
             let token = expect_token!(self, Token::CloseParen | Token::Comma, [Token::CloseParen.display(), Token::Comma.display()], *)?;
             if token.node == Token::CloseParen {
@@ -291,7 +291,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
     }
 
     fn parse_destruct_primary(&mut self) -> InnerParserResult<'diag, SpannedDestructPattern<'src>> {
-        let token = expect_token!(self, Token::Ident ( .. ) | Token::OpenParen, ["identifier", Token::OpenParen.display()], *)?;
+        let token = expect_token!(self, Token::Ident ( .. ) | Token::OpenParen, [token_display::IDENTIFIER, Token::OpenParen.display()], *)?;
         match token.node {
             Token::Ident(ident) => Ok(
                 SpannedDestructPattern::new(
@@ -329,7 +329,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
             match token.node {
                 Token::Dot => {
                     self.tokens.next();
-                    let token = expect_token!(self, Token::Ident ( .. ), "identifier")?;
+                    let token = expect_token!(self, Token::Ident ( .. ), token_display::IDENTIFIER)?;
                     let Token::Ident(attr) = token.node else { unreachable!() };
                     let span = Span::new(pat.span.lo, token.span.hi, self.source_id);
                     pat = SpannedDestructPattern::new(
@@ -679,7 +679,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                 }
                 Token::Dot => {
                     self.tokens.next();
-                    let ident_token = expect_token!(self, Token::Ident(..), "identifier")?;
+                    let ident_token = expect_token!(self, Token::Ident(..), token_display::IDENTIFIER)?;
                     let span = ident_token.span;
                     let lo = lhs.span.lo;
                     let hi = ident_token.span.hi;
