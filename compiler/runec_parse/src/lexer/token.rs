@@ -194,93 +194,217 @@ pub enum Token<'src> {
 
 impl Token<'_> {
     pub fn display(&self) -> &'static str {
+        use token_display::*;
+
         match self {
-            Token::Eq => "=",
-            Token::Lt => "<",
-            Token::Le => "<=",
-            Token::EqEq => "==",
-            Token::Ne => "!=",
-            Token::Ge => ">=",
-            Token::Gt => ">",
-            Token::AndAnd => "&&",
-            Token::OrOr => "||",
-            Token::Bang => "!",
-            Token::Tilde => "~",
-            Token::Question => "?",
-            Token::Plus => "+",
-            Token::Minus => "-",
-            Token::Star => "*",
-            Token::Slash => "/",
-            Token::Percent => "%",
-            Token::Caret => "^",
-            Token::And => "&",
-            Token::Or => "|",
-            Token::Shl => "<<",
-            Token::Shr => ">>",
-            Token::PlusEq => "+=",
-            Token::MinusEq => "-=",
-            Token::StarEq => "*=",
-            Token::SlashEq => "/=",
-            Token::PercentEq => "%=",
-            Token::CaretEq => "^=",
-            Token::AndEq => "&=",
-            Token::OrEq => "|=",
-            Token::ShlEq => "<<=",
-            Token::ShrEq => ">>=",
-            Token::PlusPlus => "++",
-            Token::MinusMinus => "--",
-            Token::CharLiteral( .. ) => "char-literal",
-            Token::FormatStringStart => "format-string",
-            Token::FormatStringEnd => "format-string",
-            Token::FormatCodeBlockStart => "format-code-block",
-            Token::FormatCodeBlockEnd => "format-code-block",
-            Token::Act => "act",
-            Token::Let => "let",
-            Token::Mut => "mut",
-            Token::Const => "const",
-            Token::If => "if",
-            Token::Else => "else",
-            Token::For => "for",
-            Token::While => "while",
-            Token::Loop => "loop",
-            Token::Break => "break",
-            Token::Continue => "continue",
-            Token::Return => "return",
-            Token::True => "true",
-            Token::False => "false",
-            Token::Null => "null",
-            Token::As => "as",
-            Token::Pub => "pub",
-            Token::Alias => "alias",
-            Token::Enum => "enum",
-            Token::Union => "union",
-            Token::Struct => "struct",
-            Token::Impl => "impl",
-            Token::Use => "use",
-            Token::Unsafe => "unsafe",
-            Token::Contract => "contract",
-            Token::OpenParen => "(",
-            Token::CloseParen => ")",
-            Token::OpenBrace => "{",
-            Token::CloseBrace => "}",
-            Token::OpenBracket => "[",
-            Token::CloseBracket => "]",
-            Token::Arrow => "->",
-            Token::DArrow => "=>",
-            Token::Dot => ".",
-            Token::Range => "..",
-            Token::RangeInclusive => "..=",
-            Token::Comma => ",",
-            Token::Colon => ":",
-            Token::DColon => "::",
-            Token::Semicolon => ";",
-            Token::IntLiteral { .. } => "int-literal",
-            Token::FloatLiteral { .. } => "float-literal",
-            Token::RawStringLiteral( .. ) => "string-literal",
-            Token::StringLiteral( .. ) => "string-literal",
-            Token::Ident( .. ) => "identifier",
+            Token::Eq => EQ,
+            Token::Lt => LT,
+            Token::Le => LE,
+            Token::EqEq => EQ_EQ,
+            Token::Ne => NE,
+            Token::Ge => GE,
+            Token::Gt => GT,
+
+            Token::AndAnd => AND_AND,
+            Token::OrOr => OR_OR,
+
+            Token::Bang => BANG,
+            Token::Tilde => TILDE,
+            Token::Question => QUESTION,
+
+            Token::Plus => PLUS,
+            Token::Minus => MINUS,
+            Token::Star => STAR,
+            Token::Slash => SLASH,
+            Token::Percent => PERCENT,
+            Token::Caret => CARET,
+            Token::And => AND,
+            Token::Or => OR,
+
+            Token::Shl => SHL,
+            Token::Shr => SHR,
+
+            Token::PlusEq => PLUS_EQ,
+            Token::MinusEq => MINUS_EQ,
+            Token::StarEq => STAR_EQ,
+            Token::SlashEq => SLASH_EQ,
+            Token::PercentEq => PERCENT_EQ,
+            Token::CaretEq => CARET_EQ,
+            Token::AndEq => AND_EQ,
+            Token::OrEq => OR_EQ,
+
+            Token::ShlEq => SHL_EQ,
+            Token::ShrEq => SHR_EQ,
+
+            Token::PlusPlus => PLUS_PLUS,
+            Token::MinusMinus => MINUS_MINUS,
+
+            Token::CharLiteral(..) => CHAR_LITERAL,
+            Token::StringLiteral(..) | Token::RawStringLiteral(..) => STRING_LITERAL,
+            Token::IntLiteral { .. } => INT_LITERAL,
+            Token::FloatLiteral { .. } => FLOAT_LITERAL,
+            Token::Ident(..) => IDENTIFIER,
+
+            Token::FormatStringStart | Token::FormatStringEnd => FORMAT_STRING,
+            Token::FormatCodeBlockStart | Token::FormatCodeBlockEnd => FORMAT_CODE_BLOCK,
+
+            Token::Act => ACT,
+            Token::Let => LET,
+            Token::Mut => MUT,
+            Token::Const => CONST,
+
+            Token::If => IF,
+            Token::Else => ELSE,
+            Token::For => FOR,
+            Token::While => WHILE,
+            Token::Loop => LOOP,
+
+            Token::Break => BREAK,
+            Token::Continue => CONTINUE,
+            Token::Return => RETURN,
+
+            Token::True => TRUE,
+            Token::False => FALSE,
+            Token::Null => NULL,
+
+            Token::As => AS,
+            Token::Pub => PUB,
+            Token::Alias => ALIAS,
+
+            Token::Enum => ENUM,
+            Token::Union => UNION,
+            Token::Struct => STRUCT,
+            Token::Impl => IMPL,
+            Token::Contract => CONTRACT,
+
+            Token::Use => USE,
+            Token::Unsafe => UNSAFE,
+
+            Token::OpenParen => OPEN_PAREN,
+            Token::CloseParen => CLOSE_PAREN,
+            Token::OpenBrace => OPEN_BRACE,
+            Token::CloseBrace => CLOSE_BRACE,
+            Token::OpenBracket => OPEN_BRACKET,
+            Token::CloseBracket => CLOSE_BRACKET,
+
+            Token::Arrow => ARROW,
+            Token::DArrow => DARROW,
+
+            Token::Dot => DOT,
+            Token::Range => RANGE,
+            Token::RangeInclusive => RANGE_INCLUSIVE,
+
+            Token::Comma => COMMA,
+            Token::Colon => COLON,
+            Token::DColon => DCOLON,
+            Token::Semicolon => SEMICOLON,
         }
     }
+}
+
+#[allow(unused)]
+pub mod token_display {
+    pub const EQ: &str = "=";
+    pub const LT: &str = "<";
+    pub const LE: &str = "<=";
+    pub const EQ_EQ: &str = "==";
+    pub const NE: &str = "!=";
+    pub const GE: &str = ">=";
+    pub const GT: &str = ">";
+
+    pub const AND_AND: &str = "&&";
+    pub const OR_OR: &str = "||";
+
+    pub const BANG: &str = "!";
+    pub const TILDE: &str = "~";
+    pub const QUESTION: &str = "?";
+
+    pub const PLUS: &str = "+";
+    pub const MINUS: &str = "-";
+    pub const STAR: &str = "*";
+    pub const SLASH: &str = "/";
+    pub const PERCENT: &str = "%";
+    pub const CARET: &str = "^";
+    pub const AND: &str = "&";
+    pub const OR: &str = "|";
+
+    pub const SHL: &str = "<<";
+    pub const SHR: &str = ">>";
+
+    pub const PLUS_EQ: &str = "+=";
+    pub const MINUS_EQ: &str = "-=";
+    pub const STAR_EQ: &str = "*=";
+    pub const SLASH_EQ: &str = "/=";
+    pub const PERCENT_EQ: &str = "%=";
+    pub const CARET_EQ: &str = "^=";
+    pub const AND_EQ: &str = "&=";
+    pub const OR_EQ: &str = "|=";
+
+    pub const SHL_EQ: &str = "<<=";
+    pub const SHR_EQ: &str = ">>=";
+
+    pub const PLUS_PLUS: &str = "++";
+    pub const MINUS_MINUS: &str = "--";
+
+    pub const CHAR_LITERAL: &str = "char-literal";
+    pub const STRING_LITERAL: &str = "string-literal";
+    pub const INT_LITERAL: &str = "int-literal";
+    pub const FLOAT_LITERAL: &str = "float-literal";
+    pub const IDENTIFIER: &str = "identifier";
+
+    pub const FORMAT_STRING: &str = "format-string";
+    pub const FORMAT_CODE_BLOCK: &str = "format-code-block";
+
+    pub const ACT: &str = "act";
+    pub const LET: &str = "let";
+    pub const MUT: &str = "mut";
+    pub const CONST: &str = "const";
+
+    pub const IF: &str = "if";
+    pub const ELSE: &str = "else";
+    pub const FOR: &str = "for";
+    pub const WHILE: &str = "while";
+    pub const LOOP: &str = "loop";
+
+    pub const BREAK: &str = "break";
+    pub const CONTINUE: &str = "continue";
+    pub const RETURN: &str = "return";
+
+    pub const TRUE: &str = "true";
+    pub const FALSE: &str = "false";
+    pub const NULL: &str = "null";
+
+    pub const AS: &str = "as";
+    pub const PUB: &str = "pub";
+    pub const ALIAS: &str = "alias";
+
+    pub const ENUM: &str = "enum";
+    pub const UNION: &str = "union";
+    pub const STRUCT: &str = "struct";
+    pub const IMPL: &str = "impl";
+    pub const CONTRACT: &str = "contract";
+
+    pub const USE: &str = "use";
+    pub const UNSAFE: &str = "unsafe";
+
+    pub const ARROW: &str = "->";
+    pub const DARROW: &str = "=>";
+
+    pub const DOT: &str = ".";
+    pub const RANGE: &str = "..";
+    pub const RANGE_INCLUSIVE: &str = "..=";
+
+    pub const COMMA: &str = ",";
+    pub const COLON: &str = ":";
+    pub const DCOLON: &str = "::";
+    pub const SEMICOLON: &str = ";";
+
+    pub const OPEN_PAREN: &str = "(";
+    pub const CLOSE_PAREN: &str = ")";
+    pub const OPEN_BRACE: &str = "{";
+    pub const CLOSE_BRACE: &str = "}";
+    pub const OPEN_BRACKET: &str = "[";
+    pub const CLOSE_BRACKET: &str = "]";
 }
 
 pub type SpannedToken<'a> = Spanned<Token<'a>>;
