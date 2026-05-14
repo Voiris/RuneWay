@@ -74,6 +74,27 @@ pub enum IntSuffix {
     F64
 }
 
+impl IntSuffix {
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "u8" => Some(IntSuffix::U8),
+            "u16" => Some(IntSuffix::U16),
+            "u32" => Some(IntSuffix::U32),
+            "u64" => Some(IntSuffix::U64),
+            "u128" => Some(IntSuffix::U128),
+            "i8" => Some(IntSuffix::I8),
+            "i16" => Some(IntSuffix::I16),
+            "i32" => Some(IntSuffix::I32),
+            "i64" => Some(IntSuffix::I64),
+            "i128" => Some(IntSuffix::I128),
+            "f32" => Some(IntSuffix::F32),
+            "f64" => Some(IntSuffix::F64),
+            _ => None
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FloatSuffix {
     F32,
