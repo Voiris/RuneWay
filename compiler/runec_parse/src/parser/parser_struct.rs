@@ -718,33 +718,19 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         match u128::from_str_radix(digits, radix as u32) {
             Ok(value) => {
                 let suffix = match suffix_opt {
-                    Some(suffix) => Some(match suffix {
-                        "u8"   => IntSuffix::U8,
-                        "u16"  => IntSuffix::U16,
-                        "u32"  => IntSuffix::U32,
-                        "u64"  => IntSuffix::U64,
-                        "u128" => IntSuffix::U128,
-                        "i8"   => IntSuffix::I8,
-                        "i16"  => IntSuffix::I16,
-                        "i32"  => IntSuffix::I32,
-                        "i64"  => IntSuffix::I64,
-                        "i128" => IntSuffix::I128,
-                        "f32"  => IntSuffix::F32,
-                        "f64"  => IntSuffix::F64,
-                        _ => return Err(
-                            InnerParseErr::with_skip(
-                                Diagnostic::error(
-                                    DiagMessage::new(
-                                        super::messages::UNSUPPORTED_SUFFIX,
-                                        &[]
-                                    )
+                    Some(suffix) => Some(IntSuffix::from_str(suffix).ok_or_else(|| {
+                        InnerParseErr::with_skip(
+                            Diagnostic::error(
+                                DiagMessage::new(
+                                    super::messages::UNSUPPORTED_SUFFIX,
+                                    &[]
                                 )
-                                    .add_label(
-                                        DiagLabel::silent_primary(span)
-                                    )
                             )
+                                .add_label(
+                                    DiagLabel::silent_primary(span)
+                                )
                         )
-                    }),
+                    })?),
                     None => None
                 };
                 Ok(PrimitiveValue::Int {
