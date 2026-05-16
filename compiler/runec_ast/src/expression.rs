@@ -101,6 +101,17 @@ pub enum FloatSuffix {
     F64
 }
 
+impl FloatSuffix {
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "f32" => Some(FloatSuffix::F32),
+            "f64" => Some(FloatSuffix::F64),
+            _ => None
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum PrimitiveValue<'src> {
     True,
