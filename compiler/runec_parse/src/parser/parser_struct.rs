@@ -766,29 +766,25 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         match literal.parse::<f64>() {
             Ok(value) => {
                 let suffix = match suffix_opt {
-                    Some(suffix) => Some(match suffix {
-                        "f32"  => FloatSuffix::F32,
-                        "f64"  => FloatSuffix::F64,
-                        _ => return Err(
-                            InnerParseErr::with_skip(
-                                Diagnostic::error(
-                                    DiagMessage::new(
-                                        super::messages::UNSUPPORTED_SUFFIX,
+                    Some(suffix) => Some(FloatSuffix::from_str(suffix).ok_or_else(|| {
+                        InnerParseErr::with_skip(
+                            Diagnostic::error(
+                                DiagMessage::new(
+                                    super::messages::UNSUPPORTED_SUFFIX,
+                                    &[]
+                                )
+                            )
+                                .add_label(
+                                    DiagLabel::silent_primary(span)
+                                )
+                                .set_note(
+                                    DiagNote::new(
+                                        super::messages::SUPPORTED_SUFFIXES_FLOAT,
                                         &[]
                                     )
                                 )
-                                    .add_label(
-                                        DiagLabel::silent_primary(span)
-                                    )
-                                    .set_note(
-                                        DiagNote::new(
-                                            super::messages::SUPPORTED_SUFFIXES_FLOAT,
-                                            &[]
-                                        )
-                                    )
-                            )
                         )
-                    }),
+                    })?),
                     None => None
                 };
                 Ok(PrimitiveValue::Float {
