@@ -5,9 +5,13 @@ use std::path::PathBuf;
 #[cfg(test)]
 use runec_source::source_map::{SourceId, SourceMap};
 
-pub(crate) mod lexer;
+pub mod lexer;
 pub mod parser;
 mod messages;
+
+pub use lexer::lexer_struct::Lexer;
+pub use lexer::token::{Radix, SpannedToken, Token};
+pub use parser::{ParseResult, Parser};
 
 #[cfg(test)]
 fn generate_source(source: &str) -> (SourceMap, SourceId) {
