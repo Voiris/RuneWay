@@ -46,8 +46,8 @@ impl SourceLineStarts {
     pub fn compute_from_source(src: &str) -> SourceLineStarts {
         let mut line_starts = vec![BytePos::from_usize(0)];
 
-        // Find all newline characters and record the start of the next line
-        for pos in src.chars().enumerate().filter_map(|(i, c)| if c == '\n' { Some(i) } else { None }) {
+        // Find all newline characters and record the byte start of the next line.
+        for pos in src.char_indices().filter_map(|(i, c)| if c == '\n' { Some(i) } else { None }) {
             line_starts.push(BytePos::from_usize(pos + 1));
         }
 
@@ -174,5 +174,17 @@ mod tests {
             assert_eq!(source_line_starts.line_search(BytePos::from_usize(20 + i)), (LineIndex::from_usize(2), BytePos::from_usize(20)));
             assert_eq!(source_line_starts.line_search(BytePos::from_usize(30 + i)), (LineIndex::from_usize(3), BytePos::from_usize(30)));
         }
+    }
+
+    #[test]
+    fn compute_line_starts_uses_byte_offsets_for_unicode() {
+        let source = "ф\nx";
+
+        let source_line_starts = SourceLineStarts::compute_from_source(source);
+
+        assert_eq!(
+            source_line_starts.get(),
+            &[BytePos::from_usize(0), BytePos::from_usize(3)]
+        );
     }
 }
