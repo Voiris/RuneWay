@@ -410,7 +410,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         }, Span::new(lo, hi, self.source_id)))
     }
 
-    fn parse_generic_type_annotation(&mut self, ty: SpannedTypeAnnotation<'src>) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
+    fn parse_generic_type_annotation(&mut self, _ty: SpannedTypeAnnotation<'src>) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
         todo!()
     }
 
