@@ -22,8 +22,6 @@ fn act_parse_test() {
     let tokens = lex_source(&source_map, source_id);
     let parse_result = Parser::new(tokens, source_id, &source_map).parse_full();
 
-    println!("{:?}",parse_result.diags);
-
     assert_eq!(parse_result.diags.len(), 0);
 
     let expected_stmts = [
