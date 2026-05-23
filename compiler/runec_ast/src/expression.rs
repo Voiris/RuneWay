@@ -1,9 +1,9 @@
-use std::borrow::Cow;
-use runec_source::span::Spanned;
+use crate::SpannedStr;
 use crate::ast_type::SpannedTypeAnnotation;
 use crate::operators::{BinaryOp, UnaryOp};
-use crate::SpannedStr;
 use crate::statement::{SpannedStmtBlock, StmtBlock};
+use runec_source::span::Spanned;
+use std::borrow::Cow;
 
 #[derive(Debug, PartialEq)]
 pub enum Expr<'src> {
@@ -14,7 +14,7 @@ pub enum Expr<'src> {
     Path(Box<[SpannedStr<'src>]>),
     TypeCast {
         from: Box<SpannedExpr<'src>>,
-        ty: Box<SpannedTypeAnnotation<'src>>
+        ty: Box<SpannedTypeAnnotation<'src>>,
     },
     Call {
         callee: Box<SpannedExpr<'src>>,
@@ -23,23 +23,23 @@ pub enum Expr<'src> {
     Binary {
         lhs: Box<SpannedExpr<'src>>,
         rhs: Box<SpannedExpr<'src>>,
-        op: BinaryOp
+        op: BinaryOp,
     },
     Unary {
         operand: Box<SpannedExpr<'src>>,
-        op: UnaryOp
+        op: UnaryOp,
     },
     Tuple(Box<[SpannedExpr<'src>]>),
     FullyDefinedArray(Box<[SpannedExpr<'src>]>),
     RepeatingArray {
         value: Box<SpannedExpr<'src>>,
-        count: Box<SpannedExpr<'src>>
+        count: Box<SpannedExpr<'src>>,
     },
     Deref(Box<SpannedExpr<'src>>),
     AttributeAccess {
         value: Box<SpannedExpr<'src>>,
         name: SpannedStr<'src>,
-    }
+    },
 }
 
 pub type SpannedExpr<'src> = Spanned<Expr<'src>>;
@@ -71,7 +71,7 @@ pub enum IntSuffix {
     I128,
     // 0f64 - int with float suffix
     F32,
-    F64
+    F64,
 }
 
 impl IntSuffix {
@@ -90,7 +90,7 @@ impl IntSuffix {
             "i128" => Some(IntSuffix::I128),
             "f32" => Some(IntSuffix::F32),
             "f64" => Some(IntSuffix::F64),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -98,7 +98,7 @@ impl IntSuffix {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FloatSuffix {
     F32,
-    F64
+    F64,
 }
 
 impl FloatSuffix {
@@ -107,7 +107,7 @@ impl FloatSuffix {
         match s {
             "f32" => Some(FloatSuffix::F32),
             "f64" => Some(FloatSuffix::F64),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -116,8 +116,14 @@ impl FloatSuffix {
 pub enum PrimitiveValue<'src> {
     True,
     False,
-    Int { value: u128, suffix: Option<IntSuffix> },
-    Float { value: f64, suffix: Option<FloatSuffix> },
+    Int {
+        value: u128,
+        suffix: Option<IntSuffix>,
+    },
+    Float {
+        value: f64,
+        suffix: Option<FloatSuffix>,
+    },
     Char(char),
-    String(Cow<'src, str>)
+    String(Cow<'src, str>),
 }

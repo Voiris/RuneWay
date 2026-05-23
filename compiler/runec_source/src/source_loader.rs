@@ -1,7 +1,7 @@
+use crate::source_map::{Source, SourceLineStarts};
+use memmap2::Mmap;
 use std::fs::File;
 use std::path::PathBuf;
-use memmap2::Mmap;
-use crate::source_map::{Source, SourceLineStarts};
 
 #[derive(Debug)]
 pub enum FileLoaderError {

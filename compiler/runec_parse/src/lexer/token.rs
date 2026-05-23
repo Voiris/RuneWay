@@ -3,10 +3,10 @@ use runec_source::span::Spanned;
 #[derive(PartialEq, Copy, Clone, Debug)]
 #[repr(u8)]
 pub enum Radix {
-    Binary  = 2,    // 0b
-    Octal   = 8,    // 0o
+    Binary = 2, // 0b
+    Octal = 8,  // 0o
     Decimal = 10,
-    Hex     = 16,   // 0x
+    Hex = 16, // 0x
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -83,19 +83,21 @@ pub enum Token<'src> {
     MinusMinus,
 
     /* Literals */
-    IntLiteral {                // >= 0
+    IntLiteral {
+        // >= 0
         digits: &'src str,
         radix: Radix,
         suffix: Option<&'src str>,
     },
-    FloatLiteral {              // >= 0.0
+    FloatLiteral {
+        // >= 0.0
         literal: &'src str,
         suffix: Option<&'src str>,
     },
-    RawStringLiteral(&'src str),  // without escape sequence: r"string\n" or "string"
-    StringLiteral(String),        // with escape sequence: "string\n"
+    RawStringLiteral(&'src str), // without escape sequence: r"string\n" or "string"
+    StringLiteral(String),       // with escape sequence: "string\n"
     Ident(&'src str),
-    CharLiteral(char),  // Simple
+    CharLiteral(char), // Simple
 
     /* Format strings control */
     FormatStringStart,

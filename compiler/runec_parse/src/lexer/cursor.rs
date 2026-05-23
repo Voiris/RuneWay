@@ -1,6 +1,6 @@
+use runec_source::byte_pos::BytePos;
 use std::iter::Peekable;
 use std::str::CharIndices;
-use runec_source::byte_pos::BytePos;
 
 #[derive(Clone, Debug)]
 pub(super) struct Cursor<'src> {
@@ -68,7 +68,7 @@ impl<'src> Cursor<'src> {
         let start = self.pos;
 
         if len == 0 {
-            return Some(&self.source[start..start])
+            return Some(&self.source[start..start]);
         }
 
         for _ in 0..len {
@@ -109,7 +109,7 @@ impl<'src> Cursor<'src> {
     /// or when the end of the input is reached.
     pub fn consume_while<F>(&mut self, predicate: F)
     where
-        F: Fn(char) -> bool
+        F: Fn(char) -> bool,
     {
         while let Some(&char) = self.peek_char() {
             if predicate(char) {
@@ -194,28 +194,28 @@ mod tests {
     #[test]
     fn skip_until_char_test() {
         let mut cursor = Cursor::new("Hello, World! 😀 How aré you?");
-        cursor.skip_until_char(' ');    // "Hello,"
+        cursor.skip_until_char(' '); // "Hello,"
         assert_eq!(cursor.pos().to_usize(), 6);
         cursor.next();
-        cursor.skip_until_char(' ');    // "World!"
+        cursor.skip_until_char(' '); // "World!"
         assert_eq!(cursor.pos().to_usize(), 13);
         cursor.next();
         assert_eq!(cursor.pos().to_usize(), 14);
-        cursor.skip_until_char(' ');    // "😀"
+        cursor.skip_until_char(' '); // "😀"
         assert_eq!(cursor.pos().to_usize(), 18);
         cursor.next();
         assert_eq!(cursor.pos().to_usize(), 19);
-        cursor.skip_until_char(' ');    // "How"
+        cursor.skip_until_char(' '); // "How"
         assert_eq!(cursor.pos().to_usize(), 22);
         cursor.next();
         assert_eq!(cursor.pos().to_usize(), 23);
-        cursor.skip_until_char(' ');    // "aré"
+        cursor.skip_until_char(' '); // "aré"
         assert_eq!(cursor.pos().to_usize(), 27);
         cursor.next();
         assert_eq!(cursor.pos().to_usize(), 28);
-        cursor.skip_until_char(' ');    // "you?"
+        cursor.skip_until_char(' '); // "you?"
         assert_eq!(cursor.pos().to_usize(), 32);
-        cursor.skip_until_char(' ');    // "" - empty
+        cursor.skip_until_char(' '); // "" - empty
         assert_eq!(cursor.pos().to_usize(), 32);
     }
 

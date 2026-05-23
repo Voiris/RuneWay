@@ -1,7 +1,7 @@
-use runec_source::span::Spanned;
+use crate::SpannedStr;
 use crate::ast_type::SpannedTypeAnnotation;
 use crate::expression::SpannedExpr;
-use crate::SpannedStr;
+use runec_source::span::Spanned;
 
 #[derive(Debug, PartialEq)]
 pub enum Stmt<'src> {
@@ -27,7 +27,7 @@ pub enum Stmt<'src> {
         args: Box<[FunctionArg<'src>]>,
         ret_ty: SpannedTypeAnnotation<'src>,
         body: SpannedStmtBlock<'src>,
-    }
+    },
 }
 
 pub type StmtBlock<'src> = Box<[SpannedStmt<'src>]>;

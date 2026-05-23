@@ -47,7 +47,10 @@ impl SourceLineStarts {
         let mut line_starts = vec![BytePos::from_usize(0)];
 
         // Find all newline characters and record the byte start of the next line.
-        for pos in src.char_indices().filter_map(|(i, c)| if c == '\n' { Some(i) } else { None }) {
+        for pos in src
+            .char_indices()
+            .filter_map(|(i, c)| if c == '\n' { Some(i) } else { None })
+        {
             line_starts.push(BytePos::from_usize(pos + 1));
         }
 
@@ -90,7 +93,7 @@ pub enum Source {
         path: PathBuf,
         mmap: Mmap,
         lines: SourceLineStarts,
-    }
+    },
 }
 
 impl Source {
@@ -98,9 +101,7 @@ impl Source {
 
     pub fn src(&self) -> &str {
         match self {
-            Source::File { mmap, .. } => {
-                unsafe { str::from_utf8_unchecked(mmap) }
-            }
+            Source::File { mmap, .. } => unsafe { str::from_utf8_unchecked(mmap) },
         }
     }
 
@@ -151,28 +152,50 @@ mod tests {
 
     #[test]
     fn test_line_search() {
-        let source_line_starts = SourceLineStarts::new(
-            vec![
-                BytePos::from_usize(0),
-                BytePos::from_usize(10),
-                BytePos::from_usize(20),
-                BytePos::from_usize(30)
-            ]
-        );
+        let source_line_starts = SourceLineStarts::new(vec![
+            BytePos::from_usize(0),
+            BytePos::from_usize(10),
+            BytePos::from_usize(20),
+            BytePos::from_usize(30),
+        ]);
 
         // Equal search
-        assert_eq!(source_line_starts.line_search(BytePos::from_usize(0)), (LineIndex::from_usize(0), BytePos::from_usize(0)));
-        assert_eq!(source_line_starts.line_search(BytePos::from_usize(10)), (LineIndex::from_usize(1), BytePos::from_usize(10)));
-        assert_eq!(source_line_starts.line_search(BytePos::from_usize(20)), (LineIndex::from_usize(2), BytePos::from_usize(20)));
-        assert_eq!(source_line_starts.line_search(BytePos::from_usize(30)), (LineIndex::from_usize(3), BytePos::from_usize(30)));
+        assert_eq!(
+            source_line_starts.line_search(BytePos::from_usize(0)),
+            (LineIndex::from_usize(0), BytePos::from_usize(0))
+        );
+        assert_eq!(
+            source_line_starts.line_search(BytePos::from_usize(10)),
+            (LineIndex::from_usize(1), BytePos::from_usize(10))
+        );
+        assert_eq!(
+            source_line_starts.line_search(BytePos::from_usize(20)),
+            (LineIndex::from_usize(2), BytePos::from_usize(20))
+        );
+        assert_eq!(
+            source_line_starts.line_search(BytePos::from_usize(30)),
+            (LineIndex::from_usize(3), BytePos::from_usize(30))
+        );
 
         // Greater search
         // Check positions between lines
         for i in 1..10 {
-            assert_eq!(source_line_starts.line_search(BytePos::from_usize(i)), (LineIndex::from_usize(0), BytePos::from_usize(0)));
-            assert_eq!(source_line_starts.line_search(BytePos::from_usize(10 + i)), (LineIndex::from_usize(1), BytePos::from_usize(10)));
-            assert_eq!(source_line_starts.line_search(BytePos::from_usize(20 + i)), (LineIndex::from_usize(2), BytePos::from_usize(20)));
-            assert_eq!(source_line_starts.line_search(BytePos::from_usize(30 + i)), (LineIndex::from_usize(3), BytePos::from_usize(30)));
+            assert_eq!(
+                source_line_starts.line_search(BytePos::from_usize(i)),
+                (LineIndex::from_usize(0), BytePos::from_usize(0))
+            );
+            assert_eq!(
+                source_line_starts.line_search(BytePos::from_usize(10 + i)),
+                (LineIndex::from_usize(1), BytePos::from_usize(10))
+            );
+            assert_eq!(
+                source_line_starts.line_search(BytePos::from_usize(20 + i)),
+                (LineIndex::from_usize(2), BytePos::from_usize(20))
+            );
+            assert_eq!(
+                source_line_starts.line_search(BytePos::from_usize(30 + i)),
+                (LineIndex::from_usize(3), BytePos::from_usize(30))
+            );
         }
     }
 

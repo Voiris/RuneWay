@@ -26,11 +26,16 @@ impl DiagLabelKind {
 pub struct DiagLabel {
     pub message: Option<String>,
     pub kind: DiagLabelKind,
-    pub span: Span
+    pub span: Span,
 }
 
 impl DiagLabel {
-    pub fn new(message: Option<&'static str>, args: &[(&str, &str)], kind: DiagLabelKind, span: Span) -> Self {
+    pub fn new(
+        message: Option<&'static str>,
+        args: &[(&str, &str)],
+        kind: DiagLabelKind,
+        span: Span,
+    ) -> Self {
         Self {
             message: message.map(|m| runec_utils::common::message_format::message_format(m, args)),
             kind,
@@ -73,10 +78,10 @@ impl DiagNote {
 }
 
 #[derive(Debug)]
-pub struct DiagHelp<> {
+pub struct DiagHelp {
     pub message: String,
 }
 
-impl<> DiagHelp<> {
+impl DiagHelp {
     impl_message_new!();
 }

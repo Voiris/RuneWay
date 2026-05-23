@@ -1,6 +1,6 @@
-pub mod token;
 mod cursor;
 pub mod lexer_struct;
+mod messages;
 #[cfg(test)]
 mod tests;
-mod messages;
+pub mod token;

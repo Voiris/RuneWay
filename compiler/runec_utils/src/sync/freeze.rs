@@ -50,14 +50,12 @@ impl<T> FreezeLock<T> {
         if self.frozen.load(Ordering::Acquire) {
             None
         } else {
-            Some(
-                FreezeWriteGuard {
-                    _lock_guard,
-                    data: unsafe { NonNull::new_unchecked(self.data.get()) },
-                    frozen: &self.frozen,
-                    marker: PhantomData,
-                }
-            )
+            Some(FreezeWriteGuard {
+                _lock_guard,
+                data: unsafe { NonNull::new_unchecked(self.data.get()) },
+                frozen: &self.frozen,
+                marker: PhantomData,
+            })
         }
     }
 
@@ -103,7 +101,7 @@ pub struct FreezeWriteGuard<'a, T> {
     _lock_guard: RwLockWriteGuard<'a, ()>,
     frozen: &'a AtomicBool,
     data: NonNull<T>,
-    marker: PhantomData<&'a mut T>
+    marker: PhantomData<&'a mut T>,
 }
 
 impl<'a, T: 'a> Deref for FreezeWriteGuard<'a, T> {

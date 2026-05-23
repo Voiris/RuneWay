@@ -1,11 +1,15 @@
-use std::path::PathBuf;
 use runec_source::source_loader::FileLoaderError;
 use runec_source::source_map::{Source, SourceLineStarts};
+use std::path::PathBuf;
 
-pub struct MockSourceFileLoader<'src> { pub source: &'src str }
+pub struct MockSourceFileLoader<'src> {
+    pub source: &'src str,
+}
 impl<'src> MockSourceFileLoader<'src> {
     pub fn load(&self, path: PathBuf) -> Result<Source, FileLoaderError> {
-        let mut mmap = memmap2::MmapOptions::new().len(self.source.len()).map_anon()?;
+        let mut mmap = memmap2::MmapOptions::new()
+            .len(self.source.len())
+            .map_anon()?;
 
         mmap[..].copy_from_slice(self.source.as_bytes());
 

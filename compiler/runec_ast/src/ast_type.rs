@@ -1,5 +1,5 @@
-use runec_source::span::Spanned;
 use crate::expression::SpannedExpr;
+use runec_source::span::Spanned;
 
 #[derive(Debug, PartialEq)]
 pub enum TypeAnnotation<'src> {
@@ -8,11 +8,11 @@ pub enum TypeAnnotation<'src> {
     Tuple(Box<[SpannedTypeAnnotation<'src>]>),
     Path {
         from_root: bool,
-        path: Box<[SpannedTypeAnnotation<'src>]>
+        path: Box<[SpannedTypeAnnotation<'src>]>,
     },
     Array {
         item: Box<SpannedTypeAnnotation<'src>>,
-        length: SpannedExpr<'src>
+        length: SpannedExpr<'src>,
     },
     Generic {
         ty: Box<SpannedTypeAnnotation<'src>>,

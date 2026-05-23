@@ -1,12 +1,11 @@
-pub enum LintAdm {      // full name: LintAdmissibility
+pub enum LintAdm {
+    // full name: LintAdmissibility
     Allow,
     Deny,
     Warn,
 }
 
-const KNOWN_LINTS: &[&str] = &[
-    "unknown_lint"
-];
+const KNOWN_LINTS: &[&str] = &["unknown_lint"];
 
 /// Returns `true` if the given string contains in KNOWN_LINTS.
 pub fn is_lint_known(s: &str) -> bool {

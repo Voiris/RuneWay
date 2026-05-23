@@ -1,7 +1,7 @@
-use std::fmt::{Display, Formatter};
 use crate::labels::{DiagHelp, DiagLabel, DiagNote};
 use crate::lint::Lint;
 use crate::message::DiagMessage;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DiagType {
