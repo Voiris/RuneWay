@@ -81,9 +81,8 @@ impl<'diag> Diagnostic<'diag> {
                 };
                 let line_end = line_start
                     + source_text[line_start..]
-                        .chars()
-                        .position(|c| c == '\n')
-                        .unwrap_or(source_text.len());
+                        .find('\n')
+                        .unwrap_or_else(|| source_text.len() - line_start);
                 let line_text = &source_text[line_start..line_end];
                 let text_marker_offset = line_text
                     .chars()
@@ -202,5 +201,41 @@ mod tests {
                    \x1b[0m\n\x1b[1;96m4 |\x1b[0m \t987654321\n  \x1b[1;96m|        \x1b[1;93m---\x1b[0m\n  \x1b[96m= \
                    \x1b[97mhelp\x1b[0m: void message\n  \x1b[96m= \x1b[97mnote\x1b[0m: void message"
         );
+    }
+
+    #[test]
+    fn emit_handles_unicode_before_newline() {
+        let mut source_map = SourceMap::new();
+        let path = PathBuf::from("/home/user/main.rnw");
+        let source = "э\nx";
+        let mock = MockSourceFileLoader { source };
+        let source_id = source_map.add_file(mock.load(path).unwrap());
+        let diagnostic =
+            Diagnostic::error(DiagMessage::new("void", &[])).add_label(DiagLabel::silent_primary(
+                Span::new(BytePos::from_usize(0), BytePos::from_usize(2), source_id),
+            ));
+
+        let mut buffer = String::new();
+        diagnostic.emit(&source_map, &mut buffer);
+
+        assert!(buffer.contains("э"));
+    }
+
+    #[test]
+    fn emit_handles_last_line_without_trailing_newline() {
+        let mut source_map = SourceMap::new();
+        let path = PathBuf::from("/home/user/main.rnw");
+        let source = "first\nsecond";
+        let mock = MockSourceFileLoader { source };
+        let source_id = source_map.add_file(mock.load(path).unwrap());
+        let diagnostic =
+            Diagnostic::error(DiagMessage::new("void", &[])).add_label(DiagLabel::silent_primary(
+                Span::new(BytePos::from_usize(6), BytePos::from_usize(12), source_id),
+            ));
+
+        let mut buffer = String::new();
+        diagnostic.emit(&source_map, &mut buffer);
+
+        assert!(buffer.contains("second"));
     }
 }
