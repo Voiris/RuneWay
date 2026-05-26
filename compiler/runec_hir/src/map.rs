@@ -27,7 +27,8 @@ impl<'src> HirMap<'src> {
     pub fn push(&mut self, item: HirItem<'src>) -> HirId {
         let id = HirId::from_usize(self.items.len());
         debug_assert_eq!(
-            id, item.id(),
+            id,
+            item.id(),
             "HirItem.id does not match its position in HirMap"
         );
         self.items.push(item);
@@ -43,18 +44,22 @@ impl<'src> HirMap<'src> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (HirId, &HirItem<'src>)> {
-        self.items.iter()
+        self.items
+            .iter()
             .enumerate()
             .map(|(i, it)| (HirId::from_usize(i), it))
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (HirId, &mut HirItem<'src>)> {
-        self.items.iter_mut()
+        self.items
+            .iter_mut()
             .enumerate()
             .map(|(i, it)| (HirId::from_usize(i), it))
     }
 }
 
 impl<'src> Default for HirMap<'src> {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
