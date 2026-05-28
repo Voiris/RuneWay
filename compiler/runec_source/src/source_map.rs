@@ -81,9 +81,8 @@ impl SourceLineStarts {
     /// Returns the index of the last line in the source.
     ///
     /// The result is a 0-based `LineIndex`.
-    /// Note: This returns the total number of lines, not the byte position.
     pub fn last_line_number(&self) -> LineIndex {
-        LineIndex::from_usize(self.0.len())
+        LineIndex::from_usize(self.0.len() - 1)
     }
 }
 
@@ -208,6 +207,20 @@ mod tests {
         assert_eq!(
             source_line_starts.get(),
             &[BytePos::from_usize(0), BytePos::from_usize(3)]
+        );
+    }
+
+    #[test]
+    fn last_line_number_is_zero_based() {
+        let source_line_starts = SourceLineStarts::new(vec![
+            BytePos::from_usize(0),
+            BytePos::from_usize(10),
+            BytePos::from_usize(20),
+        ]);
+
+        assert_eq!(
+            source_line_starts.last_line_number(),
+            LineIndex::from_usize(2)
         );
     }
 }
