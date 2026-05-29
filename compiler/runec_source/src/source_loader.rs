@@ -23,8 +23,7 @@ impl From<std::str::Utf8Error> for FileLoaderError {
 
 pub struct SourceFileLoader;
 impl SourceFileLoader {
-    // Errors: std::io::Error, std::str::Utf8Error
-    fn load(&self, path: PathBuf) -> Result<Source, FileLoaderError> {
+    pub fn load(&self, path: PathBuf) -> Result<Source, FileLoaderError> {
         let file = File::open(&path)?;
         let mmap = unsafe { Mmap::map(&file)? };
         let source = str::from_utf8(&mmap)?;
