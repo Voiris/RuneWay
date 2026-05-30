@@ -48,11 +48,6 @@ impl<'src> Cursor<'src> {
         self.next()
     }
 
-    /// Returns the `n`-th character ahead, advancing the cursor.
-    pub fn nth_char(&mut self, n: usize) -> Option<char> {
-        self.nth(n).map(|(_, c)| c)
-    }
-
     /// Returns the next character, advancing the cursor.
     pub fn next_char(&mut self) -> Option<char> {
         self.next().map(|(_, c)| c)
@@ -127,7 +122,7 @@ impl<'src> Cursor<'src> {
 
     /// Returns the `n`-th character ahead without advancing the cursor.
     pub fn lookahead_char(&mut self, n: usize) -> Option<char> {
-        self.clone().nth_char(n)
+        self.lookahead(n).map(|(_, char)| char)
     }
 }
 
