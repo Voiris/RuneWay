@@ -211,6 +211,31 @@ mod tests {
     }
 
     #[test]
+    fn compute_line_starts_handles_empty_source() {
+        let source_line_starts = SourceLineStarts::compute_from_source("");
+
+        assert_eq!(source_line_starts.get(), &[BytePos::from_usize(0)]);
+        assert_eq!(
+            source_line_starts.last_line_number(),
+            LineIndex::from_usize(0)
+        );
+    }
+
+    #[test]
+    fn compute_line_starts_tracks_trailing_newline() {
+        let source_line_starts = SourceLineStarts::compute_from_source("x\n");
+
+        assert_eq!(
+            source_line_starts.get(),
+            &[BytePos::from_usize(0), BytePos::from_usize(2)]
+        );
+        assert_eq!(
+            source_line_starts.last_line_number(),
+            LineIndex::from_usize(1)
+        );
+    }
+
+    #[test]
     fn last_line_number_is_zero_based() {
         let source_line_starts = SourceLineStarts::new(vec![
             BytePos::from_usize(0),
