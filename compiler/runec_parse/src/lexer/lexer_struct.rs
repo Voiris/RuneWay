@@ -795,6 +795,14 @@ impl<'src, 'diag> Lexer<'src> {
                         '=' => Token::PercentEq
                     )
                 }
+                '!' => {
+                    handle_double_char_token!(
+                        *; self; Token::Bang;
+                        '=' => Token::Ne
+                    )
+                }
+                '~' => self.span_one_char(Token::Tilde),
+                '?' => self.span_one_char(Token::Question),
                 '^' => {
                     handle_double_char_token!(
                         *; self; Token::Caret;
@@ -804,13 +812,15 @@ impl<'src, 'diag> Lexer<'src> {
                 '&' => {
                     handle_double_char_token!(
                         *; self; Token::And;
-                        '=' => Token::AndEq
+                        '=' => Token::AndEq,
+                        '&' => Token::AndAnd
                     )
                 }
                 '|' => {
                     handle_double_char_token!(
                         *; self; Token::Or;
-                        '=' => Token::OrEq
+                        '=' => Token::OrEq,
+                        '|' => Token::OrOr
                     )
                 }
                 '<' => {
