@@ -561,6 +561,26 @@ fn multichar_tokens_test() {
 }
 
 #[test]
+fn logical_operator_tokens_test() {
+    let source = "! != ~ ? && ||";
+    let (source_map, source_id) = generate_source(source);
+
+    let expected_tokens = [
+        SpannedToken::new(Token::Bang, span(0, 1, source_id)),
+        SpannedToken::new(Token::Ne, span(2, 4, source_id)),
+        SpannedToken::new(Token::Tilde, span(5, 6, source_id)),
+        SpannedToken::new(Token::Question, span(7, 8, source_id)),
+        SpannedToken::new(Token::AndAnd, span(9, 11, source_id)),
+        SpannedToken::new(Token::OrOr, span(12, 14, source_id)),
+    ];
+
+    let lexer = Lexer::new(source_id, &source_map);
+    let real_tokens = lexer.lex_full().unwrap();
+
+    assert_eq!(real_tokens, expected_tokens);
+}
+
+#[test]
 fn char_literal_test() {
     let source = r"'a' '\x30' '\u{30}' '\n' '\''";
     let (source_map, source_id) = generate_source(source);
