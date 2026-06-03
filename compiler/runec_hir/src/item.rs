@@ -1,8 +1,8 @@
-use runec_ast::SpannedStr;
-use runec_source::span::Span;
 use crate::ids::HirId;
 use crate::statement::HirBlock;
 use crate::ty::SpannedHirType;
+use runec_ast::SpannedStr;
+use runec_source::span::Span;
 
 #[derive(Debug, PartialEq)]
 pub enum HirItem<'src> {
@@ -14,24 +14,24 @@ pub enum HirItem<'src> {
 impl<'src> HirItem<'src> {
     pub fn id(&self) -> HirId {
         match self {
-            HirItem::Struct(s)   => s.id,
-            HirItem::Enum(e)     => e.id,
+            HirItem::Struct(s) => s.id,
+            HirItem::Enum(e) => e.id,
             HirItem::Function(f) => f.id,
         }
     }
 
     pub fn name(&self) -> &SpannedStr<'src> {
         match self {
-            HirItem::Struct(s)   => &s.name,
-            HirItem::Enum(e)     => &e.name,
+            HirItem::Struct(s) => &s.name,
+            HirItem::Enum(e) => &e.name,
             HirItem::Function(f) => &f.name,
         }
     }
 
     pub fn span(&self) -> Span {
         match self {
-            HirItem::Struct(s)   => s.span,
-            HirItem::Enum(e)     => e.span,
+            HirItem::Struct(s) => s.span,
+            HirItem::Enum(e) => e.span,
             HirItem::Function(f) => f.span,
         }
     }
