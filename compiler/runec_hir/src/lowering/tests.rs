@@ -2,17 +2,17 @@ use std::borrow::Cow;
 
 use runec_ast::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
 use runec_ast::expression::{Expr, PrimitiveValue, SpannedExpr};
-use runec_ast::statement::{DestructPattern, FunctionArg, Stmt, SpannedStmt, SpannedStmtBlock};
+use runec_ast::statement::{DestructPattern, FunctionArg, SpannedStmt, SpannedStmtBlock, Stmt};
 use runec_source::byte_pos::BytePos;
 use runec_source::source_map::SourceId;
 use runec_source::span::{Span, Spanned};
 
+use super::HirLowerer;
 use crate::expression::{HirExpr, HirLiteral};
 use crate::ids::HirId;
 use crate::item::HirItem;
 use crate::statement::HirStmt;
 use crate::ty::HirType;
-use super::HirLowerer;
 
 const SRC: SourceId = SourceId::from_usize(0);
 
@@ -20,20 +20,33 @@ fn sp(lo: usize, hi: usize) -> Span {
     Span::new(BytePos::from_usize(lo), BytePos::from_usize(hi), SRC)
 }
 
-fn dummy() -> Span { sp(0, 0) }
+fn dummy() -> Span {
+    sp(0, 0)
+}
 
-fn s<T>(node: T) -> Spanned<T> { Spanned::new(node, dummy()) }
+fn s<T>(node: T) -> Spanned<T> {
+    Spanned::new(node, dummy())
+}
 
 fn empty_block() -> SpannedStmtBlock<'static> {
     s(Box::new([]) as Box<[SpannedStmt<'static>]>)
 }
 
-fn unit_ty() -> SpannedTypeAnnotation<'static> { s(TypeAnnotation::Unit) }
-fn ident_ty(name: &str) -> SpannedTypeAnnotation<'_> { s(TypeAnnotation::Ident(name)) }
+fn unit_ty() -> SpannedTypeAnnotation<'static> {
+    s(TypeAnnotation::Unit)
+}
+fn ident_ty(name: &str) -> SpannedTypeAnnotation<'_> {
+    s(TypeAnnotation::Ident(name))
+}
 
-fn ident_expr(name: &str) -> SpannedExpr<'_> { s(Expr::Ident(name)) }
+fn ident_expr(name: &str) -> SpannedExpr<'_> {
+    s(Expr::Ident(name))
+}
 fn int_expr(v: u128) -> SpannedExpr<'static> {
-    s(Expr::Primitive(PrimitiveValue::Int { value: v, suffix: None }))
+    s(Expr::Primitive(PrimitiveValue::Int {
+        value: v,
+        suffix: None,
+    }))
 }
 
 fn fn_stmt<'a>(
@@ -42,7 +55,12 @@ fn fn_stmt<'a>(
     ret_ty: SpannedTypeAnnotation<'a>,
     body: SpannedStmtBlock<'a>,
 ) -> SpannedStmt<'a> {
-    s(Stmt::DefineFunction { ident: s(name), args, ret_ty, body })
+    s(Stmt::DefineFunction {
+        ident: s(name),
+        args,
+        ret_ty,
+        body,
+    })
 }
 
 #[test]
@@ -67,29 +85,50 @@ fn lower_empty_fn() {
 #[test]
 fn lower_fn_with_params() {
     let args = Box::new([
-        FunctionArg { ident: s("x"), ty: ident_ty("i32") },
-        FunctionArg { ident: s("y"), ty: ident_ty("bool") },
+        FunctionArg {
+            ident: s("x"),
+            ty: ident_ty("i32"),
+        },
+        FunctionArg {
+            ident: s("y"),
+            ty: ident_ty("bool"),
+        },
     ]);
     let stmts = [fn_stmt("add", args, unit_ty(), empty_block())];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     assert_eq!(f.params.len(), 2);
     assert_eq!(f.params[0].name.node, "x");
     assert_eq!(f.params[1].name.node, "y");
-    let HirType::Unresolved(ref p) = f.params[0].ty.node else { panic!() };
+    let HirType::Unresolved(ref p) = f.params[0].ty.node else {
+        panic!()
+    };
     assert_eq!(p.segments[0].name.node, "i32");
-    let HirType::Unresolved(ref p) = f.params[1].ty.node else { panic!() };
+    let HirType::Unresolved(ref p) = f.params[1].ty.node else {
+        panic!()
+    };
     assert_eq!(p.segments[0].name.node, "bool");
 }
 
 #[test]
 fn lower_fn_named_ret_type() {
-    let stmts = [fn_stmt("f", Box::new([]), ident_ty("MyType"), empty_block())];
+    let stmts = [fn_stmt(
+        "f",
+        Box::new([]),
+        ident_ty("MyType"),
+        empty_block(),
+    )];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
-    let HirType::Unresolved(ref path) = f.ret_ty.node else { panic!("expected Unresolved") };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
+    let HirType::Unresolved(ref path) = f.ret_ty.node else {
+        panic!("expected Unresolved")
+    };
     assert_eq!(path.segments.len(), 1);
     assert_eq!(path.segments[0].name.node, "MyType");
     assert!(!path.from_root);
@@ -101,25 +140,36 @@ fn lower_fn_int_literal_tail() {
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     assert_eq!(f.body.stmts.len(), 0);
-    let tail = f.body.tail.as_ref().expect("block should have a tail expression");
+    let tail = f
+        .body
+        .tail
+        .as_ref()
+        .expect("block should have a tail expression");
     assert!(matches!(
         tail.node,
-        HirExpr::Literal(HirLiteral::Int { value: 42, suffix: None })
+        HirExpr::Literal(HirLiteral::Int {
+            value: 42,
+            suffix: None
+        })
     ));
 }
 
 #[test]
 fn lower_fn_bool_literals() {
     for (prim, expected) in [
-        (PrimitiveValue::True,  HirLiteral::Bool(true)),
+        (PrimitiveValue::True, HirLiteral::Bool(true)),
         (PrimitiveValue::False, HirLiteral::Bool(false)),
     ] {
         let body = s(Box::new([s(Stmt::TailExpr(s(Expr::Primitive(prim))))]) as Box<[_]>);
         let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
         let result = HirLowerer::new().lower(&stmts);
-        let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+        let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+            panic!()
+        };
         let tail = f.body.tail.as_ref().expect("should have tail");
         assert_eq!(tail.node, HirExpr::Literal(expected));
     }
@@ -127,26 +177,32 @@ fn lower_fn_bool_literals() {
 
 #[test]
 fn lower_fn_char_tail() {
-    let body = s(Box::new([
-        s(Stmt::TailExpr(s(Expr::Primitive(PrimitiveValue::Char('z')))))
-    ]) as Box<[_]>);
+    let body = s(
+        Box::new([s(Stmt::TailExpr(s(Expr::Primitive(PrimitiveValue::Char(
+            'z',
+        )))))]) as Box<[_]>,
+    );
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     let tail = f.body.tail.as_ref().expect("should have tail");
     assert!(matches!(tail.node, HirExpr::Literal(HirLiteral::Char('z'))));
 }
 
 #[test]
 fn lower_fn_string_tail() {
-    let body = s(Box::new([
-        s(Stmt::TailExpr(s(Expr::Primitive(PrimitiveValue::String(Cow::Borrowed("hello"))))))
-    ]) as Box<[_]>);
+    let body = s(Box::new([s(Stmt::TailExpr(s(Expr::Primitive(
+        PrimitiveValue::String(Cow::Borrowed("hello")),
+    ))))]) as Box<[_]>);
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     let tail = f.body.tail.as_ref().expect("should have tail");
     let HirExpr::Literal(HirLiteral::Str(ref s)) = tail.node else {
         panic!("expected Str literal");
@@ -160,11 +216,18 @@ fn lower_semi_expr_becomes_stmt() {
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     assert_eq!(f.body.stmts.len(), 1);
     assert!(f.body.tail.is_none());
-    let HirStmt::Expr(ref e) = f.body.stmts[0] else { panic!("expected HirStmt::Expr") };
-    assert!(matches!(e.node, HirExpr::Literal(HirLiteral::Int { value: 7, .. })));
+    let HirStmt::Expr(ref e) = f.body.stmts[0] else {
+        panic!("expected HirStmt::Expr")
+    };
+    assert!(matches!(
+        e.node,
+        HirExpr::Literal(HirLiteral::Int { value: 7, .. })
+    ));
 }
 
 #[test]
@@ -176,7 +239,9 @@ fn lower_tail_expr_not_last_becomes_stmt() {
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     assert_eq!(f.body.stmts.len(), 2);
     assert!(f.body.tail.is_none());
 }
@@ -192,16 +257,30 @@ fn lower_let_stmt() {
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     assert_eq!(f.body.stmts.len(), 1);
-    let HirStmt::Let { name, is_mutable, ty, init, .. } = &f.body.stmts[0] else {
+    let HirStmt::Let {
+        local,
+        name,
+        is_mutable,
+        ty,
+        init,
+        ..
+    } = &f.body.stmts[0]
+    else {
         panic!("expected HirStmt::Let");
     };
+    assert!(local.is_none());
     assert_eq!(name.node, "x");
     assert!(!is_mutable);
     assert!(ty.is_some());
     let init_expr = init.as_ref().expect("should have init");
-    assert!(matches!(init_expr.node, HirExpr::Literal(HirLiteral::Int { value: 10, .. })));
+    assert!(matches!(
+        init_expr.node,
+        HirExpr::Literal(HirLiteral::Int { value: 10, .. })
+    ));
 }
 
 #[test]
@@ -215,8 +294,17 @@ fn lower_let_mut_no_ty_no_init() {
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
-    let HirStmt::Let { name, is_mutable, ty, init, .. } = &f.body.stmts[0] else {
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
+    let HirStmt::Let {
+        name,
+        is_mutable,
+        ty,
+        init,
+        ..
+    } = &f.body.stmts[0]
+    else {
         panic!("expected HirStmt::Let");
     };
     assert_eq!(name.node, "y");
@@ -231,9 +319,13 @@ fn lower_ident_expr_becomes_single_segment_path() {
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     let tail = f.body.tail.as_ref().expect("should have tail");
-    let HirExpr::Path(ref path) = tail.node else { panic!("expected Path") };
+    let HirExpr::Path(ref path) = tail.node else {
+        panic!("expected Path")
+    };
     assert!(!path.from_root);
     assert_eq!(path.segments.len(), 1);
     assert_eq!(path.segments[0].name.node, "foo");
@@ -247,9 +339,13 @@ fn lower_path_expr_preserves_segments() {
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     let tail = f.body.tail.as_ref().expect("should have tail");
-    let HirExpr::Path(ref path) = tail.node else { panic!("expected Path") };
+    let HirExpr::Path(ref path) = tail.node else {
+        panic!("expected Path")
+    };
     assert_eq!(path.segments.len(), 3);
     assert_eq!(path.segments[0].name.node, "a");
     assert_eq!(path.segments[1].name.node, "b");
@@ -266,23 +362,44 @@ fn lower_call_expr() {
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     let tail = f.body.tail.as_ref().expect("should have tail");
-    let HirExpr::Call { ref callee, ref args } = tail.node else { panic!("expected Call") };
+    let HirExpr::Call {
+        ref callee,
+        ref args,
+    } = tail.node
+    else {
+        panic!("expected Call")
+    };
     assert!(matches!(callee.node, HirExpr::Path(_)));
     assert_eq!(args.len(), 2);
-    assert!(matches!(args[0].node, HirExpr::Literal(HirLiteral::Int { value: 1, .. })));
-    assert!(matches!(args[1].node, HirExpr::Literal(HirLiteral::Int { value: 2, .. })));
+    assert!(matches!(
+        args[0].node,
+        HirExpr::Literal(HirLiteral::Int { value: 1, .. })
+    ));
+    assert!(matches!(
+        args[1].node,
+        HirExpr::Literal(HirLiteral::Int { value: 2, .. })
+    ));
 }
 
 #[test]
 fn lower_type_tuple() {
-    let tuple_ty = s(TypeAnnotation::Tuple(Box::new([ident_ty("i32"), unit_ty()])));
+    let tuple_ty = s(TypeAnnotation::Tuple(Box::new([
+        ident_ty("i32"),
+        unit_ty(),
+    ])));
     let stmts = [fn_stmt("f", Box::new([]), tuple_ty, empty_block())];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
-    let HirType::Tuple(ref elems) = f.ret_ty.node else { panic!("expected Tuple") };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
+    let HirType::Tuple(ref elems) = f.ret_ty.node else {
+        panic!("expected Tuple")
+    };
     assert_eq!(elems.len(), 2);
     assert!(matches!(elems[0].node, HirType::Unresolved(_)));
     assert!(matches!(elems[1].node, HirType::Unit));
@@ -297,10 +414,17 @@ fn lower_type_array() {
     let stmts = [fn_stmt("f", Box::new([]), arr_ty, empty_block())];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
-    let HirType::Array { ref elem, ref len } = f.ret_ty.node else { panic!("expected Array") };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
+    let HirType::Array { ref elem, ref len } = f.ret_ty.node else {
+        panic!("expected Array")
+    };
     assert!(matches!(elem.node, HirType::Unresolved(_)));
-    assert!(matches!(len.node, HirExpr::Literal(HirLiteral::Int { value: 16, .. })));
+    assert!(matches!(
+        len.node,
+        HirExpr::Literal(HirLiteral::Int { value: 16, .. })
+    ));
 }
 
 #[test]
@@ -323,14 +447,18 @@ fn lower_top_level_non_fn_stmts_ignored() {
 #[test]
 fn lower_multiple_fns_get_distinct_ids() {
     let stmts = [
-        fn_stmt("first",  Box::new([]), unit_ty(), empty_block()),
+        fn_stmt("first", Box::new([]), unit_ty(), empty_block()),
         fn_stmt("second", Box::new([]), unit_ty(), empty_block()),
     ];
     let result = HirLowerer::new().lower(&stmts);
 
     assert_eq!(result.map.len(), 2);
-    let HirItem::Function(f0) = result.map.get(HirId::from_usize(0)) else { panic!() };
-    let HirItem::Function(f1) = result.map.get(HirId::from_usize(1)) else { panic!() };
+    let HirItem::Function(f0) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
+    let HirItem::Function(f1) = result.map.get(HirId::from_usize(1)) else {
+        panic!()
+    };
     assert_eq!(f0.id, HirId::from_usize(0));
     assert_eq!(f1.id, HirId::from_usize(1));
     assert_eq!(f0.name.node, "first");
@@ -344,9 +472,19 @@ fn lower_nested_block_expr() {
     let stmts = [fn_stmt("f", Box::new([]), unit_ty(), body)];
     let result = HirLowerer::new().lower(&stmts);
 
-    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else { panic!() };
+    let HirItem::Function(f) = result.map.get(HirId::from_usize(0)) else {
+        panic!()
+    };
     let tail = f.body.tail.as_ref().expect("outer block should have tail");
-    let HirExpr::Block(ref inner_block) = tail.node else { panic!("expected nested Block") };
-    let inner_tail = inner_block.tail.as_ref().expect("inner block should have tail");
-    assert!(matches!(inner_tail.node, HirExpr::Literal(HirLiteral::Int { value: 99, .. })));
+    let HirExpr::Block(ref inner_block) = tail.node else {
+        panic!("expected nested Block")
+    };
+    let inner_tail = inner_block
+        .tail
+        .as_ref()
+        .expect("inner block should have tail");
+    assert!(matches!(
+        inner_tail.node,
+        HirExpr::Literal(HirLiteral::Int { value: 99, .. })
+    ));
 }

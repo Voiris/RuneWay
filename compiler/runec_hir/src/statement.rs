@@ -1,7 +1,8 @@
+use crate::expression::SpannedHirExpr;
+use crate::ids::HirLocalId;
+use crate::ty::SpannedHirType;
 use runec_ast::SpannedStr;
 use runec_source::span::Span;
-use crate::expression::SpannedHirExpr;
-use crate::ty::SpannedHirType;
 
 #[derive(Debug, PartialEq)]
 pub struct HirBlock<'src> {
@@ -18,6 +19,7 @@ pub enum HirStmt<'src> {
 
     /// `let [mut] name (: T)? (= init)?;`
     Let {
+        local: Option<HirLocalId>,
         name: SpannedStr<'src>,
         is_mutable: bool,
         ty: Option<SpannedHirType<'src>>,

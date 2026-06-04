@@ -19,7 +19,10 @@ pub struct HirLowerResult<'src, 'diag> {
 
 impl<'src, 'diag> HirLowerResult<'src, 'diag> {
     pub fn new() -> Self {
-        Self { map: HirMap::new(), diags: Vec::new() }
+        Self {
+            map: HirMap::new(),
+            diags: Vec::new(),
+        }
     }
 }
 
@@ -29,7 +32,9 @@ pub struct HirLowerer<'src, 'diag> {
 
 impl<'src, 'diag> HirLowerer<'src, 'diag> {
     pub fn new() -> Self {
-        Self { res: HirLowerResult::new() }
+        Self {
+            res: HirLowerResult::new(),
+        }
     }
 
     pub fn lower(mut self, stmts: &[SpannedStmt<'src>]) -> HirLowerResult<'src, 'diag> {
@@ -43,16 +48,24 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
 
     fn lower_top_stmt(&mut self, stmt: &SpannedStmt<'src>) {
         match &stmt.node {
-            Stmt::DefineFunction { ident, args, ret_ty, body } => {
+            Stmt::DefineFunction {
+                ident,
+                args,
+                ret_ty,
+                body,
+            } => {
                 let id = self.res.map.reserve_id();
-                let params: Box<[_]> = args.iter().map(|a| {
-                    let ty = self.lower_type(&a.ty);
-                    HirFunctionParam {
-                        name: SpannedStr::new(a.ident.node, a.ident.span),
-                        ty,
-                        span: a.ident.span,
-                    }
-                }).collect();
+                let params: Box<[_]> = args
+                    .iter()
+                    .map(|a| {
+                        let ty = self.lower_type(&a.ty);
+                        HirFunctionParam {
+                            name: SpannedStr::new(a.ident.node, a.ident.span),
+                            ty,
+                            span: a.ident.span,
+                        }
+                    })
+                    .collect();
                 let ret_ty = self.lower_type(ret_ty);
                 let body = self.lower_block(body);
                 self.res.map.push(HirItem::Function(HirFunction {
@@ -87,7 +100,12 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
                 Stmt::SemiExpr(e) | Stmt::TailExpr(e) => {
                     stmts.push(HirStmt::Expr(self.lower_expr(e)));
                 }
-                Stmt::DefineLet { pattern, is_mutable, ty, init_expr } => {
+                Stmt::DefineLet {
+                    pattern,
+                    is_mutable,
+                    ty,
+                    init_expr,
+                } => {
                     let name = match &pattern.node {
                         DestructPattern::Ident(n) => SpannedStr::new(n, pattern.span),
                         DestructPattern::Tuple(_) | DestructPattern::AttributeAccess { .. } => {
@@ -97,6 +115,7 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
                     let ty = ty.as_ref().map(|t| self.lower_type(t));
                     let init = init_expr.as_ref().map(|e| self.lower_expr(e));
                     stmts.push(HirStmt::Let {
+                        local: None,
                         name,
                         is_mutable: *is_mutable,
                         ty,
@@ -104,9 +123,7 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
                         span: s.span,
                     });
                 }
-                Stmt::DefineFunction { .. }
-                | Stmt::DefineConst { .. }
-                | Stmt::Assign { .. } => {
+                Stmt::DefineFunction { .. } | Stmt::DefineConst { .. } | Stmt::Assign { .. } => {
                     todo!("lowering of nested function / const / assign");
                 }
             }
@@ -136,11 +153,14 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
             }),
 
             Expr::Path(segments) => {
-                let segments: Box<[_]> = segments.iter().map(|s| HirPathSegment {
-                    name: SpannedStr::new(s.node, s.span),
-                    generics: None,
-                    span: s.span,
-                }).collect();
+                let segments: Box<[_]> = segments
+                    .iter()
+                    .map(|s| HirPathSegment {
+                        name: SpannedStr::new(s.node, s.span),
+                        generics: None,
+                        span: s.span,
+                    })
+                    .collect();
                 HirExpr::Path(HirPath {
                     from_root: false,
                     segments,
@@ -172,11 +192,15 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
 
     fn lower_literal(p: &PrimitiveValue<'src>) -> HirLiteral<'src> {
         match p {
-            PrimitiveValue::Int { value, suffix } =>
-                HirLiteral::Int { value: *value, suffix: *suffix },
-            PrimitiveValue::Float { value, suffix } =>
-                HirLiteral::Float { value: *value, suffix: *suffix },
-            PrimitiveValue::True  => HirLiteral::Bool(true),
+            PrimitiveValue::Int { value, suffix } => HirLiteral::Int {
+                value: *value,
+                suffix: *suffix,
+            },
+            PrimitiveValue::Float { value, suffix } => HirLiteral::Float {
+                value: *value,
+                suffix: *suffix,
+            },
+            PrimitiveValue::True => HirLiteral::Bool(true),
             PrimitiveValue::False => HirLiteral::Bool(false),
             PrimitiveValue::Char(c) => HirLiteral::Char(*c),
             PrimitiveValue::String(s) => HirLiteral::Str(s.clone()),
@@ -199,8 +223,9 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
                 span: ty.span,
             }),
 
-            TypeAnnotation::Tuple(items) =>
-                HirType::Tuple(items.iter().map(|t| self.lower_type(t)).collect()),
+            TypeAnnotation::Tuple(items) => {
+                HirType::Tuple(items.iter().map(|t| self.lower_type(t)).collect())
+            }
 
             TypeAnnotation::Array { item, length } => HirType::Array {
                 elem: Box::new(self.lower_type(item)),
@@ -216,13 +241,17 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
 }
 
 impl<'src, 'diag> Default for HirLowerer<'src, 'diag> {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<'src, 'diag> Default for HirLowerResult<'src, 'diag> {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
+mod messages;
 #[cfg(test)]
 mod tests;
-mod messages;
