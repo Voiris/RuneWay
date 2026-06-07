@@ -94,6 +94,10 @@ name = "runec"
 version = "0.0.0"
 
 [[package]]
+name = "runec_abi"
+version = "0.1.0"
+
+[[package]]
 name = "runec_ast"
 version = "0.1.0"
 dependencies = [

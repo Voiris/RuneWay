@@ -8,6 +8,7 @@ members = [
     "compiler/runec_ast",
     "compiler/runec_test_utils",
     "compiler/runec_hir",
+    "compiler/runec_abi",
     "compiler/runec_proc_macro_utils",
 ]
 resolver = "3"
