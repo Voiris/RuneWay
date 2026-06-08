@@ -105,6 +105,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "runec_builtins"
+version = "0.1.0"
+dependencies = [
+ "runec_abi",
+]
+
+[[package]]
 name = "runec_errors"
 version = "0.0.0"
 dependencies = [
