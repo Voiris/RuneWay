@@ -1,0 +1,10 @@
+[package]
+name = "runec_runtime"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+runec_abi = { path = "../runec_abi" }
+
+[lib]
+crate-type = ["rlib", "staticlib"]
