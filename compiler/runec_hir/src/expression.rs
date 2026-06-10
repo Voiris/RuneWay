@@ -1,23 +1,21 @@
 use std::borrow::Cow;
+
 use runec_ast::expression::{FloatSuffix, IntSuffix};
 use runec_source::span::Spanned;
-use crate::ids::{HirId, HirLocalId};
+
 use crate::path::HirPath;
+use crate::resolution::Res;
 use crate::statement::HirBlock;
 
 #[derive(Debug, PartialEq)]
 pub enum HirExpr<'src> {
     Literal(HirLiteral<'src>),
 
-    /// Unresolved path — for bare identifiers (`println`) and qualified paths (`a::b::c`).
-    /// The resolver replaces this with `Local(..)`, `FunctionRef(..)`, etc.
+    /// A path that has not been processed by name resolution yet.
     Path(HirPath<'src>),
 
-    /// Local variable or function parameter, filled in by the name resolver.
-    Local(HirLocalId),
-
-    /// Reference to a named function, filled in by the name resolver.
-    FunctionRef(HirId),
+    /// A value namespace path filled in by name resolution.
+    Resolved(Res),
 
     Call {
         callee: Box<SpannedHirExpr<'src>>,
@@ -31,8 +29,14 @@ pub type SpannedHirExpr<'src> = Spanned<HirExpr<'src>>;
 
 #[derive(Debug, PartialEq)]
 pub enum HirLiteral<'src> {
-    Int   { value: u128, suffix: Option<IntSuffix> },
-    Float { value: f64,  suffix: Option<FloatSuffix> },
+    Int {
+        value: u128,
+        suffix: Option<IntSuffix>,
+    },
+    Float {
+        value: f64,
+        suffix: Option<FloatSuffix>,
+    },
     Bool(bool),
     Char(char),
     Str(Cow<'src, str>),

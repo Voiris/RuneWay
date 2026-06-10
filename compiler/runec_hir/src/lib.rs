@@ -1,8 +1,9 @@
-pub mod ids;
-pub mod path;
-pub mod ty;
 pub mod expression;
-pub mod statement;
+pub mod ids;
 pub mod item;
-pub mod map;
 pub mod lowering;
+pub mod map;
+pub mod path;
+pub mod resolution;
+pub mod statement;
+pub mod ty;

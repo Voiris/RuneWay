@@ -129,6 +129,7 @@ name = "runec_hir"
 version = "0.0.0"
 dependencies = [
  "runec_ast",
+ "runec_builtins",
  "runec_errors",
  "runec_source",
  "runec_utils",
