@@ -164,6 +164,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "runec_semantic"
+version = "0.1.0"
+dependencies = [
+ "runec_ast",
+ "runec_builtins",
+ "runec_hir",
+ "runec_source",
+]
+
+[[package]]
 name = "runec_source"
 version = "0.0.0"
 dependencies = [

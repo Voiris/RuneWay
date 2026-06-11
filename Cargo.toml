@@ -11,6 +11,7 @@ members = [
     "compiler/runec_abi",
     "compiler/runec_builtins",
     "compiler/runec_runtime",
+    "compiler/runec_semantic",
     "compiler/runec_proc_macro_utils",
 ]
 resolver = "3"

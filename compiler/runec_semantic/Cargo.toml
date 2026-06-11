@@ -1,0 +1,10 @@
+[package]
+name = "runec_semantic"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+runec_ast    = { path = "../runec_ast" }
+runec_builtins = { path = "../runec_builtins" }
+runec_hir    = { path = "../runec_hir" }
+runec_source = { path = "../runec_source" }
