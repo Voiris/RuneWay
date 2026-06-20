@@ -1,10 +1,13 @@
 use std::borrow::Cow;
 
+use runec_abi::RUNTIME_PRINT;
 use runec_ast::SpannedStr;
+use runec_builtins::PRINT;
 use runec_hir::expression::{HirExpr, HirLiteral};
 use runec_hir::ids::{HirId, HirLocalId};
 use runec_hir::item::{HirFunction, HirItem};
 use runec_hir::map::HirMap;
+use runec_hir::resolution::Res;
 use runec_hir::statement::{HirBlock, HirStmt};
 use runec_hir::ty::HirType;
 use runec_semantic::typeck::TypeChecker;
@@ -14,6 +17,7 @@ use runec_source::span::{Span, Spanned};
 
 use crate::block::{MirRvalue, MirStmt};
 use crate::constant::MirConstant;
+use crate::function::MirCallee;
 use crate::lowering::MirLowerer;
 use crate::operand::MirOperand;
 use crate::ty::MirTy;
@@ -116,5 +120,44 @@ fn lower_let_string_literal_to_local_assignment() {
     assert_eq!(
         *rhs,
         MirRvalue::Use(MirOperand::Constant(crate::MirConstantId::from_usize(0)))
+    );
+}
+
+#[test]
+fn lower_print_builtin_call_to_runtime_call() {
+    let body = HirBlock {
+        stmts: Box::new([HirStmt::Expr(s(HirExpr::Call {
+            callee: Box::new(s(HirExpr::Resolved(Res::Builtin(PRINT)))),
+            args: Box::new([s(HirExpr::Literal(HirLiteral::Str(Cow::Borrowed("hello"))))]),
+        }))]),
+        tail: None,
+        span: dummy(),
+    };
+
+    let mut hir = HirMap::new();
+    hir.push(unit_function_with_body(body));
+
+    let typeck = TypeChecker::new().check(&hir);
+    assert!(typeck.errors.is_empty());
+
+    let result = MirLowerer::new(&typeck.info).lower(&hir);
+
+    assert!(result.errors.is_empty());
+    assert_eq!(result.module.constants[0], MirConstant::Str("hello".into()));
+
+    let function = &result.module.functions[0];
+    assert_eq!(function.locals.len(), 1);
+    assert_eq!(function.locals[0].ty, MirTy::Unit);
+
+    let MirStmt::Assign { dst, rhs } = &function.blocks[0].stmts[0];
+    assert_eq!(dst.local.to_usize(), 0);
+
+    let MirRvalue::Call { callee, args } = rhs else {
+        panic!("expected runtime call");
+    };
+    assert_eq!(*callee, MirCallee::Runtime(RUNTIME_PRINT));
+    assert_eq!(
+        args.as_ref(),
+        [MirOperand::Constant(crate::MirConstantId::from_usize(0))]
     );
 }

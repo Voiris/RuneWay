@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use runec_builtins::{BuiltinLowering, builtin_decl};
 use runec_hir::expression::{HirExpr, HirLiteral, SpannedHirExpr};
 use runec_hir::ids::{HirId, HirLocalId};
 use runec_hir::item::{HirFunction, HirItem};
@@ -10,7 +11,7 @@ use runec_semantic::typeck::{Ty, TypeInfo};
 
 use crate::block::{MirBlock, MirRvalue, MirStmt, MirTerminator};
 use crate::constant::MirConstant;
-use crate::function::MirFunction;
+use crate::function::{MirCallee, MirFunction};
 use crate::ids::MirLocalId;
 use crate::module::MirModule;
 use crate::operand::{MirImmediate, MirOperand, MirPlace};
@@ -42,6 +43,7 @@ pub enum MirLowerErrorKind {
     MissingFunctionSignature,
     MissingLocalId,
     MissingLocalInfo(HirLocalId),
+    UnknownBuiltin(runec_builtins::BuiltinId),
     UnknownLocal(HirLocalId),
     UnsupportedExpr(&'static str),
     UnsupportedType(Ty),
@@ -230,11 +232,57 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
                 );
                 None
             }
-            HirExpr::Call { .. } => {
-                self.push_error(function, MirLowerErrorKind::UnsupportedExpr("call"));
-                None
+            HirExpr::Call { callee, args } => {
+                self.lower_call(function, expr, callee, args, lowered, block, locals)
             }
         }
+    }
+
+    fn lower_call(
+        &mut self,
+        function: HirId,
+        expr: &SpannedHirExpr<'src>,
+        callee: &SpannedHirExpr<'src>,
+        args: &[SpannedHirExpr<'src>],
+        lowered: &mut MirFunction,
+        block: &mut MirBlock,
+        locals: &mut HashMap<HirLocalId, MirLocalId>,
+    ) -> Option<MirOperand> {
+        let callee = match &callee.node {
+            HirExpr::Resolved(Res::Def(id)) => MirCallee::Function(*id),
+            HirExpr::Resolved(Res::Builtin(id)) => {
+                let Some(decl) = builtin_decl(*id) else {
+                    self.push_error(function, MirLowerErrorKind::UnknownBuiltin(*id));
+                    return None;
+                };
+                match decl.lowering {
+                    BuiltinLowering::Runtime(runtime) => MirCallee::Runtime(runtime),
+                }
+            }
+            _ => {
+                self.push_error(function, MirLowerErrorKind::UnsupportedExpr("call callee"));
+                return None;
+            }
+        };
+
+        let args = args
+            .iter()
+            .map(|arg| self.lower_expr(function, arg, lowered, block, locals))
+            .collect::<Option<Box<[_]>>>()?;
+
+        let ty = self.type_info.ty_of_expr(function, expr);
+        let Some(ret_ty) = lower_ty(&ty) else {
+            self.push_error(function, MirLowerErrorKind::UnsupportedType(ty));
+            return None;
+        };
+
+        let dst = lowered.push_local(ret_ty);
+        block.stmts.push(MirStmt::Assign {
+            dst: MirPlace::new(dst),
+            rhs: MirRvalue::Call { callee, args },
+        });
+
+        Some(MirOperand::Copy(MirPlace::new(dst)))
     }
 
     fn lower_literal(
