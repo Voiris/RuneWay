@@ -248,22 +248,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         block: &mut MirBlock,
         locals: &mut HashMap<HirLocalId, MirLocalId>,
     ) -> Option<MirOperand> {
-        let callee = match &callee.node {
-            HirExpr::Resolved(Res::Def(id)) => MirCallee::Function(*id),
-            HirExpr::Resolved(Res::Builtin(id)) => {
-                let Some(decl) = builtin_decl(*id) else {
-                    self.push_error(function, MirLowerErrorKind::UnknownBuiltin(*id));
-                    return None;
-                };
-                match decl.lowering {
-                    BuiltinLowering::Runtime(runtime) => MirCallee::Runtime(runtime),
-                }
-            }
-            _ => {
-                self.push_error(function, MirLowerErrorKind::UnsupportedExpr("call callee"));
-                return None;
-            }
-        };
+        let callee = self.lower_callee(function, callee)?;
 
         let args = args
             .iter()
@@ -283,6 +268,29 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         });
 
         Some(MirOperand::Copy(MirPlace::new(dst)))
+    }
+
+    fn lower_callee(
+        &mut self,
+        function: HirId,
+        callee: &SpannedHirExpr<'src>,
+    ) -> Option<MirCallee> {
+        match &callee.node {
+            HirExpr::Resolved(Res::Def(id)) => Some(MirCallee::Function(*id)),
+            HirExpr::Resolved(Res::Builtin(id)) => {
+                let Some(decl) = builtin_decl(*id) else {
+                    self.push_error(function, MirLowerErrorKind::UnknownBuiltin(*id));
+                    return None;
+                };
+                match decl.lowering {
+                    BuiltinLowering::Runtime(runtime) => Some(MirCallee::Runtime(runtime)),
+                }
+            }
+            _ => {
+                self.push_error(function, MirLowerErrorKind::UnsupportedExpr("call callee"));
+                None
+            }
+        }
     }
 
     fn lower_literal(

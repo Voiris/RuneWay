@@ -37,29 +37,30 @@ fn s<T>(node: T) -> Spanned<T> {
 }
 
 fn empty_unit_function(name: &'static str) -> HirItem<'static> {
-    HirItem::Function(HirFunction {
-        id: HirId::from_usize(0),
-        name: SpannedStr::new(name, dummy()),
-        params: Box::new([]),
-        ret_ty: s(HirType::Unit),
-        body: HirBlock {
-            stmts: Box::new([]),
-            tail: None,
-            span: dummy(),
-        },
-        span: dummy(),
-    })
+    function_with_body(HirId::from_usize(0), name, empty_body())
 }
 
 fn unit_function_with_body(body: HirBlock<'static>) -> HirItem<'static> {
+    function_with_body(HirId::from_usize(0), "main", body)
+}
+
+fn function_with_body(id: HirId, name: &'static str, body: HirBlock<'static>) -> HirItem<'static> {
     HirItem::Function(HirFunction {
-        id: HirId::from_usize(0),
-        name: SpannedStr::new("main", dummy()),
+        id,
+        name: SpannedStr::new(name, dummy()),
         params: Box::new([]),
         ret_ty: s(HirType::Unit),
         body,
         span: dummy(),
     })
+}
+
+fn empty_body() -> HirBlock<'static> {
+    HirBlock {
+        stmts: Box::new([]),
+        tail: None,
+        span: dummy(),
+    }
 }
 
 #[test]
@@ -160,4 +161,41 @@ fn lower_print_builtin_call_to_runtime_call() {
         args.as_ref(),
         [MirOperand::Constant(crate::MirConstantId::from_usize(0))]
     );
+}
+
+#[test]
+fn lower_user_function_call_to_function_callee() {
+    let foo_id = HirId::from_usize(0);
+    let main_id = HirId::from_usize(1);
+    let main_body = HirBlock {
+        stmts: Box::new([HirStmt::Expr(s(HirExpr::Call {
+            callee: Box::new(s(HirExpr::Resolved(Res::Def(foo_id)))),
+            args: Box::new([]),
+        }))]),
+        tail: None,
+        span: dummy(),
+    };
+
+    let mut hir = HirMap::new();
+    hir.push(function_with_body(foo_id, "foo", empty_body()));
+    hir.push(function_with_body(main_id, "main", main_body));
+
+    let typeck = TypeChecker::new().check(&hir);
+    assert!(typeck.errors.is_empty());
+
+    let result = MirLowerer::new(&typeck.info).lower(&hir);
+
+    assert!(result.errors.is_empty());
+    assert_eq!(result.module.functions.len(), 2);
+    assert_eq!(result.module.entry.map(|id| id.to_usize()), Some(1));
+
+    let main = &result.module.functions[1];
+    let MirStmt::Assign { dst, rhs } = &main.blocks[0].stmts[0];
+    assert_eq!(dst.local.to_usize(), 0);
+
+    let MirRvalue::Call { callee, args } = rhs else {
+        panic!("expected function call");
+    };
+    assert_eq!(*callee, MirCallee::Function(foo_id));
+    assert!(args.is_empty());
 }
