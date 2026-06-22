@@ -54,6 +54,13 @@ pub struct MirLowerer<'src, 'info> {
     res: MirLowerResult,
 }
 
+struct FunctionLowerCtx<'mir> {
+    function: HirId,
+    lowered: &'mir mut MirFunction,
+    block: &'mir mut MirBlock,
+    locals: &'mir mut HashMap<HirLocalId, MirLocalId>,
+}
+
 impl<'src, 'info> MirLowerer<'src, 'info> {
     pub fn new(type_info: &'info TypeInfo<'src>) -> Self {
         Self {
@@ -131,57 +138,58 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         locals: &mut HashMap<HirLocalId, MirLocalId>,
     ) -> MirBlock {
         let mut mir_block = MirBlock::new(MirTerminator::Return);
+        let mut ctx = FunctionLowerCtx {
+            function,
+            lowered,
+            block: &mut mir_block,
+            locals,
+        };
 
         for stmt in block.stmts.iter() {
-            self.lower_stmt(function, stmt, lowered, &mut mir_block, locals);
+            self.lower_stmt(stmt, &mut ctx);
         }
 
         if let Some(tail) = &block.tail {
-            let _ = self.lower_expr(function, tail, lowered, &mut mir_block, locals);
+            let _ = self.lower_expr(tail, &mut ctx);
         }
 
         mir_block
     }
 
-    fn lower_stmt(
-        &mut self,
-        function: HirId,
-        stmt: &HirStmt<'src>,
-        lowered: &mut MirFunction,
-        block: &mut MirBlock,
-        locals: &mut HashMap<HirLocalId, MirLocalId>,
-    ) {
+    fn lower_stmt(&mut self, stmt: &HirStmt<'src>, ctx: &mut FunctionLowerCtx<'_>) {
         match stmt {
             HirStmt::Expr(expr) => {
-                let _ = self.lower_expr(function, expr, lowered, block, locals);
+                let _ = self.lower_expr(expr, ctx);
             }
             HirStmt::Let { local, init, .. } => {
                 let Some(hir_local) = local else {
-                    self.push_error(function, MirLowerErrorKind::MissingLocalId);
+                    self.push_error(ctx.function, MirLowerErrorKind::MissingLocalId);
                     return;
                 };
 
-                let Some(info) = self.type_info.local(function, *hir_local) else {
-                    self.push_error(function, MirLowerErrorKind::MissingLocalInfo(*hir_local));
+                let Some(info) = self.type_info.local(ctx.function, *hir_local) else {
+                    self.push_error(
+                        ctx.function,
+                        MirLowerErrorKind::MissingLocalInfo(*hir_local),
+                    );
                     return;
                 };
                 let Some(ty) = lower_ty(&info.ty) else {
                     self.push_error(
-                        function,
+                        ctx.function,
                         MirLowerErrorKind::UnsupportedType(info.ty.clone()),
                     );
                     return;
                 };
 
-                let mir_local = lowered.push_local(ty);
-                locals.insert(*hir_local, mir_local);
+                let mir_local = ctx.lowered.push_local(ty);
+                ctx.locals.insert(*hir_local, mir_local);
 
                 if let Some(init) = init {
-                    let Some(operand) = self.lower_expr(function, init, lowered, block, locals)
-                    else {
+                    let Some(operand) = self.lower_expr(init, ctx) else {
                         return;
                     };
-                    block.stmts.push(MirStmt::Assign {
+                    ctx.block.stmts.push(MirStmt::Assign {
                         dst: MirPlace::new(mir_local),
                         rhs: MirRvalue::Use(operand),
                     });
@@ -192,77 +200,69 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
 
     fn lower_expr(
         &mut self,
-        function: HirId,
         expr: &SpannedHirExpr<'src>,
-        lowered: &mut MirFunction,
-        block: &mut MirBlock,
-        locals: &mut HashMap<HirLocalId, MirLocalId>,
+        ctx: &mut FunctionLowerCtx<'_>,
     ) -> Option<MirOperand> {
         match &expr.node {
-            HirExpr::Literal(literal) => self.lower_literal(function, expr, literal),
+            HirExpr::Literal(literal) => self.lower_literal(ctx.function, expr, literal),
             HirExpr::Resolved(Res::Local(local)) => {
-                let Some(local) = locals.get(local).copied() else {
-                    self.push_error(function, MirLowerErrorKind::UnknownLocal(*local));
+                let Some(local) = ctx.locals.get(local).copied() else {
+                    self.push_error(ctx.function, MirLowerErrorKind::UnknownLocal(*local));
                     return None;
                 };
                 Some(MirOperand::Copy(MirPlace::new(local)))
             }
             HirExpr::Block(inner) => {
                 for stmt in inner.stmts.iter() {
-                    self.lower_stmt(function, stmt, lowered, block, locals);
+                    self.lower_stmt(stmt, ctx);
                 }
 
                 inner
                     .tail
                     .as_ref()
-                    .and_then(|tail| self.lower_expr(function, tail, lowered, block, locals))
+                    .and_then(|tail| self.lower_expr(tail, ctx))
                     .or(Some(MirOperand::Immediate(MirImmediate::Unit)))
             }
             HirExpr::Path(_) => {
                 self.push_error(
-                    function,
+                    ctx.function,
                     MirLowerErrorKind::UnsupportedExpr("unresolved path"),
                 );
                 None
             }
             HirExpr::Resolved(_) => {
                 self.push_error(
-                    function,
+                    ctx.function,
                     MirLowerErrorKind::UnsupportedExpr("resolved item"),
                 );
                 None
             }
-            HirExpr::Call { callee, args } => {
-                self.lower_call(function, expr, callee, args, lowered, block, locals)
-            }
+            HirExpr::Call { callee, args } => self.lower_call(expr, callee, args, ctx),
         }
     }
 
     fn lower_call(
         &mut self,
-        function: HirId,
         expr: &SpannedHirExpr<'src>,
         callee: &SpannedHirExpr<'src>,
         args: &[SpannedHirExpr<'src>],
-        lowered: &mut MirFunction,
-        block: &mut MirBlock,
-        locals: &mut HashMap<HirLocalId, MirLocalId>,
+        ctx: &mut FunctionLowerCtx<'_>,
     ) -> Option<MirOperand> {
-        let callee = self.lower_callee(function, callee)?;
+        let callee = self.lower_callee(ctx.function, callee)?;
 
         let args = args
             .iter()
-            .map(|arg| self.lower_expr(function, arg, lowered, block, locals))
+            .map(|arg| self.lower_expr(arg, ctx))
             .collect::<Option<Box<[_]>>>()?;
 
-        let ty = self.type_info.ty_of_expr(function, expr);
+        let ty = self.type_info.ty_of_expr(ctx.function, expr);
         let Some(ret_ty) = lower_ty(&ty) else {
-            self.push_error(function, MirLowerErrorKind::UnsupportedType(ty));
+            self.push_error(ctx.function, MirLowerErrorKind::UnsupportedType(ty));
             return None;
         };
 
-        let dst = lowered.push_local(ret_ty);
-        block.stmts.push(MirStmt::Assign {
+        let dst = ctx.lowered.push_local(ret_ty);
+        ctx.block.stmts.push(MirStmt::Assign {
             dst: MirPlace::new(dst),
             rhs: MirRvalue::Call { callee, args },
         });
