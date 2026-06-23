@@ -18,12 +18,12 @@ use crate::operand::{MirImmediate, MirOperand, MirPlace};
 use crate::ty::{MirFloatTy, MirIntTy, MirTy};
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct MirLowerResult {
-    pub module: MirModule,
+pub struct MirLowerResult<'src> {
+    pub module: MirModule<'src>,
     pub errors: Vec<MirLowerError>,
 }
 
-impl MirLowerResult {
+impl<'src> MirLowerResult<'src> {
     pub fn new() -> Self {
         Self {
             module: MirModule::new(),
@@ -51,7 +51,7 @@ pub enum MirLowerErrorKind {
 
 pub struct MirLowerer<'src, 'info> {
     type_info: &'info TypeInfo<'src>,
-    res: MirLowerResult,
+    res: MirLowerResult<'src>,
 }
 
 struct FunctionLowerCtx<'mir> {
@@ -69,7 +69,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         }
     }
 
-    pub fn lower(mut self, hir: &HirMap<'src>) -> MirLowerResult {
+    pub fn lower(mut self, hir: &HirMap<'src>) -> MirLowerResult<'src> {
         for (_, item) in hir.iter() {
             let HirItem::Function(function) = item else {
                 continue;
@@ -306,7 +306,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
                 let id = self
                     .res
                     .module
-                    .push_constant(MirConstant::Str(value.as_ref().into()));
+                    .push_constant(MirConstant::Str(value.clone()));
                 Some(MirOperand::Constant(id))
             }
             HirLiteral::Int { value, .. } => {
