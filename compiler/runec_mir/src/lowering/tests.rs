@@ -2,25 +2,25 @@ use std::borrow::Cow;
 
 use runec_abi::RUNTIME_PRINT;
 use runec_ast::SpannedStr;
-use runec_builtins::PRINT;
+use runec_builtins::{PRINT, TypeBits};
 use runec_hir::expression::{HirExpr, HirLiteral};
 use runec_hir::ids::{HirId, HirLocalId};
 use runec_hir::item::{HirFunction, HirItem};
 use runec_hir::map::HirMap;
 use runec_hir::resolution::Res;
 use runec_hir::statement::{HirBlock, HirStmt};
-use runec_hir::ty::HirType;
+use runec_hir::ty::{HirPrimitiveTy, HirType};
 use runec_semantic::typeck::TypeChecker;
 use runec_source::byte_pos::BytePos;
 use runec_source::source_map::SourceId;
 use runec_source::span::{Span, Spanned};
 
-use crate::block::{MirRvalue, MirStmt};
+use crate::block::{MirRvalue, MirStmt, MirTerminator};
 use crate::constant::MirConstant;
 use crate::function::MirCallee;
 use crate::lowering::MirLowerer;
-use crate::operand::MirOperand;
-use crate::ty::MirTy;
+use crate::operand::{MirImmediate, MirOperand};
+use crate::ty::{MirIntTy, MirTy};
 
 const SRC: SourceId = SourceId::from_usize(0);
 
@@ -45,11 +45,20 @@ fn unit_function_with_body(body: HirBlock<'static>) -> HirItem<'static> {
 }
 
 fn function_with_body(id: HirId, name: &'static str, body: HirBlock<'static>) -> HirItem<'static> {
+    function_with_ret_ty(id, name, s(HirType::Unit), body)
+}
+
+fn function_with_ret_ty(
+    id: HirId,
+    name: &'static str,
+    ret_ty: Spanned<HirType<'static>>,
+    body: HirBlock<'static>,
+) -> HirItem<'static> {
     HirItem::Function(HirFunction {
         id,
         name: SpannedStr::new(name, dummy()),
         params: Box::new([]),
-        ret_ty: s(HirType::Unit),
+        ret_ty,
         body,
         span: dummy(),
     })
@@ -82,6 +91,7 @@ fn lower_empty_main_function_shell() {
     assert_eq!(function.name.as_ref(), "main");
     assert_eq!(function.ret_ty, MirTy::Unit);
     assert_eq!(function.blocks.len(), 1);
+    assert_eq!(function.blocks[0].terminator, MirTerminator::Return(None));
 }
 
 #[test]
@@ -198,4 +208,41 @@ fn lower_user_function_call_to_function_callee() {
     };
     assert_eq!(*callee, MirCallee::Function(foo_id));
     assert!(args.is_empty());
+}
+
+#[test]
+fn lower_tail_expr_to_return_operand() {
+    let body = HirBlock {
+        stmts: Box::new([]),
+        tail: Some(Box::new(s(HirExpr::Literal(HirLiteral::Int {
+            value: 42,
+            suffix: None,
+        })))),
+        span: dummy(),
+    };
+
+    let mut hir = HirMap::new();
+    hir.push(function_with_ret_ty(
+        HirId::from_usize(0),
+        "answer",
+        s(HirType::Primitive(HirPrimitiveTy::I32)),
+        body,
+    ));
+
+    let typeck = TypeChecker::new().check(&hir);
+    assert!(typeck.errors.is_empty());
+
+    let result = MirLowerer::new(&typeck.info).lower(&hir);
+
+    assert!(result.errors.is_empty());
+    assert_eq!(
+        result.module.functions[0].blocks[0].terminator,
+        MirTerminator::Return(Some(MirOperand::Immediate(MirImmediate::Int {
+            value: 42,
+            ty: MirIntTy {
+                signed: true,
+                bits: TypeBits::B32,
+            },
+        })))
+    );
 }

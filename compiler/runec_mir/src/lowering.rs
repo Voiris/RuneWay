@@ -137,7 +137,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         lowered: &mut MirFunction,
         locals: &mut HashMap<HirLocalId, MirLocalId>,
     ) -> MirBlock {
-        let mut mir_block = MirBlock::new(MirTerminator::Return);
+        let mut mir_block = MirBlock::new(MirTerminator::Return(None));
         let mut ctx = FunctionLowerCtx {
             function,
             lowered,
@@ -150,7 +150,9 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         }
 
         if let Some(tail) = &block.tail {
-            let _ = self.lower_expr(tail, &mut ctx);
+            if let Some(operand) = self.lower_expr(tail, &mut ctx) {
+                ctx.block.terminator = MirTerminator::Return(Some(operand));
+            }
         }
 
         mir_block

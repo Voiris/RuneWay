@@ -56,7 +56,7 @@ mod tests {
         let message = main.push_local(MirTy::Str);
         let print_result = main.push_local(MirTy::Unit);
 
-        let mut entry = MirBlock::new(MirTerminator::Return);
+        let mut entry = MirBlock::new(MirTerminator::Return(None));
         entry.stmts.push(MirStmt::Assign {
             dst: MirPlace::new(message),
             rhs: MirRvalue::Use(MirOperand::Constant(hello)),

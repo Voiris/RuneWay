@@ -30,7 +30,7 @@ pub enum MirRvalue {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MirTerminator {
-    Return,
+    Return(Option<MirOperand>),
 }
