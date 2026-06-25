@@ -133,6 +133,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "runec_codegen_cranelift"
+version = "0.1.0"
+dependencies = [
+ "runec_abi",
+ "runec_hir",
+ "runec_mir",
+]
+
+[[package]]
 name = "runec_errors"
 version = "0.0.0"
 dependencies = [

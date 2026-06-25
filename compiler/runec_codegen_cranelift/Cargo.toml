@@ -1,0 +1,11 @@
+[package]
+name = "runec_codegen_cranelift"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+runec_abi = { path = "../runec_abi" }
+runec_mir = { path = "../runec_mir" }
+
+[dev-dependencies]
+runec_hir = { path = "../runec_hir" }
