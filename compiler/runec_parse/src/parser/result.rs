@@ -14,3 +14,9 @@ impl<'src, 'diag> ParseResult<'src, 'diag> {
         }
     }
 }
+
+impl Default for ParseResult<'_, '_> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
