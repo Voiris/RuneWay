@@ -79,6 +79,22 @@ impl<'src, 'diag> Lexer<'src> {
         Some(SpannedToken::new(token, Span::new(lo, hi, self.source_id)))
     }
 
+    fn invalid_unicode_escape_error(
+        &self,
+        escape_lo: BytePos,
+        escape_hi: BytePos,
+        help: &'static str,
+    ) -> Box<Diagnostic<'diag>> {
+        Diagnostic::error(DiagMessage::new(
+            super::messages::INVALID_UNICODE_ESCAPE,
+            &[],
+        ))
+        .add_label(DiagLabel::silent_primary(
+            span!(self.source_id => escape_lo..escape_hi),
+        ))
+        .set_help(DiagHelp::new(help, &[]))
+    }
+
     fn duplicated_prefix_error(
         &self,
         prefix: char,
@@ -239,33 +255,21 @@ impl<'src, 'diag> Lexer<'src> {
                 'u' => {
                     if !matches!(self.cursor.next_char(), Some('{')) {
                         let escape_hi = self.cursor.pos();
-                        return Err(Diagnostic::error(DiagMessage::new(
-                            super::messages::INVALID_UNICODE_ESCAPE,
-                            &[],
-                        ))
-                        .add_label(DiagLabel::silent_primary(
-                            span!(self.source_id => escape_lo..escape_hi),
-                        ))
-                        .set_help(DiagHelp::new(
+                        return Err(self.invalid_unicode_escape_error(
+                            escape_lo,
+                            escape_hi,
                             super::messages::UNICODE_ESCAPE_SEQUENCE_FORMAT,
-                            &[],
-                        )));
+                        ));
                     }
                     let hex_lo = self.cursor.pos();
                     self.cursor.skip_until_char_counted('}', 6);
                     if !matches!(self.cursor.peek_char(), Some('}')) {
                         let escape_hi = self.cursor.pos();
-                        return Err(Diagnostic::error(DiagMessage::new(
-                            super::messages::INVALID_UNICODE_ESCAPE,
-                            &[],
-                        ))
-                        .add_label(DiagLabel::silent_primary(
-                            span!(self.source_id => escape_lo..escape_hi),
-                        ))
-                        .set_help(DiagHelp::new(
+                        return Err(self.invalid_unicode_escape_error(
+                            escape_lo,
+                            escape_hi,
                             super::messages::UNICODE_MUST_HAVE_AT_MOST_6_HEX_DIGITS,
-                            &[],
-                        )));
+                        ));
                     }
                     let hex_hi = self.cursor.pos();
                     self.cursor.next();
