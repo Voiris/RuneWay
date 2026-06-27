@@ -149,10 +149,10 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
             self.lower_stmt(stmt, &mut ctx);
         }
 
-        if let Some(tail) = &block.tail {
-            if let Some(operand) = self.lower_expr(tail, &mut ctx) {
-                ctx.block.terminator = MirTerminator::Return(Some(operand));
-            }
+        if let Some(tail) = &block.tail
+            && let Some(operand) = self.lower_expr(tail, &mut ctx)
+        {
+            ctx.block.terminator = MirTerminator::Return(Some(operand));
         }
 
         mir_block
