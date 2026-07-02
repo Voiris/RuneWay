@@ -137,6 +137,7 @@ name = "runec_codegen_cranelift"
 version = "0.1.0"
 dependencies = [
  "runec_abi",
+ "runec_builtins",
  "runec_hir",
  "runec_mir",
 ]

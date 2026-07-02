@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 runec_abi = { path = "../runec_abi" }
+runec_builtins = { path = "../runec_builtins" }
 runec_mir = { path = "../runec_mir" }
 
 [dev-dependencies]

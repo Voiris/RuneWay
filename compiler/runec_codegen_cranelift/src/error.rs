@@ -1,5 +1,5 @@
 use runec_abi::RuntimeFunctionId;
-use runec_mir::MirFunctionId;
+use runec_mir::{MirFunctionId, MirTy};
 
 pub type CodegenResult<T> = Result<T, CodegenError>;
 
@@ -17,6 +17,7 @@ impl CodegenError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CodegenErrorKind {
     MissingEntry,
+    UnsupportedType(MirTy),
     UnsupportedFunction(MirFunctionId),
     UnsupportedRuntimeFunction(RuntimeFunctionId),
 }
