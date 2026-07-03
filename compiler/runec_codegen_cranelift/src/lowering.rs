@@ -1,6 +1,8 @@
-use runec_abi::RuntimeFunctionId;
+use std::collections::HashSet;
+
+use runec_abi::{RuntimeFunctionId, runtime_function};
 use runec_builtins::TypeBits;
-use runec_mir::{MirFunction, MirFunctionId, MirModule, MirTy};
+use runec_mir::{MirCallee, MirFunction, MirFunctionId, MirModule, MirRvalue, MirTy};
 
 use crate::error::{CodegenError, CodegenErrorKind, CodegenResult};
 use crate::signature::{AbiType, FunctionSignature};
@@ -44,9 +46,11 @@ pub struct LoweredFunction {
     pub signature: FunctionSignature,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoweredRuntimeFunction {
     pub id: RuntimeFunctionId,
+    pub symbol: &'static str,
+    pub signature: FunctionSignature,
 }
 
 pub struct CraneliftLowerer {
@@ -70,12 +74,60 @@ impl CraneliftLowerer {
                 })
             })
             .collect::<CodegenResult<Vec<_>>>()?;
+        let runtime_functions = self.lower_runtime_functions(module)?;
 
         Ok(CodegenArtifact {
             mode: self.options.mode,
             entry: module.entry,
             functions,
-            runtime_functions: Vec::new(),
+            runtime_functions,
+        })
+    }
+
+    fn lower_runtime_functions(
+        &self,
+        module: &MirModule,
+    ) -> CodegenResult<Vec<LoweredRuntimeFunction>> {
+        let mut seen = HashSet::new();
+        let mut functions = Vec::new();
+
+        for function in &module.functions {
+            for block in &function.blocks {
+                for stmt in &block.stmts {
+                    let runec_mir::MirStmt::Assign { rhs, .. } = stmt;
+                    let MirRvalue::Call {
+                        callee: MirCallee::Runtime(id),
+                        ..
+                    } = rhs
+                    else {
+                        continue;
+                    };
+
+                    if seen.insert(*id) {
+                        functions.push(self.lower_runtime_function(*id)?);
+                    }
+                }
+            }
+        }
+
+        Ok(functions)
+    }
+
+    fn lower_runtime_function(
+        &self,
+        id: RuntimeFunctionId,
+    ) -> CodegenResult<LoweredRuntimeFunction> {
+        let declaration = runtime_function(id)
+            .ok_or_else(|| CodegenError::new(CodegenErrorKind::UnsupportedRuntimeFunction(id)))?;
+        let returns = match declaration.ret {
+            AbiType::Unit => Vec::new(),
+            ty => vec![ty],
+        };
+
+        Ok(LoweredRuntimeFunction {
+            id,
+            symbol: declaration.symbol,
+            signature: FunctionSignature::new(declaration.params, returns),
         })
     }
 
@@ -120,7 +172,11 @@ impl CraneliftLowerer {
 
 #[cfg(test)]
 mod tests {
-    use runec_mir::{MirFunction, MirModule, MirTy};
+    use runec_abi::RUNTIME_PRINT;
+    use runec_mir::{
+        MirBlock, MirCallee, MirFunction, MirModule, MirOperand, MirPlace, MirRvalue, MirStmt,
+        MirTerminator, MirTy,
+    };
 
     use super::{AbiType, CodegenOptions, CraneliftLowerer, EmitMode};
 
@@ -165,5 +221,37 @@ mod tests {
             [AbiType::Pointer, AbiType::Usize]
         );
         assert!(artifact.functions[0].signature.returns.is_empty());
+    }
+
+    #[test]
+    fn collects_runtime_function_declarations() {
+        let mut module = MirModule::new();
+        let mut function =
+            MirFunction::new(runec_hir::ids::HirId::from_usize(0), "main", MirTy::Unit);
+        let message = function.push_local(MirTy::Str);
+        let result = function.push_local(MirTy::Unit);
+        let mut entry = MirBlock::new(MirTerminator::Return(None));
+        entry.stmts.push(MirStmt::Assign {
+            dst: MirPlace::new(result),
+            rhs: MirRvalue::Call {
+                callee: MirCallee::Runtime(RUNTIME_PRINT),
+                args: Box::new([MirOperand::Copy(MirPlace::new(message))]),
+            },
+        });
+        function.push_block(entry);
+        module.push_function(function);
+
+        let artifact = CraneliftLowerer::new(CodegenOptions::jit())
+            .lower_module(&module)
+            .expect("runtime calls should have declarations");
+
+        assert_eq!(artifact.runtime_functions.len(), 1);
+        assert_eq!(artifact.runtime_functions[0].id, RUNTIME_PRINT);
+        assert_eq!(artifact.runtime_functions[0].symbol, "__runeway_print");
+        assert_eq!(
+            artifact.runtime_functions[0].signature.params,
+            [AbiType::Pointer, AbiType::Usize]
+        );
+        assert!(artifact.runtime_functions[0].signature.returns.is_empty());
     }
 }
