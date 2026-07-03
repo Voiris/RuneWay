@@ -110,7 +110,7 @@ impl CraneliftLowerer {
             MirTy::Char => output.push(AbiType::I32),
             MirTy::Str | MirTy::Bytes => {
                 output.push(AbiType::Pointer);
-                output.push(AbiType::Pointer);
+                output.push(AbiType::Usize);
             }
         }
 
@@ -162,7 +162,7 @@ mod tests {
 
         assert_eq!(
             artifact.functions[0].signature.params,
-            [AbiType::Pointer, AbiType::Pointer]
+            [AbiType::Pointer, AbiType::Usize]
         );
         assert!(artifact.functions[0].signature.returns.is_empty());
     }

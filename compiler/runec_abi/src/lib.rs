@@ -14,6 +14,13 @@ impl RuntimeFunctionId {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AbiType {
+    I8,
+    I16,
+    I32,
+    I64,
+    I128,
+    F32,
+    F64,
     Pointer,
     Usize,
     Unit,
