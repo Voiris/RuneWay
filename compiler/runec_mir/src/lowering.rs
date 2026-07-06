@@ -240,6 +240,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
                 None
             }
             HirExpr::Call { callee, args } => self.lower_call(expr, callee, args, ctx),
+            HirExpr::Error => None,
         }
     }
 

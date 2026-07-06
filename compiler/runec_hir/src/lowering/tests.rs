@@ -428,7 +428,7 @@ fn lower_type_array() {
 }
 
 #[test]
-fn lower_top_level_non_fn_stmts_ignored() {
+fn lower_top_level_non_fn_stmts_report_diagnostics() {
     let stmts = [
         s(Stmt::DefineLet {
             pattern: s(DestructPattern::Ident("x")),
@@ -440,8 +440,26 @@ fn lower_top_level_non_fn_stmts_ignored() {
         s(Stmt::TailExpr(int_expr(2))),
     ];
     let result = HirLowerer::new().lower(&stmts);
-    assert!(result.diags.is_empty());
+    assert_eq!(result.diags.len(), 3);
     assert_eq!(result.map.len(), 0);
+}
+
+#[test]
+fn unsupported_expression_diagnostic_preserves_span() {
+    let error_span = sp(12, 18);
+    let unsupported = Spanned::new(Expr::Tuple(Box::new([])), error_span);
+    let body = s(Box::new([s(Stmt::TailExpr(unsupported))]) as Box<[_]>);
+    let result = HirLowerer::new().lower(&[fn_stmt("invalid", Box::new([]), unit_ty(), body)]);
+
+    assert_eq!(result.diags.len(), 1);
+    assert_eq!(result.diags[0].labels[0].span, error_span);
+    let HirItem::Function(function) = result.map.get(HirId::from_usize(0)) else {
+        panic!("expected function")
+    };
+    assert!(matches!(
+        function.body.tail.as_ref().map(|expr| &expr.node),
+        Some(HirExpr::Error)
+    ));
 }
 
 #[test]

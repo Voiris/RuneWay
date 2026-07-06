@@ -5,6 +5,7 @@ use runec_source::span::Spanned;
 
 #[derive(Debug, PartialEq)]
 pub enum HirType<'src> {
+    Error,
     /// Path not yet resolved by name resolution.
     Unresolved(HirPath<'src>),
 

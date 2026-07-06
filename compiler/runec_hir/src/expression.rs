@@ -9,6 +9,7 @@ use crate::statement::HirBlock;
 
 #[derive(Debug, PartialEq)]
 pub enum HirExpr<'src> {
+    Error,
     Literal(HirLiteral<'src>),
 
     /// A path that has not been processed by name resolution yet.

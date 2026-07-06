@@ -187,12 +187,13 @@ impl<'src> Resolver<'src> {
                 }
             }
             HirExpr::Block(block) => self.resolve_block(block, locals),
-            HirExpr::Literal(_) | HirExpr::Resolved(_) => {}
+            HirExpr::Error | HirExpr::Literal(_) | HirExpr::Resolved(_) => {}
         }
     }
 
     fn resolve_ty(&mut self, ty: &mut SpannedHirType<'src>) {
         match &mut ty.node {
+            HirType::Error => {}
             HirType::Unresolved(path) => {
                 if let Some(primitive) = primitive_from_path(path) {
                     ty.node = HirType::Primitive(primitive);

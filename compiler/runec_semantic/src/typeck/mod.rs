@@ -72,6 +72,7 @@ impl<'src> TypeInfo<'src> {
 
     pub fn ty_of_expr(&self, function: HirId, expr: &SpannedHirExpr<'src>) -> Ty {
         match &expr.node {
+            HirExpr::Error => Ty::Unknown,
             HirExpr::Literal(literal) => ty_of_literal(literal),
             HirExpr::Resolved(res) => self.ty_of_res(function, *res),
             HirExpr::Call { callee, .. } => self.call_return_ty(function, callee),
@@ -264,6 +265,7 @@ impl<'src> TypeChecker<'src> {
 
     fn check_expr(&mut self, function: HirId, expr: &SpannedHirExpr<'src>) -> Ty {
         match &expr.node {
+            HirExpr::Error => Ty::Unknown,
             HirExpr::Literal(literal) => ty_of_literal(literal),
             HirExpr::Resolved(res) => self.check_res(function, *res, expr.span),
             HirExpr::Path(_) => {
@@ -386,6 +388,7 @@ impl<'src> TypeChecker<'src> {
 
     fn lower_ty(&mut self, ty: &SpannedHirType<'src>) -> Ty {
         match &ty.node {
+            HirType::Error => Ty::Unknown,
             HirType::Primitive(primitive) => primitive_ty(*primitive),
             HirType::Struct { def, .. } => Ty::Struct(*def),
             HirType::Enum { def, .. } => Ty::Enum(*def),

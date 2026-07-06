@@ -3,6 +3,9 @@ use runec_ast::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
 use runec_ast::expression::{Expr, PrimitiveValue, SpannedExpr};
 use runec_ast::statement::{DestructPattern, SpannedStmt, SpannedStmtBlock, Stmt};
 use runec_errors::diagnostics::Diagnostic;
+use runec_errors::labels::DiagLabel;
+use runec_errors::message::DiagMessage;
+use runec_source::span::Span;
 use runec_source::span::Spanned;
 
 use crate::expression::{HirExpr, HirLiteral, SpannedHirExpr};
@@ -81,7 +84,7 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
             | Stmt::DefineConst { .. }
             | Stmt::Assign { .. }
             | Stmt::SemiExpr(_)
-            | Stmt::TailExpr(_) => {}
+            | Stmt::TailExpr(_) => self.push_unsupported("top-level statement", stmt.span),
         }
     }
 
@@ -109,7 +112,8 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
                     let name = match &pattern.node {
                         DestructPattern::Ident(n) => SpannedStr::new(n, pattern.span),
                         DestructPattern::Tuple(_) | DestructPattern::AttributeAccess { .. } => {
-                            todo!("let-destructuring lowering");
+                            self.push_unsupported("let destructuring", pattern.span);
+                            continue;
                         }
                     };
                     let ty = ty.as_ref().map(|t| self.lower_type(t));
@@ -124,7 +128,7 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
                     });
                 }
                 Stmt::DefineFunction { .. } | Stmt::DefineConst { .. } | Stmt::Assign { .. } => {
-                    todo!("lowering of nested function / const / assign");
+                    self.push_unsupported("nested definition or assignment", s.span);
                 }
             }
         }
@@ -184,7 +188,8 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
             | Expr::RepeatingArray { .. }
             | Expr::Deref(_)
             | Expr::AttributeAccess { .. } => {
-                todo!("expression lowering for this variant");
+                self.push_unsupported("expression", expr.span);
+                HirExpr::Error
             }
         };
         Spanned::new(hir, expr.span)
@@ -233,10 +238,21 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
             },
 
             TypeAnnotation::Path { .. } | TypeAnnotation::Generic { .. } => {
-                todo!("lower_type: Path / Generic");
+                self.push_unsupported("type", ty.span);
+                HirType::Error
             }
         };
         Spanned::new(hir, ty.span)
+    }
+
+    fn push_unsupported(&mut self, construct: &'static str, span: Span) {
+        self.res.diags.push(
+            *Diagnostic::error(DiagMessage::new(
+                messages::UNSUPPORTED_CONSTRUCT,
+                &[("construct", construct)],
+            ))
+            .add_label(DiagLabel::silent_primary(span)),
+        );
     }
 }
 
