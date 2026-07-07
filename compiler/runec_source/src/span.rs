@@ -2,7 +2,7 @@ use crate::byte_pos::BytePos;
 use crate::source_map::SourceId;
 use std::ops::{Deref, Range};
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Span {
     pub lo: BytePos,
     pub hi: BytePos,

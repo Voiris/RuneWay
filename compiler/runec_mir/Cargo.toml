@@ -8,7 +8,7 @@ runec_abi = { path = "../runec_abi" }
 runec_builtins = { path = "../runec_builtins" }
 runec_hir = { path = "../runec_hir" }
 runec_semantic = { path = "../runec_semantic" }
+runec_source = { path = "../runec_source" }
 
 [dev-dependencies]
 runec_ast = { path = "../runec_ast" }
-runec_source = { path = "../runec_source" }

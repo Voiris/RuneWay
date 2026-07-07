@@ -140,6 +140,7 @@ dependencies = [
  "runec_builtins",
  "runec_hir",
  "runec_mir",
+ "runec_source",
 ]
 
 [[package]]

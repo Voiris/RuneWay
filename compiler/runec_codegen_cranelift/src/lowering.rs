@@ -94,7 +94,7 @@ impl CraneliftLowerer {
         for function in &module.functions {
             for block in &function.blocks {
                 for stmt in &block.stmts {
-                    let runec_mir::MirStmt::Assign { rhs, .. } = stmt;
+                    let runec_mir::MirStmt::Assign { rhs, span, .. } = stmt;
                     let MirRvalue::Call {
                         callee: MirCallee::Runtime(id),
                         ..
@@ -104,7 +104,7 @@ impl CraneliftLowerer {
                     };
 
                     if seen.insert(*id) {
-                        functions.push(self.lower_runtime_function(*id)?);
+                        functions.push(self.lower_runtime_function(*id, *span)?);
                     }
                 }
             }
@@ -116,9 +116,11 @@ impl CraneliftLowerer {
     fn lower_runtime_function(
         &self,
         id: RuntimeFunctionId,
+        span: runec_source::span::Span,
     ) -> CodegenResult<LoweredRuntimeFunction> {
-        let declaration = runtime_function(id)
-            .ok_or_else(|| CodegenError::new(CodegenErrorKind::UnsupportedRuntimeFunction(id)))?;
+        let declaration = runtime_function(id).ok_or_else(|| {
+            CodegenError::at(span, CodegenErrorKind::UnsupportedRuntimeFunction(id))
+        })?;
         let returns = match declaration.ret {
             AbiType::Unit => Vec::new(),
             ty => vec![ty],
@@ -134,16 +136,24 @@ impl CraneliftLowerer {
     fn lower_signature(&self, function: &MirFunction) -> CodegenResult<FunctionSignature> {
         let mut params = Vec::new();
         for param in &function.params {
-            self.lower_type(function.locals[param.to_usize()].ty, &mut params)?;
+            let local = function.locals.get(param.to_usize()).ok_or_else(|| {
+                CodegenError::at(function.span, CodegenErrorKind::UnknownLocal(*param))
+            })?;
+            self.lower_type(local.ty, local.span, &mut params)?;
         }
 
         let mut returns = Vec::new();
-        self.lower_type(function.ret_ty, &mut returns)?;
+        self.lower_type(function.ret_ty, function.ret_span, &mut returns)?;
 
         Ok(FunctionSignature::new(params, returns))
     }
 
-    fn lower_type(&self, ty: MirTy, output: &mut Vec<AbiType>) -> CodegenResult<()> {
+    fn lower_type(
+        &self,
+        ty: MirTy,
+        span: runec_source::span::Span,
+        output: &mut Vec<AbiType>,
+    ) -> CodegenResult<()> {
         match ty {
             MirTy::Unit => {}
             MirTy::Bool => output.push(AbiType::I8),
@@ -157,7 +167,12 @@ impl CraneliftLowerer {
             MirTy::Float(float) => output.push(match float.bits {
                 TypeBits::B32 => AbiType::F32,
                 TypeBits::B64 => AbiType::F64,
-                _ => return Err(CodegenError::new(CodegenErrorKind::UnsupportedType(ty))),
+                _ => {
+                    return Err(CodegenError::at(
+                        span,
+                        CodegenErrorKind::UnsupportedType(ty),
+                    ));
+                }
             }),
             MirTy::Char => output.push(AbiType::I32),
             MirTy::Str | MirTy::Bytes => {
@@ -173,12 +188,24 @@ impl CraneliftLowerer {
 #[cfg(test)]
 mod tests {
     use runec_abi::RUNTIME_PRINT;
+    use runec_builtins::TypeBits;
     use runec_mir::{
         MirBlock, MirCallee, MirFunction, MirModule, MirOperand, MirPlace, MirRvalue, MirStmt,
         MirTerminator, MirTy,
     };
+    use runec_source::byte_pos::BytePos;
+    use runec_source::source_map::SourceId;
+    use runec_source::span::Span;
 
-    use super::{AbiType, CodegenOptions, CraneliftLowerer, EmitMode};
+    use super::{AbiType, CodegenErrorKind, CodegenOptions, CraneliftLowerer, EmitMode};
+
+    fn span(lo: usize, hi: usize) -> Span {
+        Span::new(
+            BytePos::from_usize(lo),
+            BytePos::from_usize(hi),
+            SourceId::from_usize(0),
+        )
+    }
 
     #[test]
     fn preserves_emit_mode_and_entry() {
@@ -187,6 +214,8 @@ mod tests {
             runec_hir::ids::HirId::from_usize(0),
             "main",
             MirTy::Unit,
+            span(0, 10),
+            span(8, 8),
         ));
         module.entry = Some(main);
 
@@ -207,8 +236,10 @@ mod tests {
             runec_hir::ids::HirId::from_usize(0),
             "print_message",
             MirTy::Unit,
+            span(0, 20),
+            span(18, 18),
         );
-        let message = function.push_local(MirTy::Str);
+        let message = function.push_local(MirTy::Str, span(14, 17));
         function.params = Box::new([message]);
         module.push_function(function);
 
@@ -226,10 +257,15 @@ mod tests {
     #[test]
     fn collects_runtime_function_declarations() {
         let mut module = MirModule::new();
-        let mut function =
-            MirFunction::new(runec_hir::ids::HirId::from_usize(0), "main", MirTy::Unit);
-        let message = function.push_local(MirTy::Str);
-        let result = function.push_local(MirTy::Unit);
+        let mut function = MirFunction::new(
+            runec_hir::ids::HirId::from_usize(0),
+            "main",
+            MirTy::Unit,
+            span(0, 20),
+            span(8, 8),
+        );
+        let message = function.push_local(MirTy::Str, span(10, 15));
+        let result = function.push_local(MirTy::Unit, span(10, 18));
         let mut entry = MirBlock::new(MirTerminator::Return(None));
         entry.stmts.push(MirStmt::Assign {
             dst: MirPlace::new(result),
@@ -237,6 +273,7 @@ mod tests {
                 callee: MirCallee::Runtime(RUNTIME_PRINT),
                 args: Box::new([MirOperand::Copy(MirPlace::new(message))]),
             },
+            span: span(10, 18),
         });
         function.push_block(entry);
         module.push_function(function);
@@ -253,5 +290,49 @@ mod tests {
             [AbiType::Pointer, AbiType::Usize]
         );
         assert!(artifact.runtime_functions[0].signature.returns.is_empty());
+    }
+
+    #[test]
+    fn reports_unsupported_return_type_span() {
+        let return_span = span(12, 16);
+        let mut module = MirModule::new();
+        module.push_function(MirFunction::new(
+            runec_hir::ids::HirId::from_usize(0),
+            "invalid",
+            MirTy::Float(runec_mir::MirFloatTy {
+                bits: TypeBits::B16,
+            }),
+            span(0, 20),
+            return_span,
+        ));
+
+        let error = CraneliftLowerer::new(CodegenOptions::jit())
+            .lower_module(&module)
+            .expect_err("unsupported return type should fail codegen lowering");
+
+        assert_eq!(error.span, Some(return_span));
+        assert!(matches!(error.kind, CodegenErrorKind::UnsupportedType(_)));
+    }
+
+    #[test]
+    fn reports_function_span_for_unknown_parameter_local() {
+        let function_span = span(4, 24);
+        let mut module = MirModule::new();
+        let mut function = MirFunction::new(
+            runec_hir::ids::HirId::from_usize(0),
+            "invalid",
+            MirTy::Unit,
+            function_span,
+            span(20, 20),
+        );
+        function.params = Box::new([runec_mir::MirLocalId::from_usize(42)]);
+        module.push_function(function);
+
+        let error = CraneliftLowerer::new(CodegenOptions::jit())
+            .lower_module(&module)
+            .expect_err("unknown parameter local should fail codegen lowering");
+
+        assert_eq!(error.span, Some(function_span));
+        assert!(matches!(error.kind, CodegenErrorKind::UnknownLocal(_)));
     }
 }

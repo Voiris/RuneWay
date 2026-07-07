@@ -8,6 +8,7 @@ use runec_hir::map::HirMap;
 use runec_hir::resolution::Res;
 use runec_hir::statement::{HirBlock, HirStmt};
 use runec_semantic::typeck::{Ty, TypeInfo};
+use runec_source::span::Span;
 
 use crate::block::{MirBlock, MirRvalue, MirStmt, MirTerminator};
 use crate::constant::MirConstant;
@@ -35,6 +36,7 @@ impl<'src> MirLowerResult<'src> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirLowerError {
     pub function: Option<HirId>,
+    pub span: Span,
     pub kind: MirLowerErrorKind,
 }
 
@@ -88,37 +90,53 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
 
     fn lower_function(&mut self, function: &HirFunction<'src>) -> Option<MirFunction> {
         let Some(sig) = self.type_info.function_sig(function.id) else {
-            self.push_error(function.id, MirLowerErrorKind::MissingFunctionSignature);
+            self.push_error(
+                function.id,
+                function.span,
+                MirLowerErrorKind::MissingFunctionSignature,
+            );
             return None;
         };
 
         let Some(ret_ty) = lower_ty(&sig.ret) else {
             self.push_error(
                 function.id,
+                function.ret_ty.span,
                 MirLowerErrorKind::UnsupportedType(sig.ret.clone()),
             );
             return None;
         };
 
-        let mut lowered = MirFunction::new(function.id, function.name.node, ret_ty);
+        let mut lowered = MirFunction::new(
+            function.id,
+            function.name.node,
+            ret_ty,
+            function.span,
+            function.ret_ty.span,
+        );
         let mut locals = HashMap::new();
         let mut params = Vec::with_capacity(function.params.len());
 
         for idx in 0..function.params.len() {
             let hir_local = HirLocalId::from_usize(idx);
             let Some(local) = self.type_info.local(function.id, hir_local) else {
-                self.push_error(function.id, MirLowerErrorKind::MissingLocalInfo(hir_local));
+                self.push_error(
+                    function.id,
+                    function.params[idx].span,
+                    MirLowerErrorKind::MissingLocalInfo(hir_local),
+                );
                 continue;
             };
             let Some(ty) = lower_ty(&local.ty) else {
                 self.push_error(
                     function.id,
+                    function.params[idx].ty.span,
                     MirLowerErrorKind::UnsupportedType(local.ty.clone()),
                 );
                 continue;
             };
 
-            let mir_local = lowered.push_local(ty);
+            let mir_local = lowered.push_local(ty, function.params[idx].span);
             locals.insert(hir_local, mir_local);
             params.push(mir_local);
         }
@@ -163,15 +181,18 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
             HirStmt::Expr(expr) => {
                 let _ = self.lower_expr(expr, ctx);
             }
-            HirStmt::Let { local, init, .. } => {
+            HirStmt::Let {
+                local, init, span, ..
+            } => {
                 let Some(hir_local) = local else {
-                    self.push_error(ctx.function, MirLowerErrorKind::MissingLocalId);
+                    self.push_error(ctx.function, *span, MirLowerErrorKind::MissingLocalId);
                     return;
                 };
 
                 let Some(info) = self.type_info.local(ctx.function, *hir_local) else {
                     self.push_error(
                         ctx.function,
+                        *span,
                         MirLowerErrorKind::MissingLocalInfo(*hir_local),
                     );
                     return;
@@ -179,12 +200,13 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
                 let Some(ty) = lower_ty(&info.ty) else {
                     self.push_error(
                         ctx.function,
+                        *span,
                         MirLowerErrorKind::UnsupportedType(info.ty.clone()),
                     );
                     return;
                 };
 
-                let mir_local = ctx.lowered.push_local(ty);
+                let mir_local = ctx.lowered.push_local(ty, *span);
                 ctx.locals.insert(*hir_local, mir_local);
 
                 if let Some(init) = init {
@@ -194,6 +216,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
                     ctx.block.stmts.push(MirStmt::Assign {
                         dst: MirPlace::new(mir_local),
                         rhs: MirRvalue::Use(operand),
+                        span: *span,
                     });
                 }
             }
@@ -209,7 +232,11 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
             HirExpr::Literal(literal) => self.lower_literal(ctx.function, expr, literal),
             HirExpr::Resolved(Res::Local(local)) => {
                 let Some(local) = ctx.locals.get(local).copied() else {
-                    self.push_error(ctx.function, MirLowerErrorKind::UnknownLocal(*local));
+                    self.push_error(
+                        ctx.function,
+                        expr.span,
+                        MirLowerErrorKind::UnknownLocal(*local),
+                    );
                     return None;
                 };
                 Some(MirOperand::Copy(MirPlace::new(local)))
@@ -228,6 +255,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
             HirExpr::Path(_) => {
                 self.push_error(
                     ctx.function,
+                    expr.span,
                     MirLowerErrorKind::UnsupportedExpr("unresolved path"),
                 );
                 None
@@ -235,6 +263,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
             HirExpr::Resolved(_) => {
                 self.push_error(
                     ctx.function,
+                    expr.span,
                     MirLowerErrorKind::UnsupportedExpr("resolved item"),
                 );
                 None
@@ -260,14 +289,19 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
 
         let ty = self.type_info.ty_of_expr(ctx.function, expr);
         let Some(ret_ty) = lower_ty(&ty) else {
-            self.push_error(ctx.function, MirLowerErrorKind::UnsupportedType(ty));
+            self.push_error(
+                ctx.function,
+                expr.span,
+                MirLowerErrorKind::UnsupportedType(ty),
+            );
             return None;
         };
 
-        let dst = ctx.lowered.push_local(ret_ty);
+        let dst = ctx.lowered.push_local(ret_ty, expr.span);
         ctx.block.stmts.push(MirStmt::Assign {
             dst: MirPlace::new(dst),
             rhs: MirRvalue::Call { callee, args },
+            span: expr.span,
         });
 
         Some(MirOperand::Copy(MirPlace::new(dst)))
@@ -282,7 +316,11 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
             HirExpr::Resolved(Res::Def(id)) => Some(MirCallee::Function(*id)),
             HirExpr::Resolved(Res::Builtin(id)) => {
                 let Some(decl) = builtin_decl(*id) else {
-                    self.push_error(function, MirLowerErrorKind::UnknownBuiltin(*id));
+                    self.push_error(
+                        function,
+                        callee.span,
+                        MirLowerErrorKind::UnknownBuiltin(*id),
+                    );
                     return None;
                 };
                 match decl.lowering {
@@ -290,7 +328,11 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
                 }
             }
             _ => {
-                self.push_error(function, MirLowerErrorKind::UnsupportedExpr("call callee"));
+                self.push_error(
+                    function,
+                    callee.span,
+                    MirLowerErrorKind::UnsupportedExpr("call callee"),
+                );
                 None
             }
         }
@@ -320,7 +362,11 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
                         ty,
                     })),
                     _ => {
-                        self.push_error(function, MirLowerErrorKind::UnsupportedType(ty));
+                        self.push_error(
+                            function,
+                            expr.span,
+                            MirLowerErrorKind::UnsupportedType(ty),
+                        );
                         None
                     }
                 }
@@ -333,7 +379,11 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
                         ty,
                     })),
                     _ => {
-                        self.push_error(function, MirLowerErrorKind::UnsupportedType(ty));
+                        self.push_error(
+                            function,
+                            expr.span,
+                            MirLowerErrorKind::UnsupportedType(ty),
+                        );
                         None
                     }
                 }
@@ -341,9 +391,10 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         }
     }
 
-    fn push_error(&mut self, function: HirId, kind: MirLowerErrorKind) {
+    fn push_error(&mut self, function: HirId, span: Span, kind: MirLowerErrorKind) {
         self.res.errors.push(MirLowerError {
             function: Some(function),
+            span,
             kind,
         });
     }

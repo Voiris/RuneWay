@@ -1,5 +1,6 @@
 use crate::function::MirCallee;
 use crate::operand::{MirOperand, MirPlace};
+use runec_source::span::Span;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MirBlock {
@@ -18,7 +19,11 @@ impl MirBlock {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MirStmt {
-    Assign { dst: MirPlace, rhs: MirRvalue },
+    Assign {
+        dst: MirPlace,
+        rhs: MirRvalue,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

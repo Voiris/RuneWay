@@ -18,7 +18,7 @@ use runec_source::span::{Span, Spanned};
 use crate::block::{MirRvalue, MirStmt, MirTerminator};
 use crate::constant::MirConstant;
 use crate::function::MirCallee;
-use crate::lowering::MirLowerer;
+use crate::lowering::{MirLowerErrorKind, MirLowerer};
 use crate::operand::{MirImmediate, MirOperand};
 use crate::ty::{MirIntTy, MirTy};
 
@@ -70,6 +70,28 @@ fn empty_body() -> HirBlock<'static> {
         tail: None,
         span: dummy(),
     }
+}
+
+#[test]
+fn unsupported_return_type_error_preserves_span() {
+    let return_span = sp(10, 15);
+    let mut hir = HirMap::new();
+    hir.push(function_with_ret_ty(
+        HirId::from_usize(0),
+        "invalid",
+        Spanned::new(HirType::Tuple(Box::new([])), return_span),
+        empty_body(),
+    ));
+
+    let typeck = TypeChecker::new().check(&hir);
+    let result = MirLowerer::new(&typeck.info).lower(&hir);
+
+    assert_eq!(result.errors.len(), 1);
+    assert_eq!(result.errors[0].span, return_span);
+    assert!(matches!(
+        result.errors[0].kind,
+        MirLowerErrorKind::UnsupportedType(_)
+    ));
 }
 
 #[test]
@@ -126,7 +148,8 @@ fn lower_let_string_literal_to_local_assignment() {
     assert_eq!(function.locals.len(), 1);
     assert_eq!(function.locals[0].ty, MirTy::Str);
 
-    let MirStmt::Assign { dst, rhs } = &function.blocks[0].stmts[0];
+    let MirStmt::Assign { dst, rhs, span } = &function.blocks[0].stmts[0];
+    assert_eq!(*span, dummy());
     assert_eq!(dst.local.to_usize(), 0);
     assert_eq!(
         *rhs,
@@ -160,7 +183,8 @@ fn lower_print_builtin_call_to_runtime_call() {
     assert_eq!(function.locals.len(), 1);
     assert_eq!(function.locals[0].ty, MirTy::Unit);
 
-    let MirStmt::Assign { dst, rhs } = &function.blocks[0].stmts[0];
+    let MirStmt::Assign { dst, rhs, span } = &function.blocks[0].stmts[0];
+    assert_eq!(*span, dummy());
     assert_eq!(dst.local.to_usize(), 0);
 
     let MirRvalue::Call { callee, args } = rhs else {
@@ -200,7 +224,8 @@ fn lower_user_function_call_to_function_callee() {
     assert_eq!(result.module.entry.map(|id| id.to_usize()), Some(1));
 
     let main = &result.module.functions[1];
-    let MirStmt::Assign { dst, rhs } = &main.blocks[0].stmts[0];
+    let MirStmt::Assign { dst, rhs, span } = &main.blocks[0].stmts[0];
+    assert_eq!(*span, dummy());
     assert_eq!(dst.local.to_usize(), 0);
 
     let MirRvalue::Call { callee, args } = rhs else {

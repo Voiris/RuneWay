@@ -39,6 +39,9 @@ impl<'src> MirModule<'src> {
 mod tests {
     use runec_abi::RUNTIME_PRINT;
     use runec_hir::ids::HirId;
+    use runec_source::byte_pos::BytePos;
+    use runec_source::source_map::SourceId;
+    use runec_source::span::Span;
 
     use crate::block::{MirBlock, MirRvalue, MirStmt, MirTerminator};
     use crate::constant::MirConstant;
@@ -47,19 +50,29 @@ mod tests {
     use crate::operand::{MirOperand, MirPlace};
     use crate::ty::MirTy;
 
+    fn dummy() -> Span {
+        Span::new(
+            BytePos::from_usize(0),
+            BytePos::from_usize(0),
+            SourceId::from_usize(0),
+        )
+    }
+
     #[test]
     fn stores_main_with_runtime_print_call() {
         let mut module = MirModule::new();
         let hello = module.push_constant(MirConstant::Str("Hello, World".into()));
 
-        let mut main = MirFunction::new(HirId::from_usize(0), "main", MirTy::Unit);
-        let message = main.push_local(MirTy::Str);
-        let print_result = main.push_local(MirTy::Unit);
+        let mut main =
+            MirFunction::new(HirId::from_usize(0), "main", MirTy::Unit, dummy(), dummy());
+        let message = main.push_local(MirTy::Str, dummy());
+        let print_result = main.push_local(MirTy::Unit, dummy());
 
         let mut entry = MirBlock::new(MirTerminator::Return(None));
         entry.stmts.push(MirStmt::Assign {
             dst: MirPlace::new(message),
             rhs: MirRvalue::Use(MirOperand::Constant(hello)),
+            span: dummy(),
         });
         entry.stmts.push(MirStmt::Assign {
             dst: MirPlace::new(print_result),
@@ -67,6 +80,7 @@ mod tests {
                 callee: MirCallee::Runtime(RUNTIME_PRINT),
                 args: Box::new([MirOperand::Copy(MirPlace::new(message))]),
             },
+            span: dummy(),
         });
         main.entry = main.push_block(entry);
 
