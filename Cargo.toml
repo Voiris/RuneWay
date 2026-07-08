@@ -17,3 +17,10 @@ members = [
     "compiler/runec_proc_macro_utils",
 ]
 resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/Voiris/RuneWay"
+homepage = "https://github.com/Voiris/RuneWay"
+readme = "README.md"
