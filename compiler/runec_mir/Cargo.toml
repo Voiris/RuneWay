@@ -2,6 +2,9 @@
 name = "runec_mir"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+repository = "https://github.com/Voiris/RuneWay"
+homepage = "https://github.com/Voiris/RuneWay"
 
 [dependencies]
 runec_abi = { path = "../runec_abi" }
