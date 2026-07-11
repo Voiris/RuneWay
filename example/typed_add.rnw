@@ -1,0 +1,8 @@
+act add(left: int, right: int) -> int {
+    left + right
+}
+
+act main() {
+    let value: int = add(20, 22);
+    println(value);
+}
