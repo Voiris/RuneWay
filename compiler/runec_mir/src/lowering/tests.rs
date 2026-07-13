@@ -110,7 +110,7 @@ fn lower_empty_main_function_shell() {
 
     let function = &result.module.functions[0];
     assert_eq!(function.hir_id, HirId::from_usize(0));
-    assert_eq!(function.name.as_ref(), "main");
+    assert_eq!(function.name, "main");
     assert_eq!(function.ret_ty, MirTy::Unit);
     assert_eq!(function.blocks.len(), 1);
     assert_eq!(function.blocks[0].terminator, MirTerminator::Return(None));
@@ -146,6 +146,7 @@ fn lower_let_string_literal_to_local_assignment() {
 
     let function = &result.module.functions[0];
     assert_eq!(function.locals.len(), 1);
+    assert_eq!(function.locals[0].name, Some("message"));
     assert_eq!(function.locals[0].ty, MirTy::Str);
 
     let MirStmt::Assign { dst, rhs, span } = &function.blocks[0].stmts[0];
@@ -181,6 +182,7 @@ fn lower_print_builtin_call_to_runtime_call() {
 
     let function = &result.module.functions[0];
     assert_eq!(function.locals.len(), 1);
+    assert_eq!(function.locals[0].name, None);
     assert_eq!(function.locals[0].ty, MirTy::Unit);
 
     let MirStmt::Assign { dst, rhs, span } = &function.blocks[0].stmts[0];

@@ -7,30 +7,24 @@ use crate::ids::{MirBlockId, MirLocalId};
 use crate::ty::MirTy;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MirFunction {
+pub struct MirFunction<'src> {
     pub hir_id: HirId,
     pub span: Span,
-    pub name: Box<str>,
+    pub name: &'src str,
     pub params: Box<[MirLocalId]>,
-    pub locals: Vec<MirLocal>,
+    pub locals: Vec<MirLocal<'src>>,
     pub blocks: Vec<MirBlock>,
     pub entry: MirBlockId,
     pub ret_ty: MirTy,
     pub ret_span: Span,
 }
 
-impl MirFunction {
-    pub fn new(
-        hir_id: HirId,
-        name: impl Into<Box<str>>,
-        ret_ty: MirTy,
-        span: Span,
-        ret_span: Span,
-    ) -> Self {
+impl<'src> MirFunction<'src> {
+    pub fn new(hir_id: HirId, name: &'src str, ret_ty: MirTy, span: Span, ret_span: Span) -> Self {
         Self {
             hir_id,
             span,
-            name: name.into(),
+            name,
             params: Box::new([]),
             locals: Vec::new(),
             blocks: Vec::new(),
@@ -40,9 +34,9 @@ impl MirFunction {
         }
     }
 
-    pub fn push_local(&mut self, ty: MirTy, span: Span) -> MirLocalId {
+    pub fn push_local(&mut self, name: Option<&'src str>, ty: MirTy, span: Span) -> MirLocalId {
         let id = MirLocalId::from_usize(self.locals.len());
-        self.locals.push(MirLocal { ty, span });
+        self.locals.push(MirLocal { name, ty, span });
         id
     }
 
@@ -54,7 +48,8 @@ impl MirFunction {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct MirLocal {
+pub struct MirLocal<'src> {
+    pub name: Option<&'src str>,
     pub ty: MirTy,
     pub span: Span,
 }

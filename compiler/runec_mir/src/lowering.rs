@@ -56,9 +56,9 @@ pub struct MirLowerer<'src, 'info> {
     res: MirLowerResult<'src>,
 }
 
-struct FunctionLowerCtx<'mir> {
+struct FunctionLowerCtx<'src, 'mir> {
     function: HirId,
-    lowered: &'mir mut MirFunction,
+    lowered: &'mir mut MirFunction<'src>,
     block: &'mir mut MirBlock,
     locals: &'mir mut HashMap<HirLocalId, MirLocalId>,
 }
@@ -88,7 +88,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         self.res
     }
 
-    fn lower_function(&mut self, function: &HirFunction<'src>) -> Option<MirFunction> {
+    fn lower_function(&mut self, function: &HirFunction<'src>) -> Option<MirFunction<'src>> {
         let Some(sig) = self.type_info.function_sig(function.id) else {
             self.push_error(
                 function.id,
@@ -136,7 +136,11 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
                 continue;
             };
 
-            let mir_local = lowered.push_local(ty, function.params[idx].span);
+            let mir_local = lowered.push_local(
+                Some(function.params[idx].name.node),
+                ty,
+                function.params[idx].span,
+            );
             locals.insert(hir_local, mir_local);
             params.push(mir_local);
         }
@@ -152,7 +156,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         &mut self,
         function: HirId,
         block: &HirBlock<'src>,
-        lowered: &mut MirFunction,
+        lowered: &mut MirFunction<'src>,
         locals: &mut HashMap<HirLocalId, MirLocalId>,
     ) -> MirBlock {
         let mut mir_block = MirBlock::new(MirTerminator::Return(None));
@@ -176,13 +180,17 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         mir_block
     }
 
-    fn lower_stmt(&mut self, stmt: &HirStmt<'src>, ctx: &mut FunctionLowerCtx<'_>) {
+    fn lower_stmt(&mut self, stmt: &HirStmt<'src>, ctx: &mut FunctionLowerCtx<'src, '_>) {
         match stmt {
             HirStmt::Expr(expr) => {
                 let _ = self.lower_expr(expr, ctx);
             }
             HirStmt::Let {
-                local, init, span, ..
+                local,
+                name,
+                init,
+                span,
+                ..
             } => {
                 let Some(hir_local) = local else {
                     self.push_error(ctx.function, *span, MirLowerErrorKind::MissingLocalId);
@@ -206,7 +214,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
                     return;
                 };
 
-                let mir_local = ctx.lowered.push_local(ty, *span);
+                let mir_local = ctx.lowered.push_local(Some(name.node), ty, *span);
                 ctx.locals.insert(*hir_local, mir_local);
 
                 if let Some(init) = init {
@@ -226,7 +234,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
     fn lower_expr(
         &mut self,
         expr: &SpannedHirExpr<'src>,
-        ctx: &mut FunctionLowerCtx<'_>,
+        ctx: &mut FunctionLowerCtx<'src, '_>,
     ) -> Option<MirOperand> {
         match &expr.node {
             HirExpr::Literal(literal) => self.lower_literal(ctx.function, expr, literal),
@@ -278,7 +286,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
         expr: &SpannedHirExpr<'src>,
         callee: &SpannedHirExpr<'src>,
         args: &[SpannedHirExpr<'src>],
-        ctx: &mut FunctionLowerCtx<'_>,
+        ctx: &mut FunctionLowerCtx<'src, '_>,
     ) -> Option<MirOperand> {
         let callee = self.lower_callee(ctx.function, callee)?;
 
@@ -297,7 +305,7 @@ impl<'src, 'info> MirLowerer<'src, 'info> {
             return None;
         };
 
-        let dst = ctx.lowered.push_local(ret_ty, expr.span);
+        let dst = ctx.lowered.push_local(None, ret_ty, expr.span);
         ctx.block.stmts.push(MirStmt::Assign {
             dst: MirPlace::new(dst),
             rhs: MirRvalue::Call { callee, args },

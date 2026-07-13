@@ -239,7 +239,7 @@ mod tests {
             span(0, 20),
             span(18, 18),
         );
-        let message = function.push_local(MirTy::Str, span(14, 17));
+        let message = function.push_local(Some("message"), MirTy::Str, span(14, 17));
         function.params = Box::new([message]);
         module.push_function(function);
 
@@ -264,8 +264,8 @@ mod tests {
             span(0, 20),
             span(8, 8),
         );
-        let message = function.push_local(MirTy::Str, span(10, 15));
-        let result = function.push_local(MirTy::Unit, span(10, 18));
+        let message = function.push_local(Some("message"), MirTy::Str, span(10, 15));
+        let result = function.push_local(None, MirTy::Unit, span(10, 18));
         let mut entry = MirBlock::new(MirTerminator::Return(None));
         entry.stmts.push(MirStmt::Assign {
             dst: MirPlace::new(result),

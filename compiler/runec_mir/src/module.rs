@@ -5,7 +5,7 @@ use crate::ids::{MirConstantId, MirFunctionId};
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct MirModule<'src> {
     pub constants: Vec<MirConstant<'src>>,
-    pub functions: Vec<MirFunction>,
+    pub functions: Vec<MirFunction<'src>>,
     pub entry: Option<MirFunctionId>,
 }
 
@@ -24,13 +24,13 @@ impl<'src> MirModule<'src> {
         &self.constants[id.to_usize()]
     }
 
-    pub fn push_function(&mut self, function: MirFunction) -> MirFunctionId {
+    pub fn push_function(&mut self, function: MirFunction<'src>) -> MirFunctionId {
         let id = MirFunctionId::from_usize(self.functions.len());
         self.functions.push(function);
         id
     }
 
-    pub fn function(&self, id: MirFunctionId) -> &MirFunction {
+    pub fn function(&self, id: MirFunctionId) -> &MirFunction<'src> {
         &self.functions[id.to_usize()]
     }
 }
@@ -65,8 +65,8 @@ mod tests {
 
         let mut main =
             MirFunction::new(HirId::from_usize(0), "main", MirTy::Unit, dummy(), dummy());
-        let message = main.push_local(MirTy::Str, dummy());
-        let print_result = main.push_local(MirTy::Unit, dummy());
+        let message = main.push_local(Some("message"), MirTy::Str, dummy());
+        let print_result = main.push_local(None, MirTy::Unit, dummy());
 
         let mut entry = MirBlock::new(MirTerminator::Return(None));
         entry.stmts.push(MirStmt::Assign {
@@ -88,7 +88,7 @@ mod tests {
         module.entry = Some(main_id);
 
         assert_eq!(module.constant(hello).ty(), MirTy::Str);
-        assert_eq!(module.function(main_id).name.as_ref(), "main");
+        assert_eq!(module.function(main_id).name, "main");
         assert_eq!(module.function(main_id).blocks[0].stmts.len(), 2);
         assert_eq!(module.entry, Some(main_id));
     }
