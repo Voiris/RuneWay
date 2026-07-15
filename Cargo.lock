@@ -171,9 +171,11 @@ dependencies = [
  "runec_abi",
  "runec_ast",
  "runec_builtins",
+ "runec_errors",
  "runec_hir",
  "runec_semantic",
  "runec_source",
+ "runec_utils",
 ]
 
 [[package]]

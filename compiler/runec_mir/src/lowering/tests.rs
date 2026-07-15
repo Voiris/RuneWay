@@ -18,7 +18,7 @@ use runec_source::span::{Span, Spanned};
 use crate::block::{MirRvalue, MirStmt, MirTerminator};
 use crate::constant::MirConstant;
 use crate::function::MirCallee;
-use crate::lowering::{MirLowerErrorKind, MirLowerer};
+use crate::lowering::MirLowerer;
 use crate::operand::{MirImmediate, MirOperand};
 use crate::ty::{MirIntTy, MirTy};
 
@@ -86,12 +86,12 @@ fn unsupported_return_type_error_preserves_span() {
     let typeck = TypeChecker::new().check(&hir);
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 
-    assert_eq!(result.errors.len(), 1);
-    assert_eq!(result.errors[0].span, return_span);
-    assert!(matches!(
-        result.errors[0].kind,
-        MirLowerErrorKind::UnsupportedType(_)
-    ));
+    assert_eq!(result.diags.len(), 1);
+    assert_eq!(result.diags[0].labels[0].span, return_span);
+    assert_eq!(
+        result.diags[0].message.message,
+        "unsupported type Tuple([]) in MIR lowering"
+    );
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn lower_empty_main_function_shell() {
 
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 
-    assert!(result.errors.is_empty());
+    assert!(result.diags.is_empty());
     assert_eq!(result.module.functions.len(), 1);
     assert_eq!(result.module.entry.map(|id| id.to_usize()), Some(0));
 
@@ -140,7 +140,7 @@ fn lower_let_string_literal_to_local_assignment() {
 
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 
-    assert!(result.errors.is_empty());
+    assert!(result.diags.is_empty());
     assert_eq!(result.module.constants.len(), 1);
     assert_eq!(result.module.constants[0], MirConstant::Str("hello".into()));
 
@@ -177,7 +177,7 @@ fn lower_print_builtin_call_to_runtime_call() {
 
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 
-    assert!(result.errors.is_empty());
+    assert!(result.diags.is_empty());
     assert_eq!(result.module.constants[0], MirConstant::Str("hello".into()));
 
     let function = &result.module.functions[0];
@@ -221,7 +221,7 @@ fn lower_user_function_call_to_function_callee() {
 
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 
-    assert!(result.errors.is_empty());
+    assert!(result.diags.is_empty());
     assert_eq!(result.module.functions.len(), 2);
     assert_eq!(result.module.entry.map(|id| id.to_usize()), Some(1));
 
@@ -261,7 +261,7 @@ fn lower_tail_expr_to_return_operand() {
 
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 
-    assert!(result.errors.is_empty());
+    assert!(result.diags.is_empty());
     assert_eq!(
         result.module.functions[0].blocks[0].terminator,
         MirTerminator::Return(Some(MirOperand::Immediate(MirImmediate::Int {
