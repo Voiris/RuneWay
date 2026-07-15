@@ -7,6 +7,10 @@ use runec_mir::{MirCallee, MirFunction, MirFunctionId, MirModule, MirRvalue, Mir
 use crate::error::{CodegenError, CodegenErrorKind, CodegenResult};
 use crate::signature::{AbiType, FunctionSignature};
 
+mod native;
+
+pub use native::CompiledModule;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EmitMode {
     Jit,
@@ -82,6 +86,18 @@ impl CraneliftLowerer {
             functions,
             runtime_functions,
         })
+    }
+
+    /// Lowers MIR into a backend-neutral Cranelift module.
+    ///
+    /// JIT and AOT adapters share this path and differ only in module
+    /// finalization.
+    pub fn compile<M: cranelift_module::Module>(
+        &mut self,
+        backend: &mut M,
+        module: &MirModule<'_>,
+    ) -> CodegenResult<CompiledModule> {
+        native::compile_module(backend, module)
     }
 
     fn lower_runtime_functions(

@@ -7,10 +7,16 @@ repository = "https://github.com/Voiris/RuneWay"
 homepage = "https://github.com/Voiris/RuneWay"
 
 [dependencies]
+cranelift-codegen = "0.130.2"
+cranelift-frontend = "0.130.2"
+cranelift-jit = "0.130.2"
+cranelift-module = "0.130.2"
+cranelift-native = "0.130.2"
+cranelift-object = "0.130.2"
 runec_abi = { path = "../runec_abi" }
 runec_builtins = { path = "../runec_builtins" }
 runec_mir = { path = "../runec_mir" }
 runec_source = { path = "../runec_source" }
+runec_hir = { path = "../runec_hir" }
 
 [dev-dependencies]
-runec_hir = { path = "../runec_hir" }

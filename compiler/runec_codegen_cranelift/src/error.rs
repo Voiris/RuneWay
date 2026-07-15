@@ -30,4 +30,5 @@ pub enum CodegenErrorKind {
     UnsupportedFunction(MirFunctionId),
     UnsupportedRuntimeFunction(RuntimeFunctionId),
     UnknownLocal(MirLocalId),
+    Backend(String),
 }
