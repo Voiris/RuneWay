@@ -472,9 +472,11 @@ dependencies = [
  "cranelift-object",
  "runec_abi",
  "runec_builtins",
+ "runec_errors",
  "runec_hir",
  "runec_mir",
  "runec_source",
+ "runec_utils",
 ]
 
 [[package]]

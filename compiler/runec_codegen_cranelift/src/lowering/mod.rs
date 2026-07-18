@@ -4,7 +4,7 @@ use runec_abi::{RuntimeFunctionId, runtime_function};
 use runec_builtins::TypeBits;
 use runec_mir::{MirCallee, MirFunction, MirFunctionId, MirModule, MirRvalue, MirTy};
 
-use crate::error::{CodegenError, CodegenErrorKind, CodegenResult};
+use crate::diagnostics::{CodegenResult, error, messages};
 use crate::signature::{AbiType, FunctionSignature};
 
 mod native;
@@ -135,7 +135,12 @@ impl CraneliftLowerer {
         span: runec_source::span::Span,
     ) -> CodegenResult<LoweredRuntimeFunction> {
         let declaration = runtime_function(id).ok_or_else(|| {
-            CodegenError::at(span, CodegenErrorKind::UnsupportedRuntimeFunction(id))
+            let function = format!("{id:?}");
+            error(
+                messages::UNSUPPORTED_RUNTIME_FUNCTION,
+                &[("function", &function)],
+                Some(span),
+            )
         })?;
         let returns = match declaration.ret {
             AbiType::Unit => Vec::new(),
@@ -153,7 +158,12 @@ impl CraneliftLowerer {
         let mut params = Vec::new();
         for param in &function.params {
             let local = function.locals.get(param.to_usize()).ok_or_else(|| {
-                CodegenError::at(function.span, CodegenErrorKind::UnknownLocal(*param))
+                let local = format!("{param:?}");
+                error(
+                    messages::UNKNOWN_LOCAL,
+                    &[("local", &local)],
+                    Some(function.span),
+                )
             })?;
             self.lower_type(local.ty, local.span, &mut params)?;
         }
@@ -184,9 +194,11 @@ impl CraneliftLowerer {
                 TypeBits::B32 => AbiType::F32,
                 TypeBits::B64 => AbiType::F64,
                 _ => {
-                    return Err(CodegenError::at(
-                        span,
-                        CodegenErrorKind::UnsupportedType(ty),
+                    let ty = format!("{ty:?}");
+                    return Err(error(
+                        messages::UNSUPPORTED_TYPE,
+                        &[("type", &ty)],
+                        Some(span),
                     ));
                 }
             }),
@@ -213,7 +225,7 @@ mod tests {
     use runec_source::source_map::SourceId;
     use runec_source::span::Span;
 
-    use super::{AbiType, CodegenErrorKind, CodegenOptions, CraneliftLowerer, EmitMode};
+    use super::{AbiType, CodegenOptions, CraneliftLowerer, EmitMode};
 
     fn span(lo: usize, hi: usize) -> Span {
         Span::new(
@@ -326,8 +338,8 @@ mod tests {
             .lower_module(&module)
             .expect_err("unsupported return type should fail codegen lowering");
 
-        assert_eq!(error.span, Some(return_span));
-        assert!(matches!(error.kind, CodegenErrorKind::UnsupportedType(_)));
+        assert_eq!(error.labels[0].span, return_span);
+        assert!(error.message.message.contains("unsupported type"));
     }
 
     #[test]
@@ -348,7 +360,7 @@ mod tests {
             .lower_module(&module)
             .expect_err("unknown parameter local should fail codegen lowering");
 
-        assert_eq!(error.span, Some(function_span));
-        assert!(matches!(error.kind, CodegenErrorKind::UnknownLocal(_)));
+        assert_eq!(error.labels[0].span, function_span);
+        assert!(error.message.message.contains("unknown local"));
     }
 }

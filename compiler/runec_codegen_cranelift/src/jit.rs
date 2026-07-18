@@ -2,7 +2,8 @@ use cranelift_codegen::{isa::OwnedTargetIsa, settings};
 use cranelift_jit::{JITBuilder, JITModule};
 use runec_mir::{MirModule, MirTy};
 
-use crate::{CodegenError, CodegenErrorKind, CodegenOptions, CodegenResult, CraneliftLowerer};
+use crate::diagnostics::{backend, error, messages};
+use crate::{CodegenOptions, CodegenResult, CraneliftLowerer};
 
 /// Finalizes shared Cranelift IR in memory and invokes its entry point.
 pub struct JitBackend {
@@ -29,9 +30,12 @@ impl JitBackend {
         self.module.finalize_definitions().map_err(backend)?;
         let function = mir.function(compiled.entry);
         if !function.params.is_empty() || function.ret_ty != MirTy::Unit {
-            return Err(CodegenError::new(CodegenErrorKind::UnsupportedFunction(
-                compiled.entry,
-            )));
+            let function_id = format!("{:?}", compiled.entry);
+            return Err(error(
+                messages::UNSUPPORTED_FUNCTION,
+                &[("function", &function_id)],
+                Some(function.span),
+            ));
         }
         let address = self.module.get_finalized_function(compiled.entry_func);
         // SAFETY: the entry signature is checked above and finalized by JITModule.
@@ -46,10 +50,6 @@ fn native_isa() -> CodegenResult<OwnedTargetIsa> {
         .map_err(|error| backend(error.to_string()))?
         .finish(settings::Flags::new(settings::builder()))
         .map_err(backend)
-}
-
-fn backend(error: impl std::fmt::Display) -> CodegenError {
-    CodegenError::new(CodegenErrorKind::Backend(error.to_string()))
 }
 
 #[cfg(test)]

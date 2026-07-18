@@ -10,7 +10,7 @@ use runec_mir::{
     MirRvalue, MirStmt, MirTerminator, MirTy,
 };
 
-use crate::{CodegenError, CodegenErrorKind, CodegenResult};
+use crate::diagnostics::{CodegenResult, backend, error, messages};
 
 pub struct CompiledModule {
     pub entry: MirFunctionId,
@@ -24,7 +24,7 @@ pub(super) fn compile_module<M: Module>(
 ) -> CodegenResult<CompiledModule> {
     let entry = mir
         .entry
-        .ok_or_else(|| CodegenError::new(CodegenErrorKind::MissingEntry))?;
+        .ok_or_else(|| error(messages::MISSING_ENTRY, &[], None))?;
     let mut functions = HashMap::<HirId, FuncId>::new();
     for function in &mir.functions {
         let id = module
@@ -47,6 +47,7 @@ pub(super) fn compile_module<M: Module>(
                             callee: MirCallee::Runtime(id),
                             ..
                         },
+                    span,
                     ..
                 } = stmt
                 else {
@@ -56,7 +57,12 @@ pub(super) fn compile_module<M: Module>(
                     continue;
                 }
                 let decl = runtime_function(*id).ok_or_else(|| {
-                    CodegenError::new(CodegenErrorKind::UnsupportedRuntimeFunction(*id))
+                    let function = format!("{id:?}");
+                    error(
+                        messages::UNSUPPORTED_RUNTIME_FUNCTION,
+                        &[("function", &function)],
+                        Some(*span),
+                    )
                 })?;
                 let func = module
                     .declare_function(
@@ -125,12 +131,7 @@ fn compile_function<M: Module>(
     let block = function
         .blocks
         .get(function.entry.to_usize())
-        .ok_or_else(|| {
-            CodegenError::at(
-                function.span,
-                CodegenErrorKind::Backend("missing MIR entry block".into()),
-            )
-        })?;
+        .ok_or_else(|| error(messages::MISSING_ENTRY_BLOCK, &[], Some(function.span)))?;
     for stmt in &block.stmts {
         let MirStmt::Assign { dst, rhs, .. } = stmt;
         let values = match rhs {
@@ -140,12 +141,16 @@ fn compile_function<M: Module>(
             MirRvalue::Call { callee, args } => {
                 let func_id = match callee {
                     MirCallee::Runtime(id) => *runtimes.get(id).ok_or_else(|| {
-                        CodegenError::new(CodegenErrorKind::UnsupportedRuntimeFunction(*id))
+                        let function = format!("{id:?}");
+                        error(
+                            messages::UNSUPPORTED_RUNTIME_FUNCTION,
+                            &[("function", &function)],
+                            None,
+                        )
                     })?,
                     MirCallee::Function(id) => *functions.get(id).ok_or_else(|| {
-                        CodegenError::new(CodegenErrorKind::Backend(format!(
-                            "unknown function {id:?}"
-                        )))
+                        let function = format!("{id:?}");
+                        error(messages::UNKNOWN_FUNCTION, &[("function", &function)], None)
                     })?,
                 };
                 let func_ref = module.declare_func_in_func(func_id, builder.func);
@@ -165,9 +170,7 @@ fn compile_function<M: Module>(
         };
         let vars = &locals[dst.local.to_usize()];
         if vars.len() != values.len() {
-            return Err(CodegenError::new(CodegenErrorKind::Backend(
-                "assignment ABI arity mismatch".into(),
-            )));
+            return Err(error(messages::ABI_ARITY_MISMATCH, &[], None));
         }
         for (var, value) in vars.iter().zip(values) {
             builder.def_var(*var, value);
@@ -287,7 +290,10 @@ fn clif_types<M: Module>(module: &M, ty: MirTy) -> CodegenResult<Vec<cranelift_c
         MirTy::Float(v) => vec![match v.bits {
             runec_builtins::TypeBits::B32 => types::F32,
             runec_builtins::TypeBits::B64 => types::F64,
-            _ => return Err(CodegenError::new(CodegenErrorKind::UnsupportedType(ty))),
+            _ => {
+                let ty = format!("{ty:?}");
+                return Err(error(messages::UNSUPPORTED_TYPE, &[("type", &ty)], None));
+            }
         }],
         MirTy::Str | MirTy::Bytes => vec![module.target_config().pointer_type(); 2],
     })
@@ -316,7 +322,4 @@ fn abi_type<M: Module>(module: &M, ty: runec_abi::AbiType) -> cranelift_codegen:
         }
         runec_abi::AbiType::Unit => types::I8,
     }
-}
-fn backend(error: impl std::fmt::Display) -> CodegenError {
-    CodegenError::new(CodegenErrorKind::Backend(error.to_string()))
 }

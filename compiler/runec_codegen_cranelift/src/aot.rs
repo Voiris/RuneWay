@@ -2,7 +2,8 @@ use cranelift_codegen::{isa::OwnedTargetIsa, settings};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use runec_mir::MirModule;
 
-use crate::{CodegenError, CodegenErrorKind, CodegenOptions, CodegenResult, CraneliftLowerer};
+use crate::diagnostics::backend;
+use crate::{CodegenOptions, CodegenResult, CraneliftLowerer};
 
 /// Emits an object file from the same Cranelift IR path used by the JIT.
 pub struct AotBackend;
@@ -26,10 +27,6 @@ fn native_isa() -> CodegenResult<OwnedTargetIsa> {
         .map_err(|error| backend(error.to_string()))?
         .finish(settings::Flags::new(settings::builder()))
         .map_err(backend)
-}
-
-fn backend(error: impl std::fmt::Display) -> CodegenError {
-    CodegenError::new(CodegenErrorKind::Backend(error.to_string()))
 }
 
 #[cfg(test)]
