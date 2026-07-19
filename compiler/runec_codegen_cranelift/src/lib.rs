@@ -1,12 +1,10 @@
-pub mod aot;
 pub mod diagnostics;
-pub mod jit;
+pub mod emit;
 pub mod lowering;
 pub mod signature;
 
-pub use aot::AotBackend;
 pub use diagnostics::CodegenResult;
-pub use jit::JitBackend;
+pub use emit::{AotBackend, JitBackend};
 pub use lowering::{
     CodegenArtifact, CodegenOptions, CraneliftLowerer, EmitMode, LoweredFunction,
     LoweredRuntimeFunction,
