@@ -8,7 +8,10 @@ use crate::byte_pos::BytePos;
 pub struct SourceId(u16);
 
 impl SourceId {
+    pub const MAX: usize = u16::MAX as usize;
+
     pub const fn from_usize(n: usize) -> SourceId {
+        assert!(n <= Self::MAX, "SourceId overflow");
         SourceId(n as u16)
     }
 
@@ -21,7 +24,10 @@ impl SourceId {
 pub struct LineIndex(u16);
 
 impl LineIndex {
+    pub const MAX: usize = u16::MAX as usize;
+
     pub const fn from_usize(n: usize) -> LineIndex {
+        assert!(n <= Self::MAX, "LineIndex overflow");
         LineIndex(n as u16)
     }
 
@@ -147,7 +153,19 @@ impl SourceMap {
 #[cfg(test)]
 mod tests {
     use crate::byte_pos::BytePos;
-    use crate::source_map::{LineIndex, SourceLineStarts};
+    use crate::source_map::{LineIndex, SourceId, SourceLineStarts};
+
+    #[test]
+    #[should_panic(expected = "SourceId overflow")]
+    fn source_id_rejects_overflow() {
+        SourceId::from_usize(SourceId::MAX + 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "LineIndex overflow")]
+    fn line_index_rejects_overflow() {
+        LineIndex::from_usize(LineIndex::MAX + 1);
+    }
 
     #[test]
     fn test_line_search() {
