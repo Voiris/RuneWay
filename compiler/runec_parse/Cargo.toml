@@ -1,10 +1,11 @@
 [package]
 name = "runec_parse"
-version = "0.0.0"
-edition = "2024"
-license = "MIT"
-repository = "https://github.com/Voiris/RuneWay"
-homepage = "https://github.com/Voiris/RuneWay"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
 
 [dependencies]
 runec_source = { path = "../runec_source" }

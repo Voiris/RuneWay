@@ -444,25 +444,25 @@ dependencies = [
 
 [[package]]
 name = "runec_abi"
-version = "0.1.0"
+version = "0.0.0"
 
 [[package]]
 name = "runec_ast"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "runec_source",
 ]
 
 [[package]]
 name = "runec_builtins"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "runec_abi",
 ]
 
 [[package]]
 name = "runec_codegen_cranelift"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-frontend",
@@ -502,7 +502,7 @@ dependencies = [
 
 [[package]]
 name = "runec_mir"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "runec_abi",
  "runec_ast",
@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "runec_proc_macro_utils"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "quote",
  "syn",
@@ -535,14 +535,14 @@ dependencies = [
 
 [[package]]
 name = "runec_runtime"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "runec_abi",
 ]
 
 [[package]]
 name = "runec_semantic"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "runec_ast",
  "runec_builtins",
@@ -559,7 +559,7 @@ dependencies = [
 
 [[package]]
 name = "runec_test_utils"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "memmap2",
  "runec_source",

@@ -1,10 +1,11 @@
 [package]
 name = "runec_utils"
-version = "0.0.0"
-edition = "2024"
-license = "MIT"
-repository = "https://github.com/Voiris/RuneWay"
-homepage = "https://github.com/Voiris/RuneWay"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
 
 [dependencies]
 regex = "1.12.3"
