@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
 use runec_builtins::builtin_from_name;
+use runec_errors::diagnostics::Diagnostic;
+use runec_errors::labels::DiagLabel;
+use runec_errors::message::DiagMessage;
 use runec_source::span::Span;
 
 use runec_hir::expression::{HirExpr, SpannedHirExpr};
@@ -11,27 +14,13 @@ use runec_hir::resolution::Res;
 use runec_hir::statement::{HirBlock, HirStmt};
 use runec_hir::ty::{HirPrimitiveTy, HirType, SpannedHirType};
 
-#[derive(Debug, PartialEq)]
-pub struct ResolveError {
-    pub span: Span,
-    pub kind: ResolveErrorKind,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ResolveErrorKind {
-    DuplicateItem,
-    DuplicateLocal,
-    UnresolvedName,
-    UnresolvedType,
-}
-
 pub struct ResolveResult {
-    pub errors: Vec<ResolveError>,
+    pub diags: Vec<Diagnostic<'static>>,
 }
 
 pub struct Resolver<'src> {
     items: HashMap<&'src str, ResolvedItem>,
-    errors: Vec<ResolveError>,
+    diags: Vec<Diagnostic<'static>>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -51,7 +40,7 @@ impl<'src> Resolver<'src> {
     pub fn new() -> Self {
         Self {
             items: HashMap::new(),
-            errors: Vec::new(),
+            diags: Vec::new(),
         }
     }
 
@@ -68,7 +57,7 @@ impl<'src> Resolver<'src> {
 
                     let mut locals = LocalScope::new();
                     for param in function.params.iter() {
-                        locals.define(param.name.node, param.span, &mut self.errors);
+                        locals.define(param.name.node, param.span, &mut self.diags);
                     }
                     self.resolve_block(&mut function.body, &mut locals);
                 }
@@ -97,9 +86,7 @@ impl<'src> Resolver<'src> {
             }
         }
 
-        ResolveResult {
-            errors: self.errors,
-        }
+        ResolveResult { diags: self.diags }
     }
 
     fn collect_items(&mut self, hir: &HirMap<'src>) {
@@ -111,10 +98,11 @@ impl<'src> Resolver<'src> {
             };
             let resolved = ResolvedItem { id, kind };
             if self.items.insert(item.name().node, resolved).is_some() {
-                self.errors.push(ResolveError {
-                    span: item.name().span,
-                    kind: ResolveErrorKind::DuplicateItem,
-                });
+                self.diags.push(diagnostic(
+                    messages::DUPLICATE_ITEM,
+                    &[("name", item.name().node)],
+                    item.name().span,
+                ));
             }
         }
     }
@@ -145,7 +133,7 @@ impl<'src> Resolver<'src> {
                 if let Some(init) = init {
                     self.resolve_expr(init, locals);
                 }
-                *local = Some(locals.define(name.node, name.span, &mut self.errors));
+                *local = Some(locals.define(name.node, name.span, &mut self.diags));
             }
         }
     }
@@ -162,22 +150,28 @@ impl<'src> Resolver<'src> {
                         if matches!(item.kind, ResolvedItemKind::Function) {
                             expr.node = HirExpr::Resolved(Res::Def(item.id));
                         } else {
-                            self.errors.push(ResolveError {
-                                span: expr.span,
-                                kind: ResolveErrorKind::UnresolvedName,
-                            });
+                            let name = format_path(path);
+                            self.diags.push(diagnostic(
+                                messages::UNRESOLVED_NAME,
+                                &[("name", &name)],
+                                expr.span,
+                            ));
                         }
                     } else {
-                        self.errors.push(ResolveError {
-                            span: expr.span,
-                            kind: ResolveErrorKind::UnresolvedName,
-                        });
+                        let name = format_path(path);
+                        self.diags.push(diagnostic(
+                            messages::UNRESOLVED_NAME,
+                            &[("name", &name)],
+                            expr.span,
+                        ));
                     }
                 } else {
-                    self.errors.push(ResolveError {
-                        span: expr.span,
-                        kind: ResolveErrorKind::UnresolvedName,
-                    });
+                    let name = format_path(path);
+                    self.diags.push(diagnostic(
+                        messages::UNRESOLVED_NAME,
+                        &[("name", &name)],
+                        expr.span,
+                    ));
                 }
             }
             HirExpr::Call { callee, args } => {
@@ -213,23 +207,29 @@ impl<'src> Resolver<'src> {
                                 };
                             }
                             ResolvedItemKind::Function => {
-                                self.errors.push(ResolveError {
-                                    span: ty.span,
-                                    kind: ResolveErrorKind::UnresolvedType,
-                                });
+                                let name = format_path(path);
+                                self.diags.push(diagnostic(
+                                    messages::UNRESOLVED_TYPE,
+                                    &[("name", &name)],
+                                    ty.span,
+                                ));
                             }
                         }
                     } else {
-                        self.errors.push(ResolveError {
-                            span: ty.span,
-                            kind: ResolveErrorKind::UnresolvedType,
-                        });
+                        let name = format_path(path);
+                        self.diags.push(diagnostic(
+                            messages::UNRESOLVED_TYPE,
+                            &[("name", &name)],
+                            ty.span,
+                        ));
                     }
                 } else {
-                    self.errors.push(ResolveError {
-                        span: ty.span,
-                        kind: ResolveErrorKind::UnresolvedType,
-                    });
+                    let name = format_path(path);
+                    self.diags.push(diagnostic(
+                        messages::UNRESOLVED_TYPE,
+                        &[("name", &name)],
+                        ty.span,
+                    ));
                 }
             }
             HirType::Tuple(items) => {
@@ -273,15 +273,16 @@ impl<'src> LocalScope<'src> {
         &mut self,
         name: &'src str,
         span: Span,
-        errors: &mut Vec<ResolveError>,
+        diags: &mut Vec<Diagnostic<'static>>,
     ) -> HirLocalId {
         let id = HirLocalId::from_usize(self.next);
         self.next += 1;
         if self.names.insert(name, id).is_some() {
-            errors.push(ResolveError {
+            diags.push(diagnostic(
+                messages::DUPLICATE_LOCAL,
+                &[("name", name)],
                 span,
-                kind: ResolveErrorKind::DuplicateLocal,
-            });
+            ));
         }
         id
     }
@@ -327,6 +328,33 @@ fn builtin_from_path(path: &runec_hir::path::HirPath<'_>) -> Option<runec_builti
 
     builtin_from_name(path.segments[0].name.node)
 }
+
+fn format_path(path: &runec_hir::path::HirPath<'_>) -> String {
+    let joined = path
+        .segments
+        .iter()
+        .map(|segment| segment.name.node)
+        .collect::<Vec<_>>()
+        .join("::");
+    if joined.is_empty() {
+        "<empty>".to_owned()
+    } else if path.from_root {
+        format!("::{joined}")
+    } else {
+        joined
+    }
+}
+
+fn diagnostic(
+    message: &'static str,
+    replacements: &[(&str, &str)],
+    span: Span,
+) -> Diagnostic<'static> {
+    *Diagnostic::error(DiagMessage::new(message, replacements))
+        .add_label(DiagLabel::silent_primary(span))
+}
+
+mod messages;
 
 #[cfg(test)]
 mod tests {
@@ -403,7 +431,7 @@ mod tests {
         }));
 
         let result = Resolver::new().resolve(&mut hir);
-        assert!(result.errors.is_empty());
+        assert!(result.diags.is_empty());
 
         let HirItem::Function(function) = hir.get(HirId::from_usize(0)) else {
             panic!("expected function");
@@ -437,6 +465,44 @@ mod tests {
         assert_eq!(
             args[0].node,
             HirExpr::Resolved(Res::Local(HirLocalId::from_usize(1)))
+        );
+    }
+
+    #[test]
+    fn reports_unresolved_name_as_diagnostic() {
+        let unresolved_span = sp(10, 17);
+        let mut hir = HirMap::new();
+        hir.push(HirItem::Function(HirFunction {
+            id: HirId::from_usize(0),
+            name: SpannedStr::new("main", sp(0, 4)),
+            params: Box::new([]),
+            ret_ty: s(HirType::Unit),
+            body: HirBlock {
+                stmts: Box::new([HirStmt::Expr(Spanned::new(
+                    HirExpr::Path(HirPath {
+                        from_root: false,
+                        segments: Box::new([HirPathSegment {
+                            name: SpannedStr::new("missing", unresolved_span),
+                            generics: None,
+                            span: unresolved_span,
+                        }]),
+                        span: unresolved_span,
+                    }),
+                    unresolved_span,
+                ))]),
+                tail: None,
+                span: sp(8, 18),
+            },
+            span: sp(0, 18),
+        }));
+
+        let result = Resolver::new().resolve(&mut hir);
+
+        assert_eq!(result.diags.len(), 1);
+        assert_eq!(result.diags[0].labels[0].span, unresolved_span);
+        assert_eq!(
+            result.diags[0].message.message,
+            "cannot resolve value `missing`"
         );
     }
 }

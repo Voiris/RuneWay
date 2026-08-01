@@ -5,6 +5,9 @@ use runec_builtins::{
     BuiltinId, BuiltinReturn, ContractId, PrimitiveType, TypeBits, TypeConstraint, builtin_decl,
     primitive_implements,
 };
+use runec_errors::diagnostics::Diagnostic;
+use runec_errors::labels::DiagLabel;
+use runec_errors::message::DiagMessage;
 use runec_source::span::Span;
 
 use runec_hir::expression::{HirExpr, HirLiteral, SpannedHirExpr};
@@ -114,39 +117,21 @@ impl<'src> TypeInfo<'src> {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct TypeError {
-    pub span: Span,
-    pub kind: TypeErrorKind,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum TypeErrorKind {
-    UnresolvedExpr,
-    UnresolvedType,
-    UnknownLocal,
-    NotCallable,
-    ArgCountMismatch { expected: usize, actual: usize },
-    TypeMismatch { expected: Ty, actual: Ty },
-    ContractNotImplemented { contract_id: ContractId, actual: Ty },
-    MissingLocalId,
-}
-
 pub struct TypeCheckResult<'src> {
     pub info: TypeInfo<'src>,
-    pub errors: Vec<TypeError>,
+    pub diags: Vec<Diagnostic<'static>>,
 }
 
 pub struct TypeChecker<'src> {
     info: TypeInfo<'src>,
-    errors: Vec<TypeError>,
+    diags: Vec<Diagnostic<'static>>,
 }
 
 impl<'src> TypeChecker<'src> {
     pub fn new() -> Self {
         Self {
             info: TypeInfo::default(),
-            errors: Vec::new(),
+            diags: Vec::new(),
         }
     }
 
@@ -161,7 +146,7 @@ impl<'src> TypeChecker<'src> {
 
         TypeCheckResult {
             info: self.info,
-            errors: self.errors,
+            diags: self.diags,
         }
     }
 
@@ -227,10 +212,7 @@ impl<'src> TypeChecker<'src> {
                 span,
             } => {
                 let Some(local) = local else {
-                    self.errors.push(TypeError {
-                        span: *span,
-                        kind: TypeErrorKind::MissingLocalId,
-                    });
+                    self.push_diag(messages::MISSING_LOCAL_ID, &[], *span);
                     return;
                 };
 
@@ -254,10 +236,8 @@ impl<'src> TypeChecker<'src> {
                 } else if let Some(info) = locals.get_mut(local_idx) {
                     info.ty = final_ty;
                 } else {
-                    self.errors.push(TypeError {
-                        span: *span,
-                        kind: TypeErrorKind::UnknownLocal,
-                    });
+                    let local = format!("{local:?}");
+                    self.push_diag(messages::UNKNOWN_LOCAL, &[("local", &local)], *span);
                 }
             }
         }
@@ -269,10 +249,7 @@ impl<'src> TypeChecker<'src> {
             HirExpr::Literal(literal) => ty_of_literal(literal),
             HirExpr::Resolved(res) => self.check_res(function, *res, expr.span),
             HirExpr::Path(_) => {
-                self.errors.push(TypeError {
-                    span: expr.span,
-                    kind: TypeErrorKind::UnresolvedExpr,
-                });
+                self.push_diag(messages::UNRESOLVED_EXPRESSION, &[], expr.span);
                 Ty::Unknown
             }
             HirExpr::Block(block) => {
@@ -290,10 +267,8 @@ impl<'src> TypeChecker<'src> {
                 .local(function, local)
                 .map(|local| local.ty.clone())
                 .unwrap_or_else(|| {
-                    self.errors.push(TypeError {
-                        span,
-                        kind: TypeErrorKind::UnknownLocal,
-                    });
+                    let local = format!("{local:?}");
+                    self.push_diag(messages::UNKNOWN_LOCAL, &[("local", &local)], span);
                     Ty::Unknown
                 }),
             Res::Def(id) => Ty::Function(id),
@@ -338,14 +313,12 @@ impl<'src> TypeChecker<'src> {
                 }
                 Ty::Unknown
             }
-            _ => {
+            actual => {
                 for arg in args {
                     self.check_expr(function, arg);
                 }
-                self.errors.push(TypeError {
-                    span,
-                    kind: TypeErrorKind::NotCallable,
-                });
+                let actual = format!("{actual:?}");
+                self.push_diag(messages::NOT_CALLABLE, &[("actual", &actual)], span);
                 Ty::Unknown
             }
         }
@@ -353,10 +326,13 @@ impl<'src> TypeChecker<'src> {
 
     fn check_arg_count(&mut self, span: Span, expected: usize, actual: usize) {
         if expected != actual {
-            self.errors.push(TypeError {
+            let expected = expected.to_string();
+            let actual = actual.to_string();
+            self.push_diag(
+                messages::ARGUMENT_COUNT_MISMATCH,
+                &[("expected", &expected), ("actual", &actual)],
                 span,
-                kind: TypeErrorKind::ArgCountMismatch { expected, actual },
-            });
+            );
         }
     }
 
@@ -365,10 +341,13 @@ impl<'src> TypeChecker<'src> {
             return;
         }
 
-        self.errors.push(TypeError {
+        let expected = format!("{expected:?}");
+        let actual = format!("{actual:?}");
+        self.push_diag(
+            messages::TYPE_MISMATCH,
+            &[("expected", &expected), ("actual", &actual)],
             span,
-            kind: TypeErrorKind::TypeMismatch { expected, actual },
-        });
+        );
     }
 
     fn check_constraint(&mut self, span: Span, constraint: TypeConstraint, actual: Ty) {
@@ -377,13 +356,13 @@ impl<'src> TypeChecker<'src> {
             return;
         }
 
-        self.errors.push(TypeError {
+        let contract = contract_id.to_string();
+        let actual = format!("{actual:?}");
+        self.push_diag(
+            messages::CONTRACT_NOT_IMPLEMENTED,
+            &[("actual", &actual), ("contract", &contract)],
             span,
-            kind: TypeErrorKind::ContractNotImplemented {
-                contract_id,
-                actual,
-            },
-        });
+        );
     }
 
     fn lower_ty(&mut self, ty: &SpannedHirType<'src>) -> Ty {
@@ -402,13 +381,17 @@ impl<'src> TypeChecker<'src> {
                 len: const_array_len(len),
             },
             HirType::Unresolved(_) => {
-                self.errors.push(TypeError {
-                    span: ty.span,
-                    kind: TypeErrorKind::UnresolvedType,
-                });
+                self.push_diag(messages::UNRESOLVED_TYPE, &[], ty.span);
                 Ty::Unknown
             }
         }
+    }
+
+    fn push_diag(&mut self, message: &'static str, replacements: &[(&str, &str)], span: Span) {
+        self.diags.push(
+            *Diagnostic::error(DiagMessage::new(message, replacements))
+                .add_label(DiagLabel::silent_primary(span)),
+        );
     }
 }
 
@@ -567,15 +550,16 @@ fn const_array_len(expr: &SpannedHirExpr<'_>) -> Option<u64> {
     u64::try_from(*value).ok()
 }
 
+mod messages;
+
 #[cfg(test)]
 mod tests {
     use runec_ast::SpannedStr;
-    use runec_builtins::{DISPLAY_CONTRACT, PRINTLN};
+    use runec_builtins::PRINTLN;
     use runec_source::byte_pos::BytePos;
     use runec_source::source_map::SourceId;
     use runec_source::span::{Span, Spanned};
 
-    use runec_builtins::TypeBits;
     use runec_hir::expression::{HirExpr, HirLiteral};
     use runec_hir::ids::HirId;
     use runec_hir::item::{HirFunction, HirItem};
@@ -584,7 +568,7 @@ mod tests {
     use runec_hir::statement::{HirBlock, HirStmt};
     use runec_hir::ty::{HirPrimitiveTy, HirType};
 
-    use super::{Ty, TypeChecker, TypeErrorKind};
+    use super::{Ty, TypeChecker};
 
     const SRC: SourceId = SourceId::from_usize(0);
 
@@ -613,17 +597,10 @@ mod tests {
         }));
 
         let result = TypeChecker::new().check(&hir);
-        assert_eq!(result.errors.len(), 1);
-        assert_eq!(
-            result.errors[0].kind,
-            TypeErrorKind::TypeMismatch {
-                expected: Ty::Int {
-                    signed: true,
-                    bits: TypeBits::B32,
-                },
-                actual: Ty::Bool,
-            }
-        );
+        assert_eq!(result.diags.len(), 1);
+        assert_eq!(result.diags[0].labels[0].span, sp(0, 0));
+        assert!(result.diags[0].message.message.contains("expected type"));
+        assert!(result.diags[0].message.message.contains("Bool"));
     }
 
     #[test]
@@ -632,7 +609,7 @@ mod tests {
         hir.push(function_with_builtin_arg(HirLiteral::Str("hello".into())));
 
         let result = TypeChecker::new().check(&hir);
-        assert!(result.errors.is_empty());
+        assert!(result.diags.is_empty());
     }
 
     #[test]
@@ -659,7 +636,7 @@ mod tests {
         }));
 
         let result = TypeChecker::new().check(&hir);
-        assert!(result.errors.is_empty());
+        assert!(result.diags.is_empty());
         assert_eq!(
             result.info.ty_of_expr(function_id, &builtin),
             Ty::Builtin(PRINTLN)
@@ -683,16 +660,12 @@ mod tests {
         }));
 
         let result = TypeChecker::new().check(&hir);
-        assert_eq!(result.errors.len(), 1);
-        assert_eq!(
-            result.errors[0].kind,
-            TypeErrorKind::ContractNotImplemented {
-                contract_id: DISPLAY_CONTRACT,
-                actual: Ty::Int {
-                    signed: true,
-                    bits: TypeBits::B32,
-                },
-            }
+        assert_eq!(result.diags.len(), 1);
+        assert!(
+            result.diags[0]
+                .message
+                .message
+                .contains("core::fmt::Display")
         );
     }
 

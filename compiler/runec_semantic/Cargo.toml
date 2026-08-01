@@ -10,5 +10,7 @@ readme.workspace = true
 [dependencies]
 runec_ast    = { path = "../runec_ast" }
 runec_builtins = { path = "../runec_builtins" }
+runec_errors = { path = "../runec_errors" }
 runec_hir    = { path = "../runec_hir" }
 runec_source = { path = "../runec_source" }
+runec_utils  = { path = "../runec_utils" }

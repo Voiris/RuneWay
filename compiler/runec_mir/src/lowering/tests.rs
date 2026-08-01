@@ -100,7 +100,7 @@ fn lower_empty_main_function_shell() {
     hir.push(empty_unit_function("main"));
 
     let typeck = TypeChecker::new().check(&hir);
-    assert!(typeck.errors.is_empty());
+    assert!(typeck.diags.is_empty());
 
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 
@@ -136,7 +136,7 @@ fn lower_let_string_literal_to_local_assignment() {
     hir.push(unit_function_with_body(body));
 
     let typeck = TypeChecker::new().check(&hir);
-    assert!(typeck.errors.is_empty());
+    assert!(typeck.diags.is_empty());
 
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 
@@ -173,7 +173,7 @@ fn lower_print_builtin_call_to_runtime_call() {
     hir.push(unit_function_with_body(body));
 
     let typeck = TypeChecker::new().check(&hir);
-    assert!(typeck.errors.is_empty());
+    assert!(typeck.diags.is_empty());
 
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 
@@ -217,7 +217,7 @@ fn lower_user_function_call_to_function_callee() {
     hir.push(function_with_body(main_id, "main", main_body));
 
     let typeck = TypeChecker::new().check(&hir);
-    assert!(typeck.errors.is_empty());
+    assert!(typeck.diags.is_empty());
 
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 
@@ -257,7 +257,7 @@ fn lower_tail_expr_to_return_operand() {
     ));
 
     let typeck = TypeChecker::new().check(&hir);
-    assert!(typeck.errors.is_empty());
+    assert!(typeck.diags.is_empty());
 
     let result = MirLowerer::new(&typeck.info).lower(&hir);
 

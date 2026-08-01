@@ -546,8 +546,10 @@ version = "0.0.0"
 dependencies = [
  "runec_ast",
  "runec_builtins",
+ "runec_errors",
  "runec_hir",
  "runec_source",
+ "runec_utils",
 ]
 
 [[package]]
