@@ -21,10 +21,11 @@ pub struct CompiledModule {
 pub(super) fn compile_module<M: Module>(
     module: &mut M,
     mir: &MirModule<'_>,
+    diagnostic_span: runec_source::span::Span,
 ) -> CodegenResult<CompiledModule> {
     let entry = mir
         .entry
-        .ok_or_else(|| error(messages::MISSING_ENTRY, &[], None))?;
+        .ok_or_else(|| error(messages::MISSING_ENTRY, &[], diagnostic_span))?;
     let mut functions = HashMap::<HirId, FuncId>::new();
     for function in &mir.functions {
         let id = module
@@ -33,7 +34,7 @@ pub(super) fn compile_module<M: Module>(
                 Linkage::Export,
                 &signature_for(module, function)?,
             )
-            .map_err(backend)?;
+            .map_err(|error| backend(error, function.span))?;
         functions.insert(function.hir_id, id);
     }
 
@@ -61,7 +62,7 @@ pub(super) fn compile_module<M: Module>(
                     error(
                         messages::UNSUPPORTED_RUNTIME_FUNCTION,
                         &[("function", &function)],
-                        Some(*span),
+                        *span,
                     )
                 })?;
                 let func = module
@@ -70,13 +71,13 @@ pub(super) fn compile_module<M: Module>(
                         Linkage::Import,
                         &runtime_signature(module, decl),
                     )
-                    .map_err(backend)?;
+                    .map_err(|error| backend(error, *span))?;
                 runtimes.insert(*id, func);
             }
         }
     }
 
-    let constants = declare_constants(module, mir)?;
+    let constants = declare_constants(module, mir, diagnostic_span)?;
     for function in &mir.functions {
         compile_function(
             module,
@@ -114,7 +115,7 @@ fn compile_function<M: Module>(
     let mut locals = Vec::with_capacity(function.locals.len());
     for local in &function.locals {
         let mut local_vars = Vec::new();
-        for ty in clif_types(module, local.ty)? {
+        for ty in clif_types(module, local.ty, local.span)? {
             local_vars.push(builder.declare_var(ty));
         }
         locals.push(local_vars);
@@ -131,12 +132,12 @@ fn compile_function<M: Module>(
     let block = function
         .blocks
         .get(function.entry.to_usize())
-        .ok_or_else(|| error(messages::MISSING_ENTRY_BLOCK, &[], Some(function.span)))?;
+        .ok_or_else(|| error(messages::MISSING_ENTRY_BLOCK, &[], function.span))?;
     for stmt in &block.stmts {
-        let MirStmt::Assign { dst, rhs, .. } = stmt;
+        let MirStmt::Assign { dst, rhs, span } = stmt;
         let values = match rhs {
             MirRvalue::Use(operand) => {
-                lower_operand(&mut builder, module, operand, &locals, constants)?
+                lower_operand(&mut builder, module, operand, &locals, constants, *span)?
             }
             MirRvalue::Call { callee, args } => {
                 let func_id = match callee {
@@ -145,12 +146,16 @@ fn compile_function<M: Module>(
                         error(
                             messages::UNSUPPORTED_RUNTIME_FUNCTION,
                             &[("function", &function)],
-                            None,
+                            *span,
                         )
                     })?,
                     MirCallee::Function(id) => *functions.get(id).ok_or_else(|| {
                         let function = format!("{id:?}");
-                        error(messages::UNKNOWN_FUNCTION, &[("function", &function)], None)
+                        error(
+                            messages::UNKNOWN_FUNCTION,
+                            &[("function", &function)],
+                            *span,
+                        )
                     })?,
                 };
                 let func_ref = module.declare_func_in_func(func_id, builder.func);
@@ -162,6 +167,7 @@ fn compile_function<M: Module>(
                         arg,
                         &locals,
                         constants,
+                        *span,
                     )?);
                 }
                 let call = builder.ins().call(func_ref, &call_args);
@@ -170,7 +176,7 @@ fn compile_function<M: Module>(
         };
         let vars = &locals[dst.local.to_usize()];
         if vars.len() != values.len() {
-            return Err(error(messages::ABI_ARITY_MISMATCH, &[], None));
+            return Err(error(messages::ABI_ARITY_MISMATCH, &[], *span));
         }
         for (var, value) in vars.iter().zip(values) {
             builder.def_var(*var, value);
@@ -181,12 +187,21 @@ fn compile_function<M: Module>(
             builder.ins().return_(&[]);
         }
         MirTerminator::Return(Some(operand)) => {
-            let values = lower_operand(&mut builder, module, operand, &locals, constants)?;
+            let values = lower_operand(
+                &mut builder,
+                module,
+                operand,
+                &locals,
+                constants,
+                function.ret_span,
+            )?;
             builder.ins().return_(&values);
         }
     }
     builder.finalize();
-    module.define_function(id, &mut context).map_err(backend)?;
+    module
+        .define_function(id, &mut context)
+        .map_err(|error| backend(error, function.span))?;
     module.clear_context(&mut context);
     Ok(())
 }
@@ -197,6 +212,7 @@ fn lower_operand<M: Module>(
     operand: &MirOperand,
     locals: &[Vec<Variable>],
     constants: &[(DataId, usize)],
+    _span: runec_source::span::Span,
 ) -> CodegenResult<Vec<Value>> {
     Ok(match operand {
         MirOperand::Copy(place) => locals[place.local.to_usize()]
@@ -230,6 +246,7 @@ fn lower_operand<M: Module>(
 fn declare_constants<M: Module>(
     module: &mut M,
     mir: &MirModule<'_>,
+    diagnostic_span: runec_source::span::Span,
 ) -> CodegenResult<Vec<(DataId, usize)>> {
     mir.constants
         .iter()
@@ -246,10 +263,12 @@ fn declare_constants<M: Module>(
                     false,
                     false,
                 )
-                .map_err(backend)?;
+                .map_err(|error| backend(error, diagnostic_span))?;
             let mut data = DataDescription::new();
             data.define(bytes.to_vec().into_boxed_slice());
-            module.define_data(id, &data).map_err(backend)?;
+            module
+                .define_data(id, &data)
+                .map_err(|error| backend(error, diagnostic_span))?;
             Ok((id, bytes.len()))
         })
         .collect()
@@ -258,11 +277,12 @@ fn declare_constants<M: Module>(
 fn signature_for<M: Module>(module: &M, function: &MirFunction<'_>) -> CodegenResult<Signature> {
     let mut signature = module.make_signature();
     for param in function.params.iter() {
-        for ty in clif_types(module, function.locals[param.to_usize()].ty)? {
+        let local = &function.locals[param.to_usize()];
+        for ty in clif_types(module, local.ty, local.span)? {
             signature.params.push(AbiParam::new(ty));
         }
     }
-    for ty in clif_types(module, function.ret_ty)? {
+    for ty in clif_types(module, function.ret_ty, function.ret_span)? {
         signature.returns.push(AbiParam::new(ty));
     }
     Ok(signature)
@@ -281,7 +301,11 @@ fn runtime_signature<M: Module>(module: &M, decl: &RuntimeFunctionDecl) -> Signa
     signature
 }
 
-fn clif_types<M: Module>(module: &M, ty: MirTy) -> CodegenResult<Vec<cranelift_codegen::ir::Type>> {
+fn clif_types<M: Module>(
+    module: &M,
+    ty: MirTy,
+    span: runec_source::span::Span,
+) -> CodegenResult<Vec<cranelift_codegen::ir::Type>> {
     Ok(match ty {
         MirTy::Unit => vec![],
         MirTy::Bool => vec![types::I8],
@@ -292,7 +316,7 @@ fn clif_types<M: Module>(module: &M, ty: MirTy) -> CodegenResult<Vec<cranelift_c
             runec_builtins::TypeBits::B64 => types::F64,
             _ => {
                 let ty = format!("{ty:?}");
-                return Err(error(messages::UNSUPPORTED_TYPE, &[("type", &ty)], None));
+                return Err(error(messages::UNSUPPORTED_TYPE, &[("type", &ty)], span));
             }
         }],
         MirTy::Str | MirTy::Bytes => vec![module.target_config().pointer_type(); 2],

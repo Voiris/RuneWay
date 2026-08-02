@@ -10,16 +10,13 @@ pub(crate) mod messages;
 pub(crate) fn error(
     message: &'static str,
     replacements: &[(&str, &str)],
-    span: Option<Span>,
+    span: Span,
 ) -> Box<Diagnostic<'static>> {
-    let diagnostic = Diagnostic::error(DiagMessage::new(message, replacements));
-    match span {
-        Some(span) => diagnostic.add_label(DiagLabel::silent_primary(span)),
-        None => diagnostic,
-    }
+    Diagnostic::error(DiagMessage::new(message, replacements))
+        .add_label(DiagLabel::silent_primary(span))
 }
 
-pub(crate) fn backend(error_value: impl std::fmt::Display) -> Box<Diagnostic<'static>> {
+pub(crate) fn backend(error_value: impl std::fmt::Display, span: Span) -> Box<Diagnostic<'static>> {
     let error_value = error_value.to_string();
-    error(messages::BACKEND_FAILURE, &[("error", &error_value)], None)
+    error(messages::BACKEND_FAILURE, &[("error", &error_value)], span)
 }

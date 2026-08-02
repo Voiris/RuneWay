@@ -1,6 +1,7 @@
 use cranelift_codegen::{isa::OwnedTargetIsa, settings};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use runec_mir::MirModule;
+use runec_source::span::Span;
 
 use crate::diagnostics::backend;
 use crate::{CodegenOptions, CodegenResult, CraneliftLowerer};
@@ -9,24 +10,31 @@ use crate::{CodegenOptions, CodegenResult, CraneliftLowerer};
 pub struct AotBackend;
 
 impl AotBackend {
-    pub fn emit_object(mir: &MirModule<'_>, name: &str) -> CodegenResult<Vec<u8>> {
+    pub fn emit_object(
+        mir: &MirModule<'_>,
+        name: &str,
+        diagnostic_span: Span,
+    ) -> CodegenResult<Vec<u8>> {
         let builder = ObjectBuilder::new(
-            native_isa()?,
+            native_isa(diagnostic_span)?,
             name,
             cranelift_module::default_libcall_names(),
         )
-        .map_err(backend)?;
+        .map_err(|error| backend(error, diagnostic_span))?;
         let mut module = ObjectModule::new(builder);
-        CraneliftLowerer::new(CodegenOptions::aot()).compile(&mut module, mir)?;
-        module.finish().emit().map_err(backend)
+        CraneliftLowerer::new(CodegenOptions::aot()).compile(&mut module, mir, diagnostic_span)?;
+        module
+            .finish()
+            .emit()
+            .map_err(|error| backend(error, diagnostic_span))
     }
 }
 
-fn native_isa() -> CodegenResult<OwnedTargetIsa> {
+fn native_isa(diagnostic_span: Span) -> CodegenResult<OwnedTargetIsa> {
     cranelift_native::builder()
-        .map_err(|error| backend(error.to_string()))?
+        .map_err(|error| backend(error.to_string(), diagnostic_span))?
         .finish(settings::Flags::new(settings::builder()))
-        .map_err(backend)
+        .map_err(|error| backend(error, diagnostic_span))
 }
 
 #[cfg(test)]
@@ -51,9 +59,18 @@ mod tests {
         let main = module.push_function(main);
         module.entry = Some(main);
         assert!(
-            !AotBackend::emit_object(&module, "runeway_test")
+            !AotBackend::emit_object(&module, "runeway_test", span())
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn missing_entry_diagnostic_uses_fallback_span() {
+        let diagnostic_span = span();
+        let error = AotBackend::emit_object(&MirModule::new(), "runeway_test", diagnostic_span)
+            .expect_err("module without an entry should fail codegen");
+
+        assert_eq!(error.labels[0].span, diagnostic_span);
     }
 }

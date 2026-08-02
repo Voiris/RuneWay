@@ -96,8 +96,9 @@ impl CraneliftLowerer {
         &mut self,
         backend: &mut M,
         module: &MirModule<'_>,
+        diagnostic_span: runec_source::span::Span,
     ) -> CodegenResult<CompiledModule> {
-        native::compile_module(backend, module)
+        native::compile_module(backend, module, diagnostic_span)
     }
 
     fn lower_runtime_functions(
@@ -139,7 +140,7 @@ impl CraneliftLowerer {
             error(
                 messages::UNSUPPORTED_RUNTIME_FUNCTION,
                 &[("function", &function)],
-                Some(span),
+                span,
             )
         })?;
         let returns = match declaration.ret {
@@ -159,11 +160,7 @@ impl CraneliftLowerer {
         for param in &function.params {
             let local = function.locals.get(param.to_usize()).ok_or_else(|| {
                 let local = format!("{param:?}");
-                error(
-                    messages::UNKNOWN_LOCAL,
-                    &[("local", &local)],
-                    Some(function.span),
-                )
+                error(messages::UNKNOWN_LOCAL, &[("local", &local)], function.span)
             })?;
             self.lower_type(local.ty, local.span, &mut params)?;
         }
@@ -195,11 +192,7 @@ impl CraneliftLowerer {
                 TypeBits::B64 => AbiType::F64,
                 _ => {
                     let ty = format!("{ty:?}");
-                    return Err(error(
-                        messages::UNSUPPORTED_TYPE,
-                        &[("type", &ty)],
-                        Some(span),
-                    ));
+                    return Err(error(messages::UNSUPPORTED_TYPE, &[("type", &ty)], span));
                 }
             }),
             MirTy::Char => output.push(AbiType::I32),

@@ -1,6 +1,7 @@
 use cranelift_codegen::{isa::OwnedTargetIsa, settings};
 use cranelift_jit::{JITBuilder, JITModule};
 use runec_mir::{MirModule, MirTy};
+use runec_source::span::Span;
 
 use crate::diagnostics::{backend, error, messages};
 use crate::{CodegenOptions, CodegenResult, CraneliftLowerer};
@@ -8,33 +9,43 @@ use crate::{CodegenOptions, CodegenResult, CraneliftLowerer};
 /// Finalizes shared Cranelift IR in memory and invokes its entry point.
 pub struct JitBackend {
     module: JITModule,
+    diagnostic_span: Span,
 }
 
 impl JitBackend {
     pub fn new(
         symbols: impl IntoIterator<Item = (&'static str, *const u8)>,
+        diagnostic_span: Span,
     ) -> CodegenResult<Self> {
-        let mut builder =
-            JITBuilder::with_isa(native_isa()?, cranelift_module::default_libcall_names());
+        let mut builder = JITBuilder::with_isa(
+            native_isa(diagnostic_span)?,
+            cranelift_module::default_libcall_names(),
+        );
         for (name, address) in symbols {
             builder.symbol(name, address);
         }
         Ok(Self {
             module: JITModule::new(builder),
+            diagnostic_span,
         })
     }
 
     pub fn run(&mut self, mir: &MirModule<'_>) -> CodegenResult<()> {
-        let compiled =
-            CraneliftLowerer::new(CodegenOptions::jit()).compile(&mut self.module, mir)?;
-        self.module.finalize_definitions().map_err(backend)?;
+        let compiled = CraneliftLowerer::new(CodegenOptions::jit()).compile(
+            &mut self.module,
+            mir,
+            self.diagnostic_span,
+        )?;
+        self.module
+            .finalize_definitions()
+            .map_err(|error| backend(error, self.diagnostic_span))?;
         let function = mir.function(compiled.entry);
         if !function.params.is_empty() || function.ret_ty != MirTy::Unit {
             let function_id = format!("{:?}", compiled.entry);
             return Err(error(
                 messages::UNSUPPORTED_FUNCTION,
                 &[("function", &function_id)],
-                Some(function.span),
+                function.span,
             ));
         }
         let address = self.module.get_finalized_function(compiled.entry_func);
@@ -45,11 +56,11 @@ impl JitBackend {
     }
 }
 
-fn native_isa() -> CodegenResult<OwnedTargetIsa> {
+fn native_isa(diagnostic_span: Span) -> CodegenResult<OwnedTargetIsa> {
     cranelift_native::builder()
-        .map_err(|error| backend(error.to_string()))?
+        .map_err(|error| backend(error.to_string(), diagnostic_span))?
         .finish(settings::Flags::new(settings::builder()))
-        .map_err(backend)
+        .map_err(|error| backend(error, diagnostic_span))
 }
 
 #[cfg(test)]
@@ -100,7 +111,7 @@ mod tests {
     fn executes_shared_lowering() {
         CALLED.store(false, Ordering::SeqCst);
         let mut backend =
-            JitBackend::new([("__runeway_println", test_println as *const u8)]).unwrap();
+            JitBackend::new([("__runeway_println", test_println as *const u8)], span()).unwrap();
         backend.run(&hello_module()).unwrap();
         assert!(CALLED.load(Ordering::SeqCst));
     }
