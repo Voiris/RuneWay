@@ -38,6 +38,12 @@ pub fn resolve_symbol(name: &str) -> Option<RuntimeFunctionAddress> {
 }
 
 #[unsafe(no_mangle)]
+/// Writes `len` bytes starting at `ptr` to standard output.
+///
+/// # Safety
+///
+/// `ptr` must be null only when `len` is zero. Otherwise it must point to
+/// `len` readable bytes that remain valid for the duration of the call.
 pub unsafe extern "C" fn __runeway_print(ptr: *const u8, len: usize) {
     // SAFETY: Forwarded directly from the runtime ABI contract.
     let Some(bytes) = (unsafe { bytes_from_abi(ptr, len) }) else {
@@ -50,6 +56,12 @@ pub unsafe extern "C" fn __runeway_print(ptr: *const u8, len: usize) {
 }
 
 #[unsafe(no_mangle)]
+/// Writes `len` bytes starting at `ptr` to standard output, followed by a newline.
+///
+/// # Safety
+///
+/// `ptr` must be null only when `len` is zero. Otherwise it must point to
+/// `len` readable bytes that remain valid for the duration of the call.
 pub unsafe extern "C" fn __runeway_println(ptr: *const u8, len: usize) {
     // SAFETY: Forwarded directly from the runtime ABI contract.
     let Some(bytes) = (unsafe { bytes_from_abi(ptr, len) }) else {
