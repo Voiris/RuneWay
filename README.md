@@ -2,9 +2,9 @@
 
 *RuneWay* is a programming language written in Rust, with syntax inspired by Rust, Python, and JavaScript.
 
-> RuneWay is under active development. The compiler frontend currently reaches HIR name resolution
-> and basic semantic type checking. MIR, code generation, and an executable CLI pipeline are not
-> implemented yet.
+> RuneWay is under active development. The implemented compiler stages currently reach MIR
+> lowering and Cranelift-based JIT/AOT emission for a small supported language subset. The stages
+> are not yet connected through a usable `runec` CLI pipeline.
 
 ## 🔧 Features (WIP)
 
@@ -50,7 +50,7 @@ source (.rnw)
  MIR lowering ──► MIR
    │
    ▼
- Cranelift IR codegen ──► native binary
+ Cranelift IR codegen ──► JIT execution / object file
 ```
 
 - [x] Lexer (out: Tokens)
@@ -60,13 +60,13 @@ source (.rnw)
 - [x] Basic semantic type checking for calls, arguments, locals, and function returns
 - [x] Built-in declarations separated from the runtime ABI
 - [x] Runtime ABI declarations and native `print`/`println` symbols
-- [ ] MIR (out: MIR)
-- [ ] Cranelift IR codegen (out: native binary)
+- [x] Basic MIR lowering for functions, locals, literals, calls, and returns
+- [x] Cranelift code generation with shared JIT and AOT lowering
 - [ ] `runec` CLI pipeline
 
-### Current Frontend Scope
+### Current Compiler Scope
 
-The implemented frontend path is:
+The implemented path for the currently supported subset is:
 
 ```text
 AST
@@ -74,6 +74,8 @@ AST
       └─► name resolution
            └─► type checking
                 └─► TypeInfo
+                     └─► MIR lowering
+                          └─► Cranelift JIT / object emission
 ```
 
 HIR currently represents functions, parameters, local bindings, literals, blocks, paths, calls,
@@ -82,25 +84,34 @@ definitions, and compiler-provided built-ins.
 
 Semantic analysis currently provides:
 
-- duplicate and unresolved name diagnostics;
+- duplicate and unresolved name diagnostics through the shared diagnostic system;
 - primitive, struct, and enum type resolution;
 - local and function signature type information;
 - argument count and type checks;
 - function return type checks;
 - built-in contract constraints such as `Display`.
 
-These stages are covered by unit tests, but they are not yet connected into a source-to-binary
-end-to-end pipeline.
+MIR and codegen support the subset represented by HIR: functions, locals, primitive literals,
+blocks, user and runtime calls, and returns. JIT and AOT share the same Cranelift IR generation.
+The stages are covered by unit tests, but they are not yet connected into a source-to-binary
+end-to-end CLI pipeline.
 
 ### Compiler Crates
 
 - `runec_ast` — syntax tree definitions.
 - `runec_parse` — lexer and parser.
+- `runec_source` — source files, positions, spans, and source maps.
+- `runec_errors` — shared diagnostics and rendering.
 - `runec_hir` — HIR definitions and AST-to-HIR lowering.
 - `runec_semantic` — name resolution and type checking.
+- `runec_mir` — MIR definitions and HIR-to-MIR lowering.
+- `runec_codegen_cranelift` — shared Cranelift lowering with JIT and AOT backends.
 - `runec_builtins` — language-visible built-in declarations and constraints.
 - `runec_abi` — stable runtime function IDs and ABI signatures.
 - `runec_runtime` — native implementations and runtime symbol resolution.
+- `runec_utils` — shared compiler utilities and macros.
+- `runec_test_utils` — source fixtures shared by compiler tests.
+- `runec_proc_macro_utils` — procedural macros used by compiler crates.
 - `runec` — future compiler CLI entry point.
 
 ### 🪵 Built-ins
@@ -108,7 +119,7 @@ end-to-end pipeline.
 - [x] Language declarations for `print` and `println`
 - [x] `Display` constraint implemented for `str`
 - [x] Native runtime symbols for string output
-- [ ] MIR/ABI lowering from RuneWay `str` to `(ptr, len)`
+- [x] MIR/ABI lowering from RuneWay `str` to `(ptr, len)`
 - [ ] `Display` implementations for numeric and user-defined types
 - [ ] Native console in (`input`)
 
@@ -135,7 +146,7 @@ end-to-end pipeline.
 ### 📢 Errors
 
 - [x] Error reporter (Rust like)
-- [x] Basic name resolution and type checking errors
+- [x] Shared diagnostics for lowering, name resolution, type checking, MIR, and codegen
 - [ ] User-defined Error Throwing
 
 ## Installation
