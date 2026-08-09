@@ -8,4 +8,4 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-memmap2 = "0.9.9"
+memmap2 = { workspace = true }

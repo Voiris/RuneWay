@@ -8,4 +8,4 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-runec_abi = { path = "../runec_abi" }
+runec_abi = { workspace = true }

@@ -8,4 +8,4 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-runec_runtime = { path = "../runec_runtime" }
+runec_runtime = { workspace = true }

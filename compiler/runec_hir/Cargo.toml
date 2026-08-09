@@ -8,8 +8,8 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-runec_source = { path = "../runec_source" }
-runec_ast    = { path = "../runec_ast" }
-runec_errors = { path = "../runec_errors" }
-runec_utils  = { path = "../runec_utils" }
-runec_builtins = { path = "../runec_builtins" }
+runec_source = { workspace = true }
+runec_ast = { workspace = true }
+runec_errors = { workspace = true }
+runec_utils = { workspace = true }
+runec_builtins = { workspace = true }

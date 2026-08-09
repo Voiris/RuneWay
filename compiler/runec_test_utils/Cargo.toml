@@ -8,5 +8,5 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-memmap2 = "0.9.9"
-runec_source = { path = "../runec_source" }
+memmap2 = { workspace = true }
+runec_source = { workspace = true }

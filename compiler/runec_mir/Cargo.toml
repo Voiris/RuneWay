@@ -8,13 +8,13 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
-runec_abi = { path = "../runec_abi" }
-runec_builtins = { path = "../runec_builtins" }
-runec_hir = { path = "../runec_hir" }
-runec_semantic = { path = "../runec_semantic" }
-runec_source = { path = "../runec_source" }
-runec_errors = { path = "../runec_errors" }
-runec_utils = { path = "../runec_utils" }
+runec_abi = { workspace = true }
+runec_builtins = { workspace = true }
+runec_hir = { workspace = true }
+runec_semantic = { workspace = true }
+runec_source = { workspace = true }
+runec_errors = { workspace = true }
+runec_utils = { workspace = true }
 
 [dev-dependencies]
-runec_ast = { path = "../runec_ast" }
+runec_ast = { workspace = true }
