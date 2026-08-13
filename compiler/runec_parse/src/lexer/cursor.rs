@@ -1,6 +1,7 @@
-use runec_source::byte_pos::BytePos;
 use std::iter::Peekable;
 use std::str::CharIndices;
+
+use runec_source::byte_pos::BytePos;
 
 #[derive(Clone, Debug)]
 pub(super) struct Cursor<'src> {
@@ -12,11 +13,7 @@ pub(super) struct Cursor<'src> {
 impl<'src> Cursor<'src> {
     /// Creates a new cursor for the given string slice.
     pub fn new(source: &'src str) -> Self {
-        Self {
-            source,
-            iter: source.char_indices().peekable(),
-            pos: 0,
-        }
+        Self { source, iter: source.char_indices().peekable(), pos: 0 }
     }
 
     /// Returns the current character first byte position in the source string.
@@ -26,7 +23,8 @@ impl<'src> Cursor<'src> {
         BytePos::from_usize(self.pos)
     }
 
-    /// Returns the next character and its first byte index, advancing the cursor.
+    /// Returns the next character and its first byte index, advancing the
+    /// cursor.
     pub fn next(&mut self) -> Option<(usize, char)> {
         self.iter.next().map(|(idx, char)| {
             self.pos = idx + char.len_utf8();
@@ -34,12 +32,14 @@ impl<'src> Cursor<'src> {
         })
     }
 
-    /// Returns a reference to the next character and its first byte index without advancing the cursor.
+    /// Returns a reference to the next character and its first byte index
+    /// without advancing the cursor.
     pub fn peek(&mut self) -> Option<&(usize, char)> {
         self.iter.peek()
     }
 
-    /// Returns the `n`-th character ahead and its first byte index, advancing the cursor.
+    /// Returns the `n`-th character ahead and its first byte index, advancing
+    /// the cursor.
     pub fn nth(&mut self, n: usize) -> Option<(usize, char)> {
         for _ in 0..n {
             // Updating position
@@ -58,7 +58,8 @@ impl<'src> Cursor<'src> {
         self.iter.peek().map(|(_, c)| c)
     }
 
-    /// Returns a slice of the next len characters and advances the cursor. Returns None if there aren’t enough characters.
+    /// Returns a slice of the next len characters and advances the cursor.
+    /// Returns None if there aren’t enough characters.
     pub fn try_next_slice(&mut self, len: usize) -> Option<&'src str> {
         let start = self.pos;
 
@@ -73,7 +74,8 @@ impl<'src> Cursor<'src> {
         Some(&self.source[start..self.pos])
     }
 
-    /// Advances the cursor until the given character is found or the end is reached.
+    /// Advances the cursor until the given character is found or the end is
+    /// reached.
     pub fn skip_until_char(&mut self, c: char) {
         while let Some(&char) = self.peek_char() {
             if char == c {
@@ -84,7 +86,8 @@ impl<'src> Cursor<'src> {
         }
     }
 
-    /// Advances the cursor until the given character is found or the end is reached or the max characters count.
+    /// Advances the cursor until the given character is found or the end is
+    /// reached or the max characters count.
     pub fn skip_until_char_counted(&mut self, c: char, max: usize) {
         let mut i = 0;
         while let Some(&char) = self.peek_char() {
@@ -115,7 +118,8 @@ impl<'src> Cursor<'src> {
         }
     }
 
-    /// Returns the `n`-th character ahead and its first byte index without advancing the cursor.
+    /// Returns the `n`-th character ahead and its first byte index without
+    /// advancing the cursor.
     pub fn lookahead(&mut self, n: usize) -> Option<(usize, char)> {
         self.clone().nth(n)
     }

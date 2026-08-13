@@ -24,10 +24,7 @@ impl SemanticChecker {
 
     pub fn check<'src>(&self, hir: &mut HirMap<'src>) -> SemanticResult<'src> {
         let resolve = Resolver::new().resolve(hir);
-        let TypeCheckResult {
-            info,
-            diags: mut type_diags,
-        } = TypeChecker::new().check(hir);
+        let TypeCheckResult { info, diags: mut type_diags } = TypeChecker::new().check(hir);
         let mut diags = resolve.diags;
         diags.append(&mut type_diags);
 

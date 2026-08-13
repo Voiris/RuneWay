@@ -51,11 +51,7 @@ mod tests {
     use crate::ty::MirTy;
 
     fn dummy() -> Span {
-        Span::new(
-            BytePos::from_usize(0),
-            BytePos::from_usize(0),
-            SourceId::from_usize(0),
-        )
+        Span::new(BytePos::from_usize(0), BytePos::from_usize(0), SourceId::from_usize(0))
     }
 
     #[test]

@@ -1,8 +1,9 @@
+use runec_ast::SpannedStr;
+use runec_source::span::Span;
+
 use crate::ids::HirId;
 use crate::statement::HirBlock;
 use crate::ty::SpannedHirType;
-use runec_ast::SpannedStr;
-use runec_source::span::Span;
 
 #[derive(Debug, PartialEq)]
 pub enum HirItem<'src> {

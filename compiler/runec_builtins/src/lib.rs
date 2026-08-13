@@ -84,9 +84,7 @@ pub const PRINTLN: BuiltinId = BuiltinId::from_index(1);
 
 const DISPLAY_PARAM: &[TypeConstraint] = &[TypeConstraint::Implements(DISPLAY_CONTRACT)];
 
-pub const CONTRACTS: &[ContractDecl] = &[ContractDecl {
-    canonical_name: "core::fmt::Display",
-}];
+pub const CONTRACTS: &[ContractDecl] = &[ContractDecl { canonical_name: "core::fmt::Display" }];
 
 pub const BUILTINS: &[BuiltinDecl] = &[
     BuiltinDecl {
@@ -103,16 +101,11 @@ pub const BUILTINS: &[BuiltinDecl] = &[
     },
 ];
 
-pub const BUILTIN_CONTRACT_IMPLS: &[BuiltinContractImpl] = &[BuiltinContractImpl {
-    contract_id: DISPLAY_CONTRACT,
-    for_type: PrimitiveType::Str,
-}];
+pub const BUILTIN_CONTRACT_IMPLS: &[BuiltinContractImpl] =
+    &[BuiltinContractImpl { contract_id: DISPLAY_CONTRACT, for_type: PrimitiveType::Str }];
 
 pub fn builtin_from_name(name: &str) -> Option<BuiltinId> {
-    BUILTINS
-        .iter()
-        .position(|decl| decl.name == name)
-        .map(BuiltinId::from_index)
+    BUILTINS.iter().position(|decl| decl.name == name).map(BuiltinId::from_index)
 }
 
 pub fn builtin_decl(id: BuiltinId) -> Option<&'static BuiltinDecl> {
@@ -140,11 +133,12 @@ impl fmt::Display for ContractId {
 
 #[cfg(test)]
 mod tests {
+    use runec_abi::{RUNTIME_PRINTLN, runtime_function};
+
     use super::{
         BuiltinLowering, DISPLAY_CONTRACT, PRINTLN, PrimitiveType, builtin_decl, builtin_from_name,
         primitive_implements,
     };
-    use runec_abi::{RUNTIME_PRINTLN, runtime_function};
 
     #[test]
     fn resolves_builtin_from_its_language_name() {
@@ -162,9 +156,7 @@ mod tests {
         let builtin = builtin_decl(PRINTLN).expect("println declaration");
         assert_eq!(builtin.lowering, BuiltinLowering::Runtime(RUNTIME_PRINTLN));
         assert_eq!(
-            runtime_function(RUNTIME_PRINTLN)
-                .expect("runtime declaration")
-                .symbol,
+            runtime_function(RUNTIME_PRINTLN).expect("runtime declaration").symbol,
             "__runeway_println"
         );
     }

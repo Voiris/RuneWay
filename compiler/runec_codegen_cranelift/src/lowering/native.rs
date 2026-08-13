@@ -17,23 +17,18 @@ pub struct CompiledModule {
     pub entry_func: FuncId,
 }
 
-/// Backend-neutral declaration and Cranelift IR generation used by `CraneliftLowerer`.
+/// Backend-neutral declaration and Cranelift IR generation used by
+/// `CraneliftLowerer`.
 pub(super) fn compile_module<M: Module>(
     module: &mut M,
     mir: &MirModule<'_>,
     diagnostic_span: runec_source::span::Span,
 ) -> CodegenResult<CompiledModule> {
-    let entry = mir
-        .entry
-        .ok_or_else(|| error(messages::MISSING_ENTRY, &[], diagnostic_span))?;
+    let entry = mir.entry.ok_or_else(|| error(messages::MISSING_ENTRY, &[], diagnostic_span))?;
     let mut functions = HashMap::<HirId, FuncId>::new();
     for function in &mir.functions {
         let id = module
-            .declare_function(
-                function.name,
-                Linkage::Export,
-                &signature_for(module, function)?,
-            )
+            .declare_function(function.name, Linkage::Export, &signature_for(module, function)?)
             .map_err(|error| backend(error, function.span))?;
         functions.insert(function.hir_id, id);
     }
@@ -43,11 +38,7 @@ pub(super) fn compile_module<M: Module>(
         for block in &function.blocks {
             for stmt in &block.stmts {
                 let MirStmt::Assign {
-                    rhs:
-                        MirRvalue::Call {
-                            callee: MirCallee::Runtime(id),
-                            ..
-                        },
+                    rhs: MirRvalue::Call { callee: MirCallee::Runtime(id), .. },
                     span,
                     ..
                 } = stmt
@@ -59,11 +50,7 @@ pub(super) fn compile_module<M: Module>(
                 }
                 let decl = runtime_function(*id).ok_or_else(|| {
                     let function = format!("{id:?}");
-                    error(
-                        messages::UNSUPPORTED_RUNTIME_FUNCTION,
-                        &[("function", &function)],
-                        *span,
-                    )
+                    error(messages::UNSUPPORTED_RUNTIME_FUNCTION, &[("function", &function)], *span)
                 })?;
                 let func = module
                     .declare_function(
@@ -88,10 +75,7 @@ pub(super) fn compile_module<M: Module>(
             &constants,
         )?;
     }
-    Ok(CompiledModule {
-        entry,
-        entry_func: functions[&mir.function(entry).hir_id],
-    })
+    Ok(CompiledModule { entry, entry_func: functions[&mir.function(entry).hir_id] })
 }
 
 fn compile_function<M: Module>(
@@ -151,11 +135,7 @@ fn compile_function<M: Module>(
                     })?,
                     MirCallee::Function(id) => *functions.get(id).ok_or_else(|| {
                         let function = format!("{id:?}");
-                        error(
-                            messages::UNKNOWN_FUNCTION,
-                            &[("function", &function)],
-                            *span,
-                        )
+                        error(messages::UNKNOWN_FUNCTION, &[("function", &function)], *span)
                     })?,
                 };
                 let func_ref = module.declare_func_in_func(func_id, builder.func);
@@ -199,9 +179,7 @@ fn compile_function<M: Module>(
         }
     }
     builder.finalize();
-    module
-        .define_function(id, &mut context)
-        .map_err(|error| backend(error, function.span))?;
+    module.define_function(id, &mut context).map_err(|error| backend(error, function.span))?;
     module.clear_context(&mut context);
     Ok(())
 }
@@ -215,10 +193,9 @@ fn lower_operand<M: Module>(
     _span: runec_source::span::Span,
 ) -> CodegenResult<Vec<Value>> {
     Ok(match operand {
-        MirOperand::Copy(place) => locals[place.local.to_usize()]
-            .iter()
-            .map(|v| builder.use_var(*v))
-            .collect(),
+        MirOperand::Copy(place) => {
+            locals[place.local.to_usize()].iter().map(|v| builder.use_var(*v)).collect()
+        }
         MirOperand::Constant(id) => {
             let (data_id, len) = constants[id.to_usize()];
             let data = module.declare_data_in_func(data_id, builder.func);
@@ -257,18 +234,11 @@ fn declare_constants<M: Module>(
                 MirConstant::Bytes(v) => v.as_ref(),
             };
             let id = module
-                .declare_data(
-                    &format!("__runeway_const_{index}"),
-                    Linkage::Local,
-                    false,
-                    false,
-                )
+                .declare_data(&format!("__runeway_const_{index}"), Linkage::Local, false, false)
                 .map_err(|error| backend(error, diagnostic_span))?;
             let mut data = DataDescription::new();
             data.define(bytes.to_vec().into_boxed_slice());
-            module
-                .define_data(id, &data)
-                .map_err(|error| backend(error, diagnostic_span))?;
+            module.define_data(id, &data).map_err(|error| backend(error, diagnostic_span))?;
             Ok((id, bytes.len()))
         })
         .collect()
@@ -294,9 +264,7 @@ fn runtime_signature<M: Module>(module: &M, decl: &RuntimeFunctionDecl) -> Signa
         signature.params.push(AbiParam::new(abi_type(module, *ty)));
     }
     if decl.ret != runec_abi::AbiType::Unit {
-        signature
-            .returns
-            .push(AbiParam::new(abi_type(module, decl.ret)));
+        signature.returns.push(AbiParam::new(abi_type(module, decl.ret)));
     }
     signature
 }

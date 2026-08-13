@@ -29,10 +29,7 @@ pub struct MirLowerResult<'src, 'diag> {
 
 impl<'src, 'diag> MirLowerResult<'src, 'diag> {
     pub fn new() -> Self {
-        Self {
-            module: MirModule::new(),
-            diags: Vec::new(),
-        }
+        Self { module: MirModule::new(), diags: Vec::new() }
     }
 }
 
@@ -50,10 +47,7 @@ struct FunctionLowerCtx<'src, 'mir> {
 
 impl<'src, 'info, 'diag> MirLowerer<'src, 'info, 'diag> {
     pub fn new(type_info: &'info TypeInfo<'src>) -> Self {
-        Self {
-            type_info,
-            res: MirLowerResult::new(),
-        }
+        Self { type_info, res: MirLowerResult::new() }
     }
 
     pub fn lower(mut self, hir: &HirMap<'src>) -> MirLowerResult<'src, 'diag> {
@@ -129,12 +123,7 @@ impl<'src, 'info, 'diag> MirLowerer<'src, 'info, 'diag> {
         locals: &mut HashMap<HirLocalId, MirLocalId>,
     ) -> MirBlock {
         let mut mir_block = MirBlock::new(MirTerminator::Return(None));
-        let mut ctx = FunctionLowerCtx {
-            function,
-            lowered,
-            block: &mut mir_block,
-            locals,
-        };
+        let mut ctx = FunctionLowerCtx { function, lowered, block: &mut mir_block, locals };
 
         for stmt in block.stmts.iter() {
             self.lower_stmt(stmt, &mut ctx);
@@ -154,13 +143,7 @@ impl<'src, 'info, 'diag> MirLowerer<'src, 'info, 'diag> {
             HirStmt::Expr(expr) => {
                 let _ = self.lower_expr(expr, ctx);
             }
-            HirStmt::Let {
-                local,
-                name,
-                init,
-                span,
-                ..
-            } => {
+            HirStmt::Let { local, name, init, span, .. } => {
                 let Some(hir_local) = local else {
                     self.push_diag(*span, messages::MISSING_LOCAL_ID, &[]);
                     return;
@@ -240,10 +223,8 @@ impl<'src, 'info, 'diag> MirLowerer<'src, 'info, 'diag> {
     ) -> Option<MirOperand> {
         let callee = self.lower_callee(ctx.function, callee)?;
 
-        let args = args
-            .iter()
-            .map(|arg| self.lower_expr(arg, ctx))
-            .collect::<Option<Box<[_]>>>()?;
+        let args =
+            args.iter().map(|arg| self.lower_expr(arg, ctx)).collect::<Option<Box<[_]>>>()?;
 
         let ty = self.type_info.ty_of_expr(ctx.function, expr);
         let Some(ret_ty) = lower_ty(&ty) else {
@@ -299,19 +280,15 @@ impl<'src, 'info, 'diag> MirLowerer<'src, 'info, 'diag> {
             HirLiteral::Bool(value) => Some(MirOperand::Immediate(MirImmediate::Bool(*value))),
             HirLiteral::Char(value) => Some(MirOperand::Immediate(MirImmediate::Char(*value))),
             HirLiteral::Str(value) => {
-                let id = self
-                    .res
-                    .module
-                    .push_constant(MirConstant::Str(value.clone()));
+                let id = self.res.module.push_constant(MirConstant::Str(value.clone()));
                 Some(MirOperand::Constant(id))
             }
             HirLiteral::Int { value, .. } => {
                 let ty = self.type_info.ty_of_expr(function, expr);
                 match lower_ty(&ty) {
-                    Some(MirTy::Int(ty)) => Some(MirOperand::Immediate(MirImmediate::Int {
-                        value: *value,
-                        ty,
-                    })),
+                    Some(MirTy::Int(ty)) => {
+                        Some(MirOperand::Immediate(MirImmediate::Int { value: *value, ty }))
+                    }
                     _ => {
                         self.push_unsupported_type(expr.span, &ty);
                         None
@@ -321,10 +298,9 @@ impl<'src, 'info, 'diag> MirLowerer<'src, 'info, 'diag> {
             HirLiteral::Float { value, .. } => {
                 let ty = self.type_info.ty_of_expr(function, expr);
                 match lower_ty(&ty) {
-                    Some(MirTy::Float(ty)) => Some(MirOperand::Immediate(MirImmediate::Float {
-                        value: *value,
-                        ty,
-                    })),
+                    Some(MirTy::Float(ty)) => {
+                        Some(MirOperand::Immediate(MirImmediate::Float { value: *value, ty }))
+                    }
                     _ => {
                         self.push_unsupported_type(expr.span, &ty);
                         None
@@ -347,11 +323,7 @@ impl<'src, 'info, 'diag> MirLowerer<'src, 'info, 'diag> {
     }
 
     fn push_unsupported_expr(&mut self, span: Span, expression: &str) {
-        self.push_diag(
-            span,
-            messages::UNSUPPORTED_EXPRESSION,
-            &[("expression", expression)],
-        );
+        self.push_diag(span, messages::UNSUPPORTED_EXPRESSION, &[("expression", expression)]);
     }
 
     fn push_unsupported_type(&mut self, span: Span, ty: &Ty) {
@@ -364,10 +336,7 @@ pub fn lower_ty(ty: &Ty) -> Option<MirTy> {
     match ty {
         Ty::Unit => Some(MirTy::Unit),
         Ty::Bool => Some(MirTy::Bool),
-        Ty::Int { signed, bits } => Some(MirTy::Int(MirIntTy {
-            signed: *signed,
-            bits: *bits,
-        })),
+        Ty::Int { signed, bits } => Some(MirTy::Int(MirIntTy { signed: *signed, bits: *bits })),
         Ty::Float { bits } => Some(MirTy::Float(MirFloatTy { bits: *bits })),
         Ty::Char => Some(MirTy::Char),
         Ty::Str => Some(MirTy::Str),

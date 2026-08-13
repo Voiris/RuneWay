@@ -1,9 +1,10 @@
 extern crate core;
 
 #[cfg(test)]
-use runec_source::source_map::{SourceId, SourceMap};
-#[cfg(test)]
 use std::path::PathBuf;
+
+#[cfg(test)]
+use runec_source::source_map::{SourceId, SourceMap};
 
 pub mod lexer;
 mod messages;

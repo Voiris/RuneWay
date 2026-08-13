@@ -1,4 +1,5 @@
-use cranelift_codegen::{isa::OwnedTargetIsa, settings};
+use cranelift_codegen::isa::OwnedTargetIsa;
+use cranelift_codegen::settings;
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use runec_mir::MirModule;
 use runec_source::span::Span;
@@ -23,10 +24,7 @@ impl AotBackend {
         .map_err(|error| backend(error, diagnostic_span))?;
         let mut module = ObjectModule::new(builder);
         CraneliftLowerer::new(CodegenOptions::aot()).compile(&mut module, mir, diagnostic_span)?;
-        module
-            .finish()
-            .emit()
-            .map_err(|error| backend(error, diagnostic_span))
+        module.finish().emit().map_err(|error| backend(error, diagnostic_span))
     }
 }
 
@@ -39,17 +37,16 @@ fn native_isa(diagnostic_span: Span) -> CodegenResult<OwnedTargetIsa> {
 
 #[cfg(test)]
 mod tests {
-    use super::AotBackend;
     use runec_hir::ids::HirId;
     use runec_mir::{MirBlock, MirFunction, MirModule, MirTerminator, MirTy};
-    use runec_source::{byte_pos::BytePos, source_map::SourceId, span::Span};
+    use runec_source::byte_pos::BytePos;
+    use runec_source::source_map::SourceId;
+    use runec_source::span::Span;
+
+    use super::AotBackend;
 
     fn span() -> Span {
-        Span::new(
-            BytePos::from_usize(0),
-            BytePos::from_usize(1),
-            SourceId::from_usize(0),
-        )
+        Span::new(BytePos::from_usize(0), BytePos::from_usize(1), SourceId::from_usize(0))
     }
     #[test]
     fn emits_object_from_shared_lowering() {
@@ -58,11 +55,7 @@ mod tests {
         main.entry = main.push_block(MirBlock::new(MirTerminator::Return(None)));
         let main = module.push_function(main);
         module.entry = Some(main);
-        assert!(
-            !AotBackend::emit_object(&module, "runeway_test", span())
-                .unwrap()
-                .is_empty()
-        );
+        assert!(!AotBackend::emit_object(&module, "runeway_test", span()).unwrap().is_empty());
     }
 
     #[test]

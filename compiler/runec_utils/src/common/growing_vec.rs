@@ -1,6 +1,7 @@
 /// Push-only wrapper around `Vec<T>`.
 ///
-/// Ensures that indices into the vector remain valid for the entire lifetime of the vector
+/// Ensures that indices into the vector remain valid for the entire lifetime of
+/// the vector
 pub struct GrowingVec<T>(Vec<T>);
 
 impl<T> GrowingVec<T> {

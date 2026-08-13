@@ -65,11 +65,7 @@ fn function_with_ret_ty(
 }
 
 fn empty_body() -> HirBlock<'static> {
-    HirBlock {
-        stmts: Box::new([]),
-        tail: None,
-        span: dummy(),
-    }
+    HirBlock { stmts: Box::new([]), tail: None, span: dummy() }
 }
 
 #[test]
@@ -88,10 +84,7 @@ fn unsupported_return_type_error_preserves_span() {
 
     assert_eq!(result.diags.len(), 1);
     assert_eq!(result.diags[0].labels[0].span, return_span);
-    assert_eq!(
-        result.diags[0].message.message,
-        "unsupported type Tuple([]) in MIR lowering"
-    );
+    assert_eq!(result.diags[0].message.message, "unsupported type Tuple([]) in MIR lowering");
 }
 
 #[test]
@@ -152,10 +145,7 @@ fn lower_let_string_literal_to_local_assignment() {
     let MirStmt::Assign { dst, rhs, span } = &function.blocks[0].stmts[0];
     assert_eq!(*span, dummy());
     assert_eq!(dst.local.to_usize(), 0);
-    assert_eq!(
-        *rhs,
-        MirRvalue::Use(MirOperand::Constant(crate::MirConstantId::from_usize(0)))
-    );
+    assert_eq!(*rhs, MirRvalue::Use(MirOperand::Constant(crate::MirConstantId::from_usize(0))));
 }
 
 #[test]
@@ -193,10 +183,7 @@ fn lower_print_builtin_call_to_runtime_call() {
         panic!("expected runtime call");
     };
     assert_eq!(*callee, MirCallee::Runtime(RUNTIME_PRINT));
-    assert_eq!(
-        args.as_ref(),
-        [MirOperand::Constant(crate::MirConstantId::from_usize(0))]
-    );
+    assert_eq!(args.as_ref(), [MirOperand::Constant(crate::MirConstantId::from_usize(0))]);
 }
 
 #[test]
@@ -241,10 +228,7 @@ fn lower_user_function_call_to_function_callee() {
 fn lower_tail_expr_to_return_operand() {
     let body = HirBlock {
         stmts: Box::new([]),
-        tail: Some(Box::new(s(HirExpr::Literal(HirLiteral::Int {
-            value: 42,
-            suffix: None,
-        })))),
+        tail: Some(Box::new(s(HirExpr::Literal(HirLiteral::Int { value: 42, suffix: None })))),
         span: dummy(),
     };
 
@@ -266,10 +250,7 @@ fn lower_tail_expr_to_return_operand() {
         result.module.functions[0].blocks[0].terminator,
         MirTerminator::Return(Some(MirOperand::Immediate(MirImmediate::Int {
             value: 42,
-            ty: MirIntTy {
-                signed: true,
-                bits: TypeBits::B32,
-            },
+            ty: MirIntTy { signed: true, bits: TypeBits::B32 },
         })))
     );
 }

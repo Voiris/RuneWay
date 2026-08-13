@@ -15,26 +15,19 @@ pub fn symbols() -> [RuntimeSymbol; 2] {
     [
         RuntimeSymbol {
             id: RUNTIME_PRINT,
-            name: runtime_function(RUNTIME_PRINT)
-                .expect("print runtime declaration")
-                .symbol,
+            name: runtime_function(RUNTIME_PRINT).expect("print runtime declaration").symbol,
             address: __runeway_print as RuntimeFunctionAddress,
         },
         RuntimeSymbol {
             id: RUNTIME_PRINTLN,
-            name: runtime_function(RUNTIME_PRINTLN)
-                .expect("println runtime declaration")
-                .symbol,
+            name: runtime_function(RUNTIME_PRINTLN).expect("println runtime declaration").symbol,
             address: __runeway_println as RuntimeFunctionAddress,
         },
     ]
 }
 
 pub fn resolve_symbol(name: &str) -> Option<RuntimeFunctionAddress> {
-    symbols()
-        .into_iter()
-        .find(|symbol| symbol.name == name)
-        .map(|symbol| symbol.address)
+    symbols().into_iter().find(|symbol| symbol.name == name).map(|symbol| symbol.address)
 }
 
 #[unsafe(no_mangle)]
@@ -56,7 +49,8 @@ pub unsafe extern "C" fn __runeway_print(ptr: *const u8, len: usize) {
 }
 
 #[unsafe(no_mangle)]
-/// Writes `len` bytes starting at `ptr` to standard output, followed by a newline.
+/// Writes `len` bytes starting at `ptr` to standard output, followed by a
+/// newline.
 ///
 /// # Safety
 ///

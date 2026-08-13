@@ -8,10 +8,7 @@ pub struct ParseResult<'src, 'diag> {
 
 impl<'src, 'diag> ParseResult<'src, 'diag> {
     pub fn new() -> Self {
-        Self {
-            stmts: Vec::new(),
-            diags: Vec::new(),
-        }
+        Self { stmts: Vec::new(), diags: Vec::new() }
     }
 }
 

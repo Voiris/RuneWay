@@ -30,14 +30,8 @@ pub type SpannedHirExpr<'src> = Spanned<HirExpr<'src>>;
 
 #[derive(Debug, PartialEq)]
 pub enum HirLiteral<'src> {
-    Int {
-        value: u128,
-        suffix: Option<IntSuffix>,
-    },
-    Float {
-        value: f64,
-        suffix: Option<FloatSuffix>,
-    },
+    Int { value: u128, suffix: Option<IntSuffix> },
+    Float { value: f64, suffix: Option<FloatSuffix> },
     Bool(bool),
     Char(char),
     Str(Cow<'src, str>),

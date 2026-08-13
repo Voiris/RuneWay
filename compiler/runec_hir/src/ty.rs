@@ -1,7 +1,8 @@
+use runec_source::span::Spanned;
+
 use crate::expression::SpannedHirExpr;
 use crate::ids::HirId;
 use crate::path::{HirGenericArg, HirPath};
-use runec_source::span::Spanned;
 
 #[derive(Debug, PartialEq)]
 pub enum HirType<'src> {
