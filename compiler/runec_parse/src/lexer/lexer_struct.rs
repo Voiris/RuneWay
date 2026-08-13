@@ -1,5 +1,3 @@
-use crate::lexer::cursor::Cursor;
-use crate::lexer::token::{Radix, SpannedToken, Token};
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::labels::{DiagHelp, DiagLabel};
 use runec_errors::message::DiagMessage;
@@ -7,6 +5,9 @@ use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{Source, SourceId, SourceMap};
 use runec_source::span;
 use runec_source::span::Span;
+
+use crate::lexer::cursor::Cursor;
+use crate::lexer::token::{Radix, SpannedToken, Token};
 
 type LexerResult<'diag, T> = Result<T, Box<Diagnostic<'diag>>>;
 
@@ -65,11 +66,7 @@ pub struct Lexer<'src> {
 impl<'src, 'diag> Lexer<'src> {
     pub fn new(source_id: SourceId, source_map: &'src SourceMap) -> Self {
         let source_file = source_map.get_file(&source_id).unwrap();
-        Self {
-            cursor: Cursor::new(source_file.src()),
-            source_id,
-            source_file,
-        }
+        Self { cursor: Cursor::new(source_file.src()), source_id, source_file }
     }
 
     fn span_one_char(&mut self, token: Token<'src>) -> Option<SpannedToken<'src>> {
@@ -85,14 +82,9 @@ impl<'src, 'diag> Lexer<'src> {
         escape_hi: BytePos,
         help: &'static str,
     ) -> Box<Diagnostic<'diag>> {
-        Diagnostic::error(DiagMessage::new(
-            super::messages::INVALID_UNICODE_ESCAPE,
-            &[],
-        ))
-        .add_label(DiagLabel::silent_primary(
-            span!(self.source_id => escape_lo..escape_hi),
-        ))
-        .set_help(DiagHelp::new(help, &[]))
+        Diagnostic::error(DiagMessage::new(super::messages::INVALID_UNICODE_ESCAPE, &[]))
+            .add_label(DiagLabel::silent_primary(span!(self.source_id => escape_lo..escape_hi)))
+            .set_help(DiagHelp::new(help, &[]))
     }
 
     fn duplicated_prefix_error(
@@ -277,7 +269,7 @@ impl<'src, 'diag> Lexer<'src> {
                     let hex_opt = u32::from_str_radix(hex_str, 16);
                     if let Ok(hex) = hex_opt {
                         match hex {
-                            0xD800..=0xDFFF => Err(Diagnostic::error(DiagMessage::new(
+                            0xd800..=0xdfff => Err(Diagnostic::error(DiagMessage::new(
                                 super::messages::INVALID_UNICODE_ESCAPE,
                                 &[],
                             ))
@@ -330,9 +322,7 @@ impl<'src, 'diag> Lexer<'src> {
                 super::messages::UNTERMINATED_ESCAPE_SEQUENCE,
                 &[],
             ))
-            .add_label(DiagLabel::silent_primary(
-                span!(self.source_id => escape_lo..escape_hi),
-            )))
+            .add_label(DiagLabel::silent_primary(span!(self.source_id => escape_lo..escape_hi))))
         }
     }
 
@@ -407,10 +397,7 @@ impl<'src, 'diag> Lexer<'src> {
             )
         };
 
-        Ok((
-            SpannedToken::new(token, Span::new(lo, hi, self.source_id)),
-            is_quote_terminated,
-        ))
+        Ok((SpannedToken::new(token, Span::new(lo, hi, self.source_id)), is_quote_terminated))
     }
 
     fn lex_string(
@@ -508,10 +495,8 @@ impl<'src, 'diag> Lexer<'src> {
 
         if is_format {
             let hi = self.cursor.pos();
-            tokens.push(SpannedToken::new(
-                Token::FormatStringEnd,
-                Span::new(hi, hi, self.source_id),
-            ))
+            tokens
+                .push(SpannedToken::new(Token::FormatStringEnd, Span::new(hi, hi, self.source_id)))
         }
 
         Ok(tokens)
@@ -572,10 +557,7 @@ impl<'src, 'diag> Lexer<'src> {
 
         let hi = self.cursor.pos();
 
-        Ok(SpannedToken::new(
-            Token::CharLiteral(char),
-            Span::new(lo, hi, self.source_id),
-        ))
+        Ok(SpannedToken::new(Token::CharLiteral(char), Span::new(lo, hi, self.source_id)))
     }
 
     fn lex_number(&mut self) -> LexerResult<'diag, SpannedToken<'src>> {
@@ -656,12 +638,8 @@ impl<'src, 'diag> Lexer<'src> {
         let digits_hi = self.cursor.pos();
 
         if !has_digits {
-            return Err(
-                Diagnostic::error(DiagMessage::new(super::messages::NO_VALID_DIGITS, &[]))
-                    .add_label(DiagLabel::silent_primary(
-                        span!(self.source_id => lo..digits_hi),
-                    )),
-            );
+            return Err(Diagnostic::error(DiagMessage::new(super::messages::NO_VALID_DIGITS, &[]))
+                .add_label(DiagLabel::silent_primary(span!(self.source_id => lo..digits_hi))));
         }
 
         // Suffix
@@ -688,22 +666,9 @@ impl<'src, 'diag> Lexer<'src> {
         let span = Span::new(lo, hi, self.source_id);
 
         if is_float || is_exponent {
-            Ok(SpannedToken::new(
-                Token::FloatLiteral {
-                    literal: slice,
-                    suffix,
-                },
-                span,
-            ))
+            Ok(SpannedToken::new(Token::FloatLiteral { literal: slice, suffix }, span))
         } else {
-            Ok(SpannedToken::new(
-                Token::IntLiteral {
-                    digits: slice,
-                    radix,
-                    suffix,
-                },
-                span,
-            ))
+            Ok(SpannedToken::new(Token::IntLiteral { digits: slice, radix, suffix }, span))
         }
     }
 
@@ -886,11 +851,7 @@ impl<'src, 'diag> Lexer<'src> {
                 }
             };
 
-            if let Some(new_token) = new_token_opt {
-                Ok(vec![new_token])
-            } else {
-                Ok(vec![])
-            }
+            if let Some(new_token) = new_token_opt { Ok(vec![new_token]) } else { Ok(vec![]) }
         } else {
             Ok(vec![])
         }

@@ -4,8 +4,6 @@ use runec_builtins::builtin_from_name;
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::labels::DiagLabel;
 use runec_errors::message::DiagMessage;
-use runec_source::span::Span;
-
 use runec_hir::expression::{HirExpr, SpannedHirExpr};
 use runec_hir::ids::{HirId, HirLocalId};
 use runec_hir::item::{HirItem, HirVariantPayload};
@@ -13,6 +11,7 @@ use runec_hir::map::HirMap;
 use runec_hir::resolution::Res;
 use runec_hir::statement::{HirBlock, HirStmt};
 use runec_hir::ty::{HirPrimitiveTy, HirType, SpannedHirType};
+use runec_source::span::Span;
 
 pub struct ResolveResult {
     pub diags: Vec<Diagnostic<'static>>,
@@ -38,10 +37,7 @@ enum ResolvedItemKind {
 
 impl<'src> Resolver<'src> {
     pub fn new() -> Self {
-        Self {
-            items: HashMap::new(),
-            diags: Vec::new(),
-        }
+        Self { items: HashMap::new(), diags: Vec::new() }
     }
 
     pub fn resolve(mut self, hir: &mut HirMap<'src>) -> ResolveResult {
@@ -120,13 +116,7 @@ impl<'src> Resolver<'src> {
     fn resolve_stmt(&mut self, stmt: &mut HirStmt<'src>, locals: &mut LocalScope<'src>) {
         match stmt {
             HirStmt::Expr(expr) => self.resolve_expr(expr, locals),
-            HirStmt::Let {
-                local,
-                name,
-                ty,
-                init,
-                ..
-            } => {
+            HirStmt::Let { local, name, ty, init, .. } => {
                 if let Some(ty) = ty {
                     self.resolve_ty(ty);
                 }
@@ -195,16 +185,10 @@ impl<'src> Resolver<'src> {
                     if let Some(item) = self.items.get(path.segments[0].name.node).copied() {
                         match item.kind {
                             ResolvedItemKind::Struct => {
-                                ty.node = HirType::Struct {
-                                    def: item.id,
-                                    generics: Box::new([]),
-                                };
+                                ty.node = HirType::Struct { def: item.id, generics: Box::new([]) };
                             }
                             ResolvedItemKind::Enum => {
-                                ty.node = HirType::Enum {
-                                    def: item.id,
-                                    generics: Box::new([]),
-                                };
+                                ty.node = HirType::Enum { def: item.id, generics: Box::new([]) };
                             }
                             ResolvedItemKind::Function => {
                                 let name = format_path(path);
@@ -263,10 +247,7 @@ struct LocalScope<'src> {
 
 impl<'src> LocalScope<'src> {
     fn new() -> Self {
-        Self {
-            names: HashMap::new(),
-            next: 0,
-        }
+        Self { names: HashMap::new(), next: 0 }
     }
 
     fn define(
@@ -278,11 +259,7 @@ impl<'src> LocalScope<'src> {
         let id = HirLocalId::from_usize(self.next);
         self.next += 1;
         if self.names.insert(name, id).is_some() {
-            diags.push(diagnostic(
-                messages::DUPLICATE_LOCAL,
-                &[("name", name)],
-                span,
-            ));
+            diags.push(diagnostic(messages::DUPLICATE_LOCAL, &[("name", name)], span));
         }
         id
     }
@@ -330,12 +307,8 @@ fn builtin_from_path(path: &runec_hir::path::HirPath<'_>) -> Option<runec_builti
 }
 
 fn format_path(path: &runec_hir::path::HirPath<'_>) -> String {
-    let joined = path
-        .segments
-        .iter()
-        .map(|segment| segment.name.node)
-        .collect::<Vec<_>>()
-        .join("::");
+    let joined =
+        path.segments.iter().map(|segment| segment.name.node).collect::<Vec<_>>().join("::");
     if joined.is_empty() {
         "<empty>".to_owned()
     } else if path.from_root {
@@ -359,10 +332,6 @@ mod messages;
 #[cfg(test)]
 mod tests {
     use runec_ast::SpannedStr;
-    use runec_source::byte_pos::BytePos;
-    use runec_source::source_map::SourceId;
-    use runec_source::span::{Span, Spanned};
-
     use runec_builtins::builtin_from_name;
     use runec_hir::expression::{HirExpr, SpannedHirExpr};
     use runec_hir::ids::{HirId, HirLocalId};
@@ -372,6 +341,9 @@ mod tests {
     use runec_hir::resolution::Res;
     use runec_hir::statement::{HirBlock, HirStmt};
     use runec_hir::ty::{HirPrimitiveTy, HirType};
+    use runec_source::byte_pos::BytePos;
+    use runec_source::source_map::SourceId;
+    use runec_source::span::{Span, Spanned};
 
     use super::Resolver;
 
@@ -436,19 +408,11 @@ mod tests {
         let HirItem::Function(function) = hir.get(HirId::from_usize(0)) else {
             panic!("expected function");
         };
-        let HirStmt::Let {
-            local,
-            init: Some(init),
-            ..
-        } = &function.body.stmts[0]
-        else {
+        let HirStmt::Let { local, init: Some(init), .. } = &function.body.stmts[0] else {
             panic!("expected let");
         };
         assert_eq!(*local, Some(HirLocalId::from_usize(1)));
-        assert_eq!(
-            init.node,
-            HirExpr::Resolved(Res::Local(HirLocalId::from_usize(0)))
-        );
+        assert_eq!(init.node, HirExpr::Resolved(Res::Local(HirLocalId::from_usize(0))));
 
         let HirStmt::Expr(call) = &function.body.stmts[1] else {
             panic!("expected call statement");
@@ -458,14 +422,9 @@ mod tests {
         };
         assert_eq!(
             callee.node,
-            HirExpr::Resolved(Res::Builtin(
-                builtin_from_name("println").expect("println builtin")
-            ))
+            HirExpr::Resolved(Res::Builtin(builtin_from_name("println").expect("println builtin")))
         );
-        assert_eq!(
-            args[0].node,
-            HirExpr::Resolved(Res::Local(HirLocalId::from_usize(1)))
-        );
+        assert_eq!(args[0].node, HirExpr::Resolved(Res::Local(HirLocalId::from_usize(1))));
     }
 
     #[test]
@@ -500,9 +459,6 @@ mod tests {
 
         assert_eq!(result.diags.len(), 1);
         assert_eq!(result.diags[0].labels[0].span, unresolved_span);
-        assert_eq!(
-            result.diags[0].message.message,
-            "cannot resolve value `missing`"
-        );
+        assert_eq!(result.diags[0].message.message, "cannot resolve value `missing`");
     }
 }

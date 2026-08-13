@@ -1,6 +1,7 @@
+use runec_source::span::Span;
+
 use crate::function::MirCallee;
 use crate::operand::{MirOperand, MirPlace};
-use runec_source::span::Span;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MirBlock {
@@ -10,29 +11,19 @@ pub struct MirBlock {
 
 impl MirBlock {
     pub fn new(terminator: MirTerminator) -> Self {
-        Self {
-            stmts: Vec::new(),
-            terminator,
-        }
+        Self { stmts: Vec::new(), terminator }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MirStmt {
-    Assign {
-        dst: MirPlace,
-        rhs: MirRvalue,
-        span: Span,
-    },
+    Assign { dst: MirPlace, rhs: MirRvalue, span: Span },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MirRvalue {
     Use(MirOperand),
-    Call {
-        callee: MirCallee,
-        args: Box<[MirOperand]>,
-    },
+    Call { callee: MirCallee, args: Box<[MirOperand]> },
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,6 +1,8 @@
-use crate::lexer::token::{Radix, SpannedToken, Token, token_display};
-use crate::parser::pratt;
-use crate::parser::result::ParseResult;
+use std::borrow::Cow;
+use std::iter::Peekable;
+use std::num::IntErrorKind;
+use std::vec::IntoIter;
+
 use runec_ast::SpannedStr;
 use runec_ast::ast_type::{SpannedTypeAnnotation, TypeAnnotation};
 use runec_ast::expression::{Expr, FloatSuffix, IntSuffix, PrimitiveValue, SpannedExpr};
@@ -15,10 +17,10 @@ use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{Source, SourceId, SourceMap};
 use runec_source::span;
 use runec_source::span::Span;
-use std::borrow::Cow;
-use std::iter::Peekable;
-use std::num::IntErrorKind;
-use std::vec::IntoIter;
+
+use crate::lexer::token::{Radix, SpannedToken, Token, token_display};
+use crate::parser::pratt;
+use crate::parser::result::ParseResult;
 
 macro_rules! expect_token {
     ($self:expr, $expected:pat, $expected_str:expr) => {{
@@ -80,17 +82,11 @@ pub(super) struct InnerParseErr<'diag> {
 
 impl<'diag> InnerParseErr<'diag> {
     fn with_skip(diag: Box<Diagnostic<'diag>>) -> Self {
-        Self {
-            diag,
-            should_skip_until_new_stmt: true,
-        }
+        Self { diag, should_skip_until_new_stmt: true }
     }
 
     fn without_skip(diag: Box<Diagnostic<'diag>>) -> Self {
-        Self {
-            diag,
-            should_skip_until_new_stmt: false,
-        }
+        Self { diag, should_skip_until_new_stmt: false }
     }
 }
 
@@ -119,10 +115,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
     }
 
     fn unexpected_token(got: &'static str) -> Box<Diagnostic<'diag>> {
-        Diagnostic::error(DiagMessage::new(
-            super::messages::UNEXPECTED_TOKEN,
-            &[("token", got)],
-        ))
+        Diagnostic::error(DiagMessage::new(super::messages::UNEXPECTED_TOKEN, &[("token", got)]))
     }
 
     fn unexpected_eof(&self) -> InnerParseErr<'diag> {
@@ -181,16 +174,12 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                 };
                 Ok(stmt)
             }
-            _ => Err(InnerParseErr::with_skip(Self::unexpected_token(
-                token.node.display(),
-            ))),
+            _ => Err(InnerParseErr::with_skip(Self::unexpected_token(token.node.display()))),
         }
     }
 
     fn parse_act(&mut self) -> InnerParserResult<'diag, SpannedStmt<'src>> {
-        let lo = expect_token!(self, Token::Act, Token::Act.display())?
-            .span
-            .lo;
+        let lo = expect_token!(self, Token::Act, Token::Act.display())?.span.lo;
 
         let ident = if let Some(token) = self.tokens.next() {
             match token.node {
@@ -213,10 +202,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let token = self.tokens.next().unwrap();
                     expect_token!(self, Token::Colon, Token::Colon.display())?;
                     let ty = self.parse_type_annotation()?;
-                    args.push(FunctionArg {
-                        ident: SpannedStr::new(ident, token.span),
-                        ty,
-                    });
+                    args.push(FunctionArg { ident: SpannedStr::new(ident, token.span), ty });
                 }
                 Token::CloseParen => {
                     let hi = expect_token!(self, Token::CloseParen, Token::CloseParen.display())?
@@ -231,11 +217,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
             if token.node == Token::CloseParen {
                 args_terminating_hi = Some(token.span.hi);
                 break;
-            } else if self
-                .tokens
-                .peek()
-                .is_some_and(|t| t.node == Token::CloseParen)
-            {
+            } else if self.tokens.peek().is_some_and(|t| t.node == Token::CloseParen) {
                 args_terminating_hi = Some(self.tokens.next().unwrap().span.hi);
                 break;
             }
@@ -267,13 +249,10 @@ impl<'src, 'diag> Parser<'src, 'diag> {
             ))
         } else if let Some(args_lo) = args_lo_opt {
             Err(InnerParseErr::without_skip(
-                Diagnostic::error(DiagMessage::new(
-                    super::messages::UNTERMINATED_ARGS_BLOCK,
-                    &[],
-                ))
-                .add_label(DiagLabel::silent_primary(
-                    span!(self.source_id => args_lo..self.source_hi),
-                )),
+                Diagnostic::error(DiagMessage::new(super::messages::UNTERMINATED_ARGS_BLOCK, &[]))
+                    .add_label(DiagLabel::silent_primary(
+                        span!(self.source_id => args_lo..self.source_hi),
+                    )),
             ))
         } else {
             Err(self.unexpected_eof())
@@ -281,9 +260,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
     }
 
     fn parse_let(&mut self) -> InnerParserResult<'diag, SpannedStmt<'src>> {
-        let lo = expect_token!(self, Token::Let, Token::Let.display())?
-            .span
-            .lo;
+        let lo = expect_token!(self, Token::Let, Token::Let.display())?.span.lo;
 
         let is_mutable = if self.tokens.peek().is_some_and(|t| t.node == Token::Mut) {
             self.tokens.next();
@@ -308,17 +285,10 @@ impl<'src, 'diag> Parser<'src, 'diag> {
             None
         };
 
-        let hi = expect_token!(self, Token::Semicolon, Token::Semicolon.display())?
-            .span
-            .hi;
+        let hi = expect_token!(self, Token::Semicolon, Token::Semicolon.display())?.span.hi;
 
         Ok(SpannedStmt::new(
-            Stmt::DefineLet {
-                pattern,
-                is_mutable,
-                ty,
-                init_expr,
-            },
+            Stmt::DefineLet { pattern, is_mutable, ty, init_expr },
             Span::new(lo, hi, self.source_id),
         ))
     }
@@ -326,10 +296,9 @@ impl<'src, 'diag> Parser<'src, 'diag> {
     fn parse_destruct_primary(&mut self) -> InnerParserResult<'diag, SpannedDestructPattern<'src>> {
         let token = expect_token!(self, Token::Ident ( .. ) | Token::OpenParen, [token_display::IDENTIFIER, Token::OpenParen.display()], *)?;
         match token.node {
-            Token::Ident(ident) => Ok(SpannedDestructPattern::new(
-                DestructPattern::Ident(ident),
-                token.span,
-            )),
+            Token::Ident(ident) => {
+                Ok(SpannedDestructPattern::new(DestructPattern::Ident(ident), token.span))
+            }
             Token::OpenParen => {
                 let lo = token.span.lo;
                 let mut patterns = Vec::new();
@@ -366,9 +335,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                 Token::Dot => {
                     self.tokens.next();
                     let token = expect_token!(self, Token::Ident(..), token_display::IDENTIFIER)?;
-                    let Token::Ident(attr) = token.node else {
-                        unreachable!()
-                    };
+                    let Token::Ident(attr) = token.node else { unreachable!() };
                     let span = Span::new(pat.span.lo, token.span.hi, self.source_id);
                     pat = SpannedDestructPattern::new(
                         DestructPattern::AttributeAccess {
@@ -444,16 +411,11 @@ impl<'src, 'diag> Parser<'src, 'diag> {
 
         let length = self.parse_expr(0)?;
 
-        let hi = expect_token!(self, Token::CloseBracket, Token::CloseBracket.display())?
-            .span
-            .hi;
+        let hi = expect_token!(self, Token::CloseBracket, Token::CloseBracket.display())?.span.hi;
         let lo = ty.span.lo;
 
         Ok(SpannedTypeAnnotation::new(
-            TypeAnnotation::Array {
-                item: Box::new(ty),
-                length,
-            },
+            TypeAnnotation::Array { item: Box::new(ty), length },
             Span::new(lo, hi, self.source_id),
         ))
     }
@@ -491,10 +453,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         let lo = path.first().unwrap().span.lo;
         let hi = path.last().unwrap().span.hi;
         Ok(SpannedTypeAnnotation::new(
-            TypeAnnotation::Path {
-                from_root: false,
-                path: path.into_boxed_slice(),
-            },
+            TypeAnnotation::Path { from_root: false, path: path.into_boxed_slice() },
             Span::new(lo, hi, self.source_id),
         ))
     }
@@ -517,9 +476,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
     }
 
     fn parse_stmt_block(&mut self) -> InnerParserResult<'diag, SpannedStmtBlock<'src>> {
-        let lo = expect_token!(self, Token::OpenBrace, Token::OpenBrace.display())?
-            .span
-            .lo;
+        let lo = expect_token!(self, Token::OpenBrace, Token::OpenBrace.display())?.span.lo;
 
         let mut stmts = Vec::new();
         let mut terminated = false;
@@ -538,13 +495,10 @@ impl<'src, 'diag> Parser<'src, 'diag> {
 
         if !terminated {
             return Err(InnerParseErr::without_skip(
-                Diagnostic::error(DiagMessage::new(
-                    super::messages::UNTERMINATED_CODE_BLOCK,
-                    &[],
-                ))
-                .add_label(DiagLabel::silent_primary(
-                    span!(self.source_id => lo..self.source_hi),
-                )),
+                Diagnostic::error(DiagMessage::new(super::messages::UNTERMINATED_CODE_BLOCK, &[]))
+                    .add_label(DiagLabel::silent_primary(
+                        span!(self.source_id => lo..self.source_hi),
+                    )),
             ));
         }
 
@@ -624,10 +578,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let hi = operand.span.hi;
 
                     SpannedExpr::new(
-                        Expr::Unary {
-                            op,
-                            operand: Box::new(operand),
-                        },
+                        Expr::Unary { op, operand: Box::new(operand) },
                         Span::new(token.span.lo, hi, self.source_id),
                     )
                 }
@@ -770,11 +721,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let lo = lhs.span.lo;
                     let hi = rhs.span.hi;
                     lhs = SpannedExpr::new(
-                        Expr::Binary {
-                            lhs: Box::new(lhs),
-                            op,
-                            rhs: Box::new(rhs),
-                        },
+                        Expr::Binary { lhs: Box::new(lhs), op, rhs: Box::new(rhs) },
                         Span::new(lo, hi, self.source_id),
                     );
                 }
@@ -788,10 +735,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let hi = op_token.span.hi;
                     self.tokens.next();
                     lhs = SpannedExpr::new(
-                        Expr::Unary {
-                            operand: Box::new(lhs),
-                            op,
-                        },
+                        Expr::Unary { operand: Box::new(lhs), op },
                         Span::new(lo, hi, self.source_id),
                     );
                 }
@@ -805,10 +749,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                         None,
                     )?;
                     lhs = SpannedExpr::new(
-                        Expr::Call {
-                            callee: Box::new(lhs),
-                            args: args.into_boxed_slice(),
-                        },
+                        Expr::Call { callee: Box::new(lhs), args: args.into_boxed_slice() },
                         Span::new(lo, hi, self.source_id),
                     );
                 }
@@ -819,9 +760,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let span = ident_token.span;
                     let lo = lhs.span.lo;
                     let hi = ident_token.span.hi;
-                    let Token::Ident(ident) = ident_token.node else {
-                        unreachable!()
-                    };
+                    let Token::Ident(ident) = ident_token.node else { unreachable!() };
                     lhs = SpannedExpr::new(
                         Expr::AttributeAccess {
                             value: Box::new(lhs),
@@ -844,10 +783,7 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     let ty = self.parse_type_annotation()?;
                     let span = Span::new(lhs.span.lo, ty.span.hi, self.source_id);
                     lhs = SpannedExpr::new(
-                        Expr::TypeCast {
-                            from: Box::new(lhs),
-                            ty: Box::new(ty),
-                        },
+                        Expr::TypeCast { from: Box::new(lhs), ty: Box::new(ty) },
                         span,
                     )
                 }
@@ -941,11 +877,9 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         token: SpannedToken<'src>,
     ) -> InnerParserResult<'diag, Option<PrimitiveValue<'src>>> {
         Ok(Some(match token.node {
-            Token::IntLiteral {
-                digits,
-                radix,
-                suffix,
-            } => Self::parse_int(digits, radix, suffix, token.span)?,
+            Token::IntLiteral { digits, radix, suffix } => {
+                Self::parse_int(digits, radix, suffix, token.span)?
+            }
             Token::FloatLiteral { literal, suffix } => {
                 Self::parse_float(literal, suffix, token.span)?
             }

@@ -1,4 +1,5 @@
-use cranelift_codegen::{isa::OwnedTargetIsa, settings};
+use cranelift_codegen::isa::OwnedTargetIsa;
+use cranelift_codegen::settings;
 use cranelift_jit::{JITBuilder, JITModule};
 use runec_mir::{MirModule, MirTy};
 use runec_source::span::Span;
@@ -24,10 +25,7 @@ impl JitBackend {
         for (name, address) in symbols {
             builder.symbol(name, address);
         }
-        Ok(Self {
-            module: JITModule::new(builder),
-            diagnostic_span,
-        })
+        Ok(Self { module: JITModule::new(builder), diagnostic_span })
     }
 
     pub fn run(&mut self, mir: &MirModule<'_>) -> CodegenResult<()> {
@@ -36,9 +34,7 @@ impl JitBackend {
             mir,
             self.diagnostic_span,
         )?;
-        self.module
-            .finalize_definitions()
-            .map_err(|error| backend(error, self.diagnostic_span))?;
+        self.module.finalize_definitions().map_err(|error| backend(error, self.diagnostic_span))?;
         let function = mir.function(compiled.entry);
         if !function.params.is_empty() || function.ret_ty != MirTy::Unit {
             let function_id = format!("{:?}", compiled.entry);
@@ -65,15 +61,19 @@ fn native_isa(diagnostic_span: Span) -> CodegenResult<OwnedTargetIsa> {
 
 #[cfg(test)]
 mod tests {
-    use super::JitBackend;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     use runec_abi::RUNTIME_PRINTLN;
     use runec_hir::ids::HirId;
     use runec_mir::{
         MirBlock, MirCallee, MirConstant, MirFunction, MirModule, MirOperand, MirPlace, MirRvalue,
         MirStmt, MirTerminator, MirTy,
     };
-    use runec_source::{byte_pos::BytePos, source_map::SourceId, span::Span};
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use runec_source::byte_pos::BytePos;
+    use runec_source::source_map::SourceId;
+    use runec_source::span::Span;
+
+    use super::JitBackend;
 
     static CALLED: AtomicBool = AtomicBool::new(false);
     unsafe extern "C" fn test_println(ptr: *const u8, len: usize) {
@@ -82,11 +82,7 @@ mod tests {
         CALLED.store(true, Ordering::SeqCst);
     }
     fn span() -> Span {
-        Span::new(
-            BytePos::from_usize(0),
-            BytePos::from_usize(1),
-            SourceId::from_usize(0),
-        )
+        Span::new(BytePos::from_usize(0), BytePos::from_usize(1), SourceId::from_usize(0))
     }
     fn hello_module() -> MirModule<'static> {
         let mut module = MirModule::new();

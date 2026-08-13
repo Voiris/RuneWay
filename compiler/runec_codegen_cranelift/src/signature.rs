@@ -8,9 +8,6 @@ pub struct FunctionSignature {
 
 impl FunctionSignature {
     pub fn new(params: impl Into<Vec<AbiType>>, returns: impl Into<Vec<AbiType>>) -> Self {
-        Self {
-            params: params.into(),
-            returns: returns.into(),
-        }
+        Self { params: params.into(), returns: returns.into() }
     }
 }

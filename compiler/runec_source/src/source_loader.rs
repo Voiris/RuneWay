@@ -1,7 +1,9 @@
-use crate::source_map::{Source, SourceLineStarts};
-use memmap2::Mmap;
 use std::fs::File;
 use std::path::PathBuf;
+
+use memmap2::Mmap;
+
+use crate::source_map::{Source, SourceLineStarts};
 
 #[derive(Debug)]
 pub enum FileLoaderError {
@@ -27,10 +29,6 @@ impl SourceFileLoader {
         let file = File::open(&path)?;
         let mmap = unsafe { Mmap::map(&file)? };
         let source = str::from_utf8(&mmap)?;
-        Ok(Source::File {
-            lines: SourceLineStarts::compute_from_source(source),
-            path,
-            mmap,
-        })
+        Ok(Source::File { lines: SourceLineStarts::compute_from_source(source), path, mmap })
     }
 }

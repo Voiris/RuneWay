@@ -1,8 +1,9 @@
+use runec_ast::SpannedStr;
+use runec_source::span::Span;
+
 use crate::expression::SpannedHirExpr;
 use crate::ids::HirLocalId;
 use crate::ty::SpannedHirType;
-use runec_ast::SpannedStr;
-use runec_source::span::Span;
 
 #[derive(Debug, PartialEq)]
 pub struct HirBlock<'src> {

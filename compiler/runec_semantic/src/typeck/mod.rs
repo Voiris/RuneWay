@@ -8,8 +8,6 @@ use runec_builtins::{
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::labels::DiagLabel;
 use runec_errors::message::DiagMessage;
-use runec_source::span::Span;
-
 use runec_hir::expression::{HirExpr, HirLiteral, SpannedHirExpr};
 use runec_hir::ids::{HirId, HirLocalId};
 use runec_hir::item::{HirFunction, HirItem};
@@ -17,6 +15,7 @@ use runec_hir::map::HirMap;
 use runec_hir::resolution::Res;
 use runec_hir::statement::{HirBlock, HirStmt};
 use runec_hir::ty::{HirPrimitiveTy, HirType, SpannedHirType};
+use runec_source::span::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ty {
@@ -61,16 +60,11 @@ impl<'src> TypeInfo<'src> {
     }
 
     pub fn locals(&self, function: HirId) -> &[LocalInfo<'src>] {
-        self.locals
-            .get(&function)
-            .map(Vec::as_slice)
-            .unwrap_or_default()
+        self.locals.get(&function).map(Vec::as_slice).unwrap_or_default()
     }
 
     pub fn local(&self, function: HirId, local: HirLocalId) -> Option<&LocalInfo<'src>> {
-        self.locals
-            .get(&function)
-            .and_then(|locals| locals.get(local.to_usize()))
+        self.locals.get(&function).and_then(|locals| locals.get(local.to_usize()))
     }
 
     pub fn ty_of_expr(&self, function: HirId, expr: &SpannedHirExpr<'src>) -> Ty {
@@ -86,10 +80,9 @@ impl<'src> TypeInfo<'src> {
 
     fn ty_of_res(&self, function: HirId, res: Res) -> Ty {
         match res {
-            Res::Local(local) => self
-                .local(function, local)
-                .map(|local| local.ty.clone())
-                .unwrap_or(Ty::Unknown),
+            Res::Local(local) => {
+                self.local(function, local).map(|local| local.ty.clone()).unwrap_or(Ty::Unknown)
+            }
             Res::Def(id) => Ty::Function(id),
             Res::Builtin(id) => Ty::Builtin(id),
         }
@@ -97,23 +90,18 @@ impl<'src> TypeInfo<'src> {
 
     fn call_return_ty(&self, function: HirId, callee: &SpannedHirExpr<'src>) -> Ty {
         match self.ty_of_expr(function, callee) {
-            Ty::Function(id) => self
-                .function_sig(id)
-                .map(|sig| sig.ret.clone())
-                .unwrap_or(Ty::Unknown),
-            Ty::Builtin(id) => builtin_decl(id)
-                .map(|decl| builtin_return_ty(decl.ret))
-                .unwrap_or(Ty::Unknown),
+            Ty::Function(id) => {
+                self.function_sig(id).map(|sig| sig.ret.clone()).unwrap_or(Ty::Unknown)
+            }
+            Ty::Builtin(id) => {
+                builtin_decl(id).map(|decl| builtin_return_ty(decl.ret)).unwrap_or(Ty::Unknown)
+            }
             _ => Ty::Unknown,
         }
     }
 
     pub fn ty_of_block(&self, function: HirId, block: &HirBlock<'src>) -> Ty {
-        block
-            .tail
-            .as_ref()
-            .map(|tail| self.ty_of_expr(function, tail))
-            .unwrap_or(Ty::Unit)
+        block.tail.as_ref().map(|tail| self.ty_of_expr(function, tail)).unwrap_or(Ty::Unit)
     }
 }
 
@@ -129,10 +117,7 @@ pub struct TypeChecker<'src> {
 
 impl<'src> TypeChecker<'src> {
     pub fn new() -> Self {
-        Self {
-            info: TypeInfo::default(),
-            diags: Vec::new(),
-        }
+        Self { info: TypeInfo::default(), diags: Vec::new() }
     }
 
     pub fn check(mut self, hir: &HirMap<'src>) -> TypeCheckResult<'src> {
@@ -144,24 +129,15 @@ impl<'src> TypeChecker<'src> {
             }
         }
 
-        TypeCheckResult {
-            info: self.info,
-            diags: self.diags,
-        }
+        TypeCheckResult { info: self.info, diags: self.diags }
     }
 
     fn collect_function_sigs(&mut self, hir: &HirMap<'src>) {
         for (id, item) in hir.iter() {
             if let HirItem::Function(function) = item {
-                let params = function
-                    .params
-                    .iter()
-                    .map(|param| self.lower_ty(&param.ty))
-                    .collect();
+                let params = function.params.iter().map(|param| self.lower_ty(&param.ty)).collect();
                 let ret = self.lower_ty(&function.ret_ty);
-                self.info
-                    .function_sigs
-                    .insert(id, FunctionSig { params, ret });
+                self.info.function_sigs.insert(id, FunctionSig { params, ret });
             }
         }
     }
@@ -180,11 +156,8 @@ impl<'src> TypeChecker<'src> {
 
         self.check_block(function.id, &function.body);
         let actual = self.info.ty_of_block(function.id, &function.body);
-        let expected = self
-            .info
-            .function_sig(function.id)
-            .map(|sig| sig.ret.clone())
-            .unwrap_or(Ty::Unknown);
+        let expected =
+            self.info.function_sig(function.id).map(|sig| sig.ret.clone()).unwrap_or(Ty::Unknown);
         self.expect_assignable(function.body.span, expected, actual);
     }
 
@@ -203,14 +176,7 @@ impl<'src> TypeChecker<'src> {
             HirStmt::Expr(expr) => {
                 self.check_expr(function, expr);
             }
-            HirStmt::Let {
-                local,
-                name,
-                is_mutable,
-                ty,
-                init,
-                span,
-            } => {
+            HirStmt::Let { local, name, is_mutable, ty, init, span } => {
                 let Some(local) = local else {
                     self.push_diag(messages::MISSING_LOCAL_ID, &[], *span);
                     return;
@@ -262,15 +228,15 @@ impl<'src> TypeChecker<'src> {
 
     fn check_res(&mut self, function: HirId, res: Res, span: Span) -> Ty {
         match res {
-            Res::Local(local) => self
-                .info
-                .local(function, local)
-                .map(|local| local.ty.clone())
-                .unwrap_or_else(|| {
-                    let local = format!("{local:?}");
-                    self.push_diag(messages::UNKNOWN_LOCAL, &[("local", &local)], span);
-                    Ty::Unknown
-                }),
+            Res::Local(local) => {
+                self.info.local(function, local).map(|local| local.ty.clone()).unwrap_or_else(
+                    || {
+                        let local = format!("{local:?}");
+                        self.push_diag(messages::UNKNOWN_LOCAL, &[("local", &local)], span);
+                        Ty::Unknown
+                    },
+                )
+            }
             Res::Def(id) => Ty::Function(id),
             Res::Builtin(id) => Ty::Builtin(id),
         }
@@ -376,10 +342,9 @@ impl<'src> TypeChecker<'src> {
                 let items = items.iter().map(|item| self.lower_ty(item)).collect();
                 Ty::Tuple(items)
             }
-            HirType::Array { elem, len } => Ty::Array {
-                elem: Box::new(self.lower_ty(elem)),
-                len: const_array_len(len),
-            },
+            HirType::Array { elem, len } => {
+                Ty::Array { elem: Box::new(self.lower_ty(elem)), len: const_array_len(len) }
+            }
             HirType::Unresolved(_) => {
                 self.push_diag(messages::UNRESOLVED_TYPE, &[], ty.span);
                 Ty::Unknown
@@ -428,52 +393,18 @@ pub fn ty_of_literal(literal: &HirLiteral<'_>) -> Ty {
 
 fn primitive_ty(ty: HirPrimitiveTy) -> Ty {
     match ty {
-        HirPrimitiveTy::I8 => Ty::Int {
-            signed: true,
-            bits: TypeBits::B8,
-        },
-        HirPrimitiveTy::I16 => Ty::Int {
-            signed: true,
-            bits: TypeBits::B16,
-        },
-        HirPrimitiveTy::I32 => Ty::Int {
-            signed: true,
-            bits: TypeBits::B32,
-        },
-        HirPrimitiveTy::I64 => Ty::Int {
-            signed: true,
-            bits: TypeBits::B64,
-        },
-        HirPrimitiveTy::I128 => Ty::Int {
-            signed: true,
-            bits: TypeBits::B128,
-        },
-        HirPrimitiveTy::U8 => Ty::Int {
-            signed: false,
-            bits: TypeBits::B8,
-        },
-        HirPrimitiveTy::U16 => Ty::Int {
-            signed: false,
-            bits: TypeBits::B16,
-        },
-        HirPrimitiveTy::U32 => Ty::Int {
-            signed: false,
-            bits: TypeBits::B32,
-        },
-        HirPrimitiveTy::U64 => Ty::Int {
-            signed: false,
-            bits: TypeBits::B64,
-        },
-        HirPrimitiveTy::U128 => Ty::Int {
-            signed: false,
-            bits: TypeBits::B128,
-        },
-        HirPrimitiveTy::F32 => Ty::Float {
-            bits: TypeBits::B32,
-        },
-        HirPrimitiveTy::F64 => Ty::Float {
-            bits: TypeBits::B64,
-        },
+        HirPrimitiveTy::I8 => Ty::Int { signed: true, bits: TypeBits::B8 },
+        HirPrimitiveTy::I16 => Ty::Int { signed: true, bits: TypeBits::B16 },
+        HirPrimitiveTy::I32 => Ty::Int { signed: true, bits: TypeBits::B32 },
+        HirPrimitiveTy::I64 => Ty::Int { signed: true, bits: TypeBits::B64 },
+        HirPrimitiveTy::I128 => Ty::Int { signed: true, bits: TypeBits::B128 },
+        HirPrimitiveTy::U8 => Ty::Int { signed: false, bits: TypeBits::B8 },
+        HirPrimitiveTy::U16 => Ty::Int { signed: false, bits: TypeBits::B16 },
+        HirPrimitiveTy::U32 => Ty::Int { signed: false, bits: TypeBits::B32 },
+        HirPrimitiveTy::U64 => Ty::Int { signed: false, bits: TypeBits::B64 },
+        HirPrimitiveTy::U128 => Ty::Int { signed: false, bits: TypeBits::B128 },
+        HirPrimitiveTy::F32 => Ty::Float { bits: TypeBits::B32 },
+        HirPrimitiveTy::F64 => Ty::Float { bits: TypeBits::B64 },
         HirPrimitiveTy::Bool => Ty::Bool,
         HirPrimitiveTy::Char => Ty::Char,
         HirPrimitiveTy::Str => Ty::Str,
@@ -482,63 +413,25 @@ fn primitive_ty(ty: HirPrimitiveTy) -> Ty {
 
 fn int_suffix_ty(suffix: Option<IntSuffix>) -> Ty {
     match suffix {
-        Some(IntSuffix::U8) => Ty::Int {
-            signed: false,
-            bits: TypeBits::B8,
-        },
-        Some(IntSuffix::U16) => Ty::Int {
-            signed: false,
-            bits: TypeBits::B16,
-        },
-        Some(IntSuffix::U32) => Ty::Int {
-            signed: false,
-            bits: TypeBits::B32,
-        },
-        Some(IntSuffix::U64) => Ty::Int {
-            signed: false,
-            bits: TypeBits::B64,
-        },
-        Some(IntSuffix::U128) => Ty::Int {
-            signed: false,
-            bits: TypeBits::B128,
-        },
-        Some(IntSuffix::I8) => Ty::Int {
-            signed: true,
-            bits: TypeBits::B8,
-        },
-        Some(IntSuffix::I16) => Ty::Int {
-            signed: true,
-            bits: TypeBits::B16,
-        },
-        Some(IntSuffix::I32) | None => Ty::Int {
-            signed: true,
-            bits: TypeBits::B32,
-        },
-        Some(IntSuffix::I64) => Ty::Int {
-            signed: true,
-            bits: TypeBits::B64,
-        },
-        Some(IntSuffix::I128) => Ty::Int {
-            signed: true,
-            bits: TypeBits::B128,
-        },
-        Some(IntSuffix::F32) => Ty::Float {
-            bits: TypeBits::B32,
-        },
-        Some(IntSuffix::F64) => Ty::Float {
-            bits: TypeBits::B64,
-        },
+        Some(IntSuffix::U8) => Ty::Int { signed: false, bits: TypeBits::B8 },
+        Some(IntSuffix::U16) => Ty::Int { signed: false, bits: TypeBits::B16 },
+        Some(IntSuffix::U32) => Ty::Int { signed: false, bits: TypeBits::B32 },
+        Some(IntSuffix::U64) => Ty::Int { signed: false, bits: TypeBits::B64 },
+        Some(IntSuffix::U128) => Ty::Int { signed: false, bits: TypeBits::B128 },
+        Some(IntSuffix::I8) => Ty::Int { signed: true, bits: TypeBits::B8 },
+        Some(IntSuffix::I16) => Ty::Int { signed: true, bits: TypeBits::B16 },
+        Some(IntSuffix::I32) | None => Ty::Int { signed: true, bits: TypeBits::B32 },
+        Some(IntSuffix::I64) => Ty::Int { signed: true, bits: TypeBits::B64 },
+        Some(IntSuffix::I128) => Ty::Int { signed: true, bits: TypeBits::B128 },
+        Some(IntSuffix::F32) => Ty::Float { bits: TypeBits::B32 },
+        Some(IntSuffix::F64) => Ty::Float { bits: TypeBits::B64 },
     }
 }
 
 fn float_suffix_ty(suffix: Option<FloatSuffix>) -> Ty {
     match suffix {
-        Some(FloatSuffix::F32) => Ty::Float {
-            bits: TypeBits::B32,
-        },
-        Some(FloatSuffix::F64) | None => Ty::Float {
-            bits: TypeBits::B64,
-        },
+        Some(FloatSuffix::F32) => Ty::Float { bits: TypeBits::B32 },
+        Some(FloatSuffix::F64) | None => Ty::Float { bits: TypeBits::B64 },
     }
 }
 
@@ -556,10 +449,6 @@ mod messages;
 mod tests {
     use runec_ast::SpannedStr;
     use runec_builtins::PRINTLN;
-    use runec_source::byte_pos::BytePos;
-    use runec_source::source_map::SourceId;
-    use runec_source::span::{Span, Spanned};
-
     use runec_hir::expression::{HirExpr, HirLiteral};
     use runec_hir::ids::HirId;
     use runec_hir::item::{HirFunction, HirItem};
@@ -567,6 +456,9 @@ mod tests {
     use runec_hir::resolution::Res;
     use runec_hir::statement::{HirBlock, HirStmt};
     use runec_hir::ty::{HirPrimitiveTy, HirType};
+    use runec_source::byte_pos::BytePos;
+    use runec_source::source_map::SourceId;
+    use runec_source::span::{Span, Spanned};
 
     use super::{Ty, TypeChecker};
 
@@ -627,20 +519,13 @@ mod tests {
             name: SpannedStr::new("main", sp(0, 0)),
             params: Box::new([]),
             ret_ty: s(HirType::Unit),
-            body: HirBlock {
-                stmts: Box::new([HirStmt::Expr(call)]),
-                tail: None,
-                span: sp(0, 0),
-            },
+            body: HirBlock { stmts: Box::new([HirStmt::Expr(call)]), tail: None, span: sp(0, 0) },
             span: sp(0, 0),
         }));
 
         let result = TypeChecker::new().check(&hir);
         assert!(result.diags.is_empty());
-        assert_eq!(
-            result.info.ty_of_expr(function_id, &builtin),
-            Ty::Builtin(PRINTLN)
-        );
+        assert_eq!(result.info.ty_of_expr(function_id, &builtin), Ty::Builtin(PRINTLN));
 
         let HirItem::Function(function) = hir.get(function_id) else {
             panic!("expected function");
@@ -654,19 +539,11 @@ mod tests {
     #[test]
     fn rejects_type_without_display_impl() {
         let mut hir = HirMap::new();
-        hir.push(function_with_builtin_arg(HirLiteral::Int {
-            value: 42,
-            suffix: None,
-        }));
+        hir.push(function_with_builtin_arg(HirLiteral::Int { value: 42, suffix: None }));
 
         let result = TypeChecker::new().check(&hir);
         assert_eq!(result.diags.len(), 1);
-        assert!(
-            result.diags[0]
-                .message
-                .message
-                .contains("core::fmt::Display")
-        );
+        assert!(result.diags[0].message.message.contains("core::fmt::Display"));
     }
 
     fn function_with_builtin_arg(literal: HirLiteral<'static>) -> HirItem<'static> {

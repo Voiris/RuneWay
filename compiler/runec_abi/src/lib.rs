@@ -39,16 +39,8 @@ pub const RUNTIME_PRINTLN: RuntimeFunctionId = RuntimeFunctionId::from_index(1);
 const STRING_PARAMS: &[AbiType] = &[AbiType::Pointer, AbiType::Usize];
 
 pub const RUNTIME_FUNCTIONS: &[RuntimeFunctionDecl] = &[
-    RuntimeFunctionDecl {
-        symbol: "__runeway_print",
-        params: STRING_PARAMS,
-        ret: AbiType::Unit,
-    },
-    RuntimeFunctionDecl {
-        symbol: "__runeway_println",
-        params: STRING_PARAMS,
-        ret: AbiType::Unit,
-    },
+    RuntimeFunctionDecl { symbol: "__runeway_print", params: STRING_PARAMS, ret: AbiType::Unit },
+    RuntimeFunctionDecl { symbol: "__runeway_println", params: STRING_PARAMS, ret: AbiType::Unit },
 ];
 
 pub fn runtime_function(id: RuntimeFunctionId) -> Option<&'static RuntimeFunctionDecl> {

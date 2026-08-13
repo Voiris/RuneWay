@@ -1,16 +1,16 @@
 #[derive(Debug, PartialEq)]
 pub enum BinaryOp {
-    /* Arithmetic */
+    // Arithmetic
     Add,
     Sub,
     Mul,
     Div,
 
-    /* Logical */
+    // Logical
     Or,
     And,
 
-    /* Compare */
+    // Compare
     Eq,
     Ne,
     Lt,
@@ -18,7 +18,7 @@ pub enum BinaryOp {
     Gt,
     Ge,
 
-    /* Bitwise */
+    // Bitwise
     BitOr,
     BitAnd,
     BitXor,
@@ -28,21 +28,21 @@ pub enum BinaryOp {
 
 #[derive(Debug, PartialEq)]
 pub enum UnaryOp {
-    /* Arithmetic */
+    // Arithmetic
     Neg,
     Pos,
 
-    /* Logical */
+    // Logical
     Not,
 
-    /* Bitwise */
+    // Bitwise
     BitNot,
 
-    /* Prefix */
+    // Prefix
     PrefInc,
     PrefDec,
 
-    /* Postfix */
+    // Postfix
     PostInc,
     PostDec,
 }

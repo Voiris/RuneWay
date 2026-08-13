@@ -1,7 +1,3 @@
-use super::parser_struct::Parser;
-use crate::generate_source;
-use crate::lexer::lexer_struct::Lexer;
-use crate::lexer::token::SpannedToken;
 use runec_ast::ast_type::*;
 use runec_ast::expression::*;
 use runec_ast::operators::*;
@@ -10,6 +6,11 @@ use runec_ast::*;
 use runec_source::byte_pos::BytePos;
 use runec_source::source_map::{SourceId, SourceMap};
 use runec_source::span::Span;
+
+use super::parser_struct::Parser;
+use crate::generate_source;
+use crate::lexer::lexer_struct::Lexer;
+use crate::lexer::token::SpannedToken;
 
 fn lex_source(source_map: &SourceMap, source_id: SourceId) -> Vec<SpannedToken<'_>> {
     let lexer = Lexer::new(source_id, source_map);

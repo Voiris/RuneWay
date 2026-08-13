@@ -5,8 +5,7 @@ use runec_ast::statement::{DestructPattern, SpannedStmt, SpannedStmtBlock, Stmt}
 use runec_errors::diagnostics::Diagnostic;
 use runec_errors::labels::DiagLabel;
 use runec_errors::message::DiagMessage;
-use runec_source::span::Span;
-use runec_source::span::Spanned;
+use runec_source::span::{Span, Spanned};
 
 use crate::expression::{HirExpr, HirLiteral, SpannedHirExpr};
 use crate::item::{HirFunction, HirFunctionParam, HirItem};
@@ -22,10 +21,7 @@ pub struct HirLowerResult<'src, 'diag> {
 
 impl<'src, 'diag> HirLowerResult<'src, 'diag> {
     pub fn new() -> Self {
-        Self {
-            map: HirMap::new(),
-            diags: Vec::new(),
-        }
+        Self { map: HirMap::new(), diags: Vec::new() }
     }
 }
 
@@ -35,9 +31,7 @@ pub struct HirLowerer<'src, 'diag> {
 
 impl<'src, 'diag> HirLowerer<'src, 'diag> {
     pub fn new() -> Self {
-        Self {
-            res: HirLowerResult::new(),
-        }
+        Self { res: HirLowerResult::new() }
     }
 
     pub fn lower(mut self, stmts: &[SpannedStmt<'src>]) -> HirLowerResult<'src, 'diag> {
@@ -51,12 +45,7 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
 
     fn lower_top_stmt(&mut self, stmt: &SpannedStmt<'src>) {
         match &stmt.node {
-            Stmt::DefineFunction {
-                ident,
-                args,
-                ret_ty,
-                body,
-            } => {
+            Stmt::DefineFunction { ident, args, ret_ty, body } => {
                 let id = self.res.map.reserve_id();
                 let params: Box<[_]> = args
                     .iter()
@@ -103,12 +92,7 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
                 Stmt::SemiExpr(e) | Stmt::TailExpr(e) => {
                     stmts.push(HirStmt::Expr(self.lower_expr(e)));
                 }
-                Stmt::DefineLet {
-                    pattern,
-                    is_mutable,
-                    ty,
-                    init_expr,
-                } => {
+                Stmt::DefineLet { pattern, is_mutable, ty, init_expr } => {
                     let name = match &pattern.node {
                         DestructPattern::Ident(n) => SpannedStr::new(n, pattern.span),
                         DestructPattern::Tuple(_) | DestructPattern::AttributeAccess { .. } => {
@@ -133,11 +117,7 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
             }
         }
 
-        HirBlock {
-            stmts: stmts.into_boxed_slice(),
-            tail,
-            span: block.span,
-        }
+        HirBlock { stmts: stmts.into_boxed_slice(), tail, span: block.span }
     }
 
     // ---- expressions ----
@@ -165,11 +145,7 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
                         span: s.span,
                     })
                     .collect();
-                HirExpr::Path(HirPath {
-                    from_root: false,
-                    segments,
-                    span: expr.span,
-                })
+                HirExpr::Path(HirPath { from_root: false, segments, span: expr.span })
             }
 
             Expr::Call { callee, args } => HirExpr::Call {
@@ -197,14 +173,12 @@ impl<'src, 'diag> HirLowerer<'src, 'diag> {
 
     fn lower_literal(p: &PrimitiveValue<'src>) -> HirLiteral<'src> {
         match p {
-            PrimitiveValue::Int { value, suffix } => HirLiteral::Int {
-                value: *value,
-                suffix: *suffix,
-            },
-            PrimitiveValue::Float { value, suffix } => HirLiteral::Float {
-                value: *value,
-                suffix: *suffix,
-            },
+            PrimitiveValue::Int { value, suffix } => {
+                HirLiteral::Int { value: *value, suffix: *suffix }
+            }
+            PrimitiveValue::Float { value, suffix } => {
+                HirLiteral::Float { value: *value, suffix: *suffix }
+            }
             PrimitiveValue::True => HirLiteral::Bool(true),
             PrimitiveValue::False => HirLiteral::Bool(false),
             PrimitiveValue::Char(c) => HirLiteral::Char(*c),

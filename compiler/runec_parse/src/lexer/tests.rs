@@ -1,9 +1,10 @@
-use super::lexer_struct::*;
-use super::token::*;
-use crate::generate_source;
 use runec_source::byte_pos::BytePos;
 use runec_source::source_map::SourceId;
 use runec_source::span::Span;
+
+use super::lexer_struct::*;
+use super::token::*;
+use crate::generate_source;
 
 fn span(lo: usize, hi: usize, src_id: SourceId) -> Span {
     Span::new(BytePos::from_usize(lo), BytePos::from_usize(hi), src_id)
@@ -233,51 +234,27 @@ fn basic_int_literal_test() {
 
     let expected_tokens = [
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "123",
-                radix: Radix::Decimal,
-                suffix: None,
-            },
+            Token::IntLiteral { digits: "123", radix: Radix::Decimal, suffix: None },
             Span::new(BytePos::from_usize(0), BytePos::from_usize(3), source_id),
         ),
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "0",
-                radix: Radix::Decimal,
-                suffix: None,
-            },
+            Token::IntLiteral { digits: "0", radix: Radix::Decimal, suffix: None },
             Span::new(BytePos::from_usize(4), BytePos::from_usize(5), source_id),
         ),
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "999999999999999",
-                radix: Radix::Decimal,
-                suffix: None,
-            },
+            Token::IntLiteral { digits: "999999999999999", radix: Radix::Decimal, suffix: None },
             Span::new(BytePos::from_usize(6), BytePos::from_usize(21), source_id),
         ),
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "0",
-                radix: Radix::Binary,
-                suffix: None,
-            },
+            Token::IntLiteral { digits: "0", radix: Radix::Binary, suffix: None },
             Span::new(BytePos::from_usize(22), BytePos::from_usize(25), source_id),
         ),
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "0",
-                radix: Radix::Octal,
-                suffix: None,
-            },
+            Token::IntLiteral { digits: "0", radix: Radix::Octal, suffix: None },
             Span::new(BytePos::from_usize(26), BytePos::from_usize(29), source_id),
         ),
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "0",
-                radix: Radix::Hex,
-                suffix: None,
-            },
+            Token::IntLiteral { digits: "0", radix: Radix::Hex, suffix: None },
             Span::new(BytePos::from_usize(30), BytePos::from_usize(33), source_id),
         ),
     ];
@@ -295,19 +272,11 @@ fn int_literal_with_suffix_test() {
 
     let expected_tokens = [
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "123",
-                radix: Radix::Decimal,
-                suffix: Some("u8"),
-            },
+            Token::IntLiteral { digits: "123", radix: Radix::Decimal, suffix: Some("u8") },
             Span::new(BytePos::from_usize(0), BytePos::from_usize(5), source_id),
         ),
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "0",
-                radix: Radix::Decimal,
-                suffix: Some("i8"),
-            },
+            Token::IntLiteral { digits: "0", radix: Radix::Decimal, suffix: Some("i8") },
             Span::new(BytePos::from_usize(6), BytePos::from_usize(9), source_id),
         ),
         SpannedToken::new(
@@ -319,27 +288,15 @@ fn int_literal_with_suffix_test() {
             Span::new(BytePos::from_usize(10), BytePos::from_usize(28), source_id),
         ),
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "0",
-                radix: Radix::Binary,
-                suffix: Some("u64"),
-            },
+            Token::IntLiteral { digits: "0", radix: Radix::Binary, suffix: Some("u64") },
             Span::new(BytePos::from_usize(29), BytePos::from_usize(35), source_id),
         ),
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "0",
-                radix: Radix::Octal,
-                suffix: Some("isize"),
-            },
+            Token::IntLiteral { digits: "0", radix: Radix::Octal, suffix: Some("isize") },
             Span::new(BytePos::from_usize(36), BytePos::from_usize(44), source_id),
         ),
         SpannedToken::new(
-            Token::IntLiteral {
-                digits: "0",
-                radix: Radix::Hex,
-                suffix: Some("suffix"),
-            },
+            Token::IntLiteral { digits: "0", radix: Radix::Hex, suffix: Some("suffix") },
             Span::new(BytePos::from_usize(45), BytePos::from_usize(54), source_id),
         ),
     ];
@@ -357,45 +314,27 @@ fn float_literal_test() {
 
     let expected_tokens = [
         SpannedToken::new(
-            Token::FloatLiteral {
-                literal: "3.14",
-                suffix: None,
-            },
+            Token::FloatLiteral { literal: "3.14", suffix: None },
             Span::new(BytePos::from_usize(0), BytePos::from_usize(4), source_id),
         ),
         SpannedToken::new(
-            Token::FloatLiteral {
-                literal: "0.0",
-                suffix: Some("f32"),
-            },
+            Token::FloatLiteral { literal: "0.0", suffix: Some("f32") },
             Span::new(BytePos::from_usize(5), BytePos::from_usize(11), source_id),
         ),
         SpannedToken::new(
-            Token::FloatLiteral {
-                literal: "0.0e1",
-                suffix: None,
-            },
+            Token::FloatLiteral { literal: "0.0e1", suffix: None },
             Span::new(BytePos::from_usize(12), BytePos::from_usize(17), source_id),
         ),
         SpannedToken::new(
-            Token::FloatLiteral {
-                literal: "0e+1",
-                suffix: None,
-            },
+            Token::FloatLiteral { literal: "0e+1", suffix: None },
             Span::new(BytePos::from_usize(18), BytePos::from_usize(22), source_id),
         ),
         SpannedToken::new(
-            Token::FloatLiteral {
-                literal: "0e-1",
-                suffix: None,
-            },
+            Token::FloatLiteral { literal: "0e-1", suffix: None },
             Span::new(BytePos::from_usize(23), BytePos::from_usize(27), source_id),
         ),
         SpannedToken::new(
-            Token::FloatLiteral {
-                literal: "0e1",
-                suffix: Some("f64"),
-            },
+            Token::FloatLiteral { literal: "0e1", suffix: Some("f64") },
             Span::new(BytePos::from_usize(28), BytePos::from_usize(34), source_id),
         ),
     ];

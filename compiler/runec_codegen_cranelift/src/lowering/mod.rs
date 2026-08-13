@@ -24,15 +24,11 @@ pub struct CodegenOptions {
 
 impl CodegenOptions {
     pub const fn jit() -> Self {
-        Self {
-            mode: EmitMode::Jit,
-        }
+        Self { mode: EmitMode::Jit }
     }
 
     pub const fn aot() -> Self {
-        Self {
-            mode: EmitMode::Aot,
-        }
+        Self { mode: EmitMode::Aot }
     }
 }
 
@@ -112,11 +108,7 @@ impl CraneliftLowerer {
             for block in &function.blocks {
                 for stmt in &block.stmts {
                     let runec_mir::MirStmt::Assign { rhs, span, .. } = stmt;
-                    let MirRvalue::Call {
-                        callee: MirCallee::Runtime(id),
-                        ..
-                    } = rhs
-                    else {
+                    let MirRvalue::Call { callee: MirCallee::Runtime(id), .. } = rhs else {
                         continue;
                     };
 
@@ -137,11 +129,7 @@ impl CraneliftLowerer {
     ) -> CodegenResult<LoweredRuntimeFunction> {
         let declaration = runtime_function(id).ok_or_else(|| {
             let function = format!("{id:?}");
-            error(
-                messages::UNSUPPORTED_RUNTIME_FUNCTION,
-                &[("function", &function)],
-                span,
-            )
+            error(messages::UNSUPPORTED_RUNTIME_FUNCTION, &[("function", &function)], span)
         })?;
         let returns = match declaration.ret {
             AbiType::Unit => Vec::new(),
@@ -221,11 +209,7 @@ mod tests {
     use super::{AbiType, CodegenOptions, CraneliftLowerer, EmitMode};
 
     fn span(lo: usize, hi: usize) -> Span {
-        Span::new(
-            BytePos::from_usize(lo),
-            BytePos::from_usize(hi),
-            SourceId::from_usize(0),
-        )
+        Span::new(BytePos::from_usize(lo), BytePos::from_usize(hi), SourceId::from_usize(0))
     }
 
     #[test]
@@ -241,9 +225,8 @@ mod tests {
         module.entry = Some(main);
 
         let mut lowerer = CraneliftLowerer::new(CodegenOptions::jit());
-        let artifact = lowerer
-            .lower_module(&module)
-            .expect("codegen skeleton should accept module");
+        let artifact =
+            lowerer.lower_module(&module).expect("codegen skeleton should accept module");
 
         assert_eq!(artifact.mode, EmitMode::Jit);
         assert_eq!(artifact.entry, Some(main));
@@ -268,10 +251,7 @@ mod tests {
             .lower_module(&module)
             .expect("string parameters should have a supported ABI shape");
 
-        assert_eq!(
-            artifact.functions[0].signature.params,
-            [AbiType::Pointer, AbiType::Usize]
-        );
+        assert_eq!(artifact.functions[0].signature.params, [AbiType::Pointer, AbiType::Usize]);
         assert!(artifact.functions[0].signature.returns.is_empty());
     }
 
@@ -320,9 +300,7 @@ mod tests {
         module.push_function(MirFunction::new(
             runec_hir::ids::HirId::from_usize(0),
             "invalid",
-            MirTy::Float(runec_mir::MirFloatTy {
-                bits: TypeBits::B16,
-            }),
+            MirTy::Float(runec_mir::MirFloatTy { bits: TypeBits::B16 }),
             span(0, 20),
             return_span,
         ));

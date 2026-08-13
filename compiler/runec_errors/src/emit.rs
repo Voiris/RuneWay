@@ -1,10 +1,12 @@
-use crate::diagnostics::{DiagType, Diagnostic};
-use crate::labels::{DiagHelp, DiagLabel, DiagNote};
-use crate::message::DiagMessage;
+use std::fmt::Write;
+
 use indexmap::IndexMap;
 use runec_source::source_map::{SourceId, SourceMap};
 use runec_utils::common::number_length::number_length;
-use std::fmt::Write;
+
+use crate::diagnostics::{DiagType, Diagnostic};
+use crate::labels::{DiagHelp, DiagLabel, DiagNote};
+use crate::message::DiagMessage;
 
 impl<'diag> Diagnostic<'diag> {
     #[doc(hidden)]
@@ -25,10 +27,7 @@ impl<'diag> Diagnostic<'diag> {
     fn group_labels_by_source(labels: Vec<DiagLabel>) -> IndexMap<SourceId, Vec<DiagLabel>> {
         let mut source_labels = IndexMap::<SourceId, Vec<DiagLabel>>::new();
         for label in labels {
-            source_labels
-                .entry(label.span.src_id)
-                .or_default()
-                .push(label);
+            source_labels.entry(label.span.src_id).or_default().push(label);
         }
         source_labels
     }
@@ -40,15 +39,7 @@ impl<'diag> Diagnostic<'diag> {
     ) -> usize {
         let max_line_number = source_labels
             .keys()
-            .map(|id| {
-                source_map
-                    .get_file(id)
-                    .unwrap()
-                    .lines()
-                    .last_line_number()
-                    .to_usize()
-                    + 1
-            })
+            .map(|id| source_map.get_file(id).unwrap().lines().last_line_number().to_usize() + 1)
             .max()
             .unwrap();
         number_length(max_line_number) + 1
@@ -89,9 +80,8 @@ impl<'diag> Diagnostic<'diag> {
                     .take(label.span.lo.to_usize() - line_start)
                     .map(|c| if c == '\t' { 4 } else { 1 })
                     .sum::<usize>();
-                let marker_len = source_text[label.span.lo.to_usize()..label.span.hi.to_usize()]
-                    .chars()
-                    .count();
+                let marker_len =
+                    source_text[label.span.lo.to_usize()..label.span.hi.to_usize()].chars().count();
                 write!(
                     out,
                     "\n\x1b[1;96m{}{}|\x1b[0m {}\n{}\x1b[1;96m| {}{}{}\x1b[0m",
@@ -162,12 +152,11 @@ mod tests {
 
     use runec_source::byte_pos::BytePos;
     use runec_source::span::Span;
+    use runec_test_utils::MockSourceFileLoader;
 
     use super::*;
     use crate::labels::{DiagHelp, DiagNote};
     use crate::message::DiagMessage;
-
-    use runec_test_utils::MockSourceFileLoader;
 
     #[test]
     fn test_emit() {

@@ -24,11 +24,7 @@ impl<T> FreezeLock<T> {
 
     #[inline]
     pub const fn with(data: T, frozen: bool) -> Self {
-        Self {
-            data: UnsafeCell::new(data),
-            frozen: AtomicBool::new(frozen),
-            lock: RwLock::new(()),
-        }
+        Self { data: UnsafeCell::new(data), frozen: AtomicBool::new(frozen), lock: RwLock::new(()) }
     }
 
     #[inline]
@@ -38,10 +34,7 @@ impl<T> FreezeLock<T> {
 
     pub fn read(&self) -> FreezeReadGuard<'_, T> {
         let _lock_guard = self.lock.read().unwrap();
-        FreezeReadGuard {
-            _lock_guard,
-            data: unsafe { NonNull::new_unchecked(self.data.get()) },
-        }
+        FreezeReadGuard { _lock_guard, data: unsafe { NonNull::new_unchecked(self.data.get()) } }
     }
 
     pub fn write(&self) -> Option<FreezeWriteGuard<'_, T>> {
@@ -69,11 +62,7 @@ impl<T> FreezeLock<T> {
     }
 
     pub fn get(&self) -> Option<&T> {
-        if self.is_frozen() {
-            Some(unsafe { &*self.data.get() })
-        } else {
-            None
-        }
+        if self.is_frozen() { Some(unsafe { &*self.data.get() }) } else { None }
     }
 }
 

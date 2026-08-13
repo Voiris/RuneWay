@@ -12,7 +12,7 @@ pub enum Radix {
 #[derive(Debug, Clone, PartialEq)]
 #[repr(u8)]
 pub enum Token<'src> {
-    /* Expression-operator symbols. */
+    // Expression-operator symbols.
     /// `=`
     Eq,
     /// `<`
@@ -82,7 +82,7 @@ pub enum Token<'src> {
     /// `--`
     MinusMinus,
 
-    /* Literals */
+    // Literals
     IntLiteral {
         // >= 0
         digits: &'src str,
@@ -99,13 +99,13 @@ pub enum Token<'src> {
     Ident(&'src str),
     CharLiteral(char), // Simple
 
-    /* Format strings control */
+    // Format strings control
     FormatStringStart,
     FormatStringEnd,
     FormatCodeBlockStart,
     FormatCodeBlockEnd,
 
-    /* Keywords */
+    // Keywords
     /// `act`
     Act,
     /// `let`
@@ -157,7 +157,7 @@ pub enum Token<'src> {
     /// `unsafe`
     Unsafe,
 
-    /* Brackets */
+    // Brackets
     /// `(`
     OpenParen,
     /// `)`
@@ -171,13 +171,13 @@ pub enum Token<'src> {
     /// `]`
     CloseBracket,
 
-    /* Arrows */
+    // Arrows
     /// `->`
     Arrow,
     /// `=>`
     DArrow,
 
-    /* Other */
+    // Other
     /// `.`
     Dot,
     /// `..`

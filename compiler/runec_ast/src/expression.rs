@@ -1,9 +1,11 @@
+use std::borrow::Cow;
+
+use runec_source::span::Spanned;
+
 use crate::SpannedStr;
 use crate::ast_type::SpannedTypeAnnotation;
 use crate::operators::{BinaryOp, UnaryOp};
 use crate::statement::{SpannedStmtBlock, StmtBlock};
-use runec_source::span::Spanned;
-use std::borrow::Cow;
 
 #[derive(Debug, PartialEq)]
 pub enum Expr<'src> {
@@ -12,34 +14,15 @@ pub enum Expr<'src> {
     If(IfExpr<'src>),
     Ident(&'src str),
     Path(Box<[SpannedStr<'src>]>),
-    TypeCast {
-        from: Box<SpannedExpr<'src>>,
-        ty: Box<SpannedTypeAnnotation<'src>>,
-    },
-    Call {
-        callee: Box<SpannedExpr<'src>>,
-        args: Box<[SpannedExpr<'src>]>,
-    },
-    Binary {
-        lhs: Box<SpannedExpr<'src>>,
-        rhs: Box<SpannedExpr<'src>>,
-        op: BinaryOp,
-    },
-    Unary {
-        operand: Box<SpannedExpr<'src>>,
-        op: UnaryOp,
-    },
+    TypeCast { from: Box<SpannedExpr<'src>>, ty: Box<SpannedTypeAnnotation<'src>> },
+    Call { callee: Box<SpannedExpr<'src>>, args: Box<[SpannedExpr<'src>]> },
+    Binary { lhs: Box<SpannedExpr<'src>>, rhs: Box<SpannedExpr<'src>>, op: BinaryOp },
+    Unary { operand: Box<SpannedExpr<'src>>, op: UnaryOp },
     Tuple(Box<[SpannedExpr<'src>]>),
     FullyDefinedArray(Box<[SpannedExpr<'src>]>),
-    RepeatingArray {
-        value: Box<SpannedExpr<'src>>,
-        count: Box<SpannedExpr<'src>>,
-    },
+    RepeatingArray { value: Box<SpannedExpr<'src>>, count: Box<SpannedExpr<'src>> },
     Deref(Box<SpannedExpr<'src>>),
-    AttributeAccess {
-        value: Box<SpannedExpr<'src>>,
-        name: SpannedStr<'src>,
-    },
+    AttributeAccess { value: Box<SpannedExpr<'src>>, name: SpannedStr<'src> },
 }
 
 pub type SpannedExpr<'src> = Spanned<Expr<'src>>;
@@ -116,14 +99,8 @@ impl FloatSuffix {
 pub enum PrimitiveValue<'src> {
     True,
     False,
-    Int {
-        value: u128,
-        suffix: Option<IntSuffix>,
-    },
-    Float {
-        value: f64,
-        suffix: Option<FloatSuffix>,
-    },
+    Int { value: u128, suffix: Option<IntSuffix> },
+    Float { value: f64, suffix: Option<FloatSuffix> },
     Char(char),
     String(Cow<'src, str>),
 }

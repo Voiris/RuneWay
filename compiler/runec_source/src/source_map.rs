@@ -53,10 +53,7 @@ impl SourceLineStarts {
         let mut line_starts = vec![BytePos::from_usize(0)];
 
         // Find all newline characters and record the byte start of the next line.
-        for pos in src
-            .char_indices()
-            .filter_map(|(i, c)| if c == '\n' { Some(i) } else { None })
-        {
+        for pos in src.char_indices().filter_map(|(i, c)| if c == '\n' { Some(i) } else { None }) {
             line_starts.push(BytePos::from_usize(pos + 1));
         }
 
@@ -94,11 +91,7 @@ impl SourceLineStarts {
 
 #[derive(Debug)]
 pub enum Source {
-    File {
-        path: PathBuf,
-        mmap: Mmap,
-        lines: SourceLineStarts,
-    },
+    File { path: PathBuf, mmap: Mmap, lines: SourceLineStarts },
 }
 
 impl Source {
@@ -222,10 +215,7 @@ mod tests {
 
         let source_line_starts = SourceLineStarts::compute_from_source(source);
 
-        assert_eq!(
-            source_line_starts.get(),
-            &[BytePos::from_usize(0), BytePos::from_usize(3)]
-        );
+        assert_eq!(source_line_starts.get(), &[BytePos::from_usize(0), BytePos::from_usize(3)]);
     }
 
     #[test]
@@ -233,24 +223,15 @@ mod tests {
         let source_line_starts = SourceLineStarts::compute_from_source("");
 
         assert_eq!(source_line_starts.get(), &[BytePos::from_usize(0)]);
-        assert_eq!(
-            source_line_starts.last_line_number(),
-            LineIndex::from_usize(0)
-        );
+        assert_eq!(source_line_starts.last_line_number(), LineIndex::from_usize(0));
     }
 
     #[test]
     fn compute_line_starts_tracks_trailing_newline() {
         let source_line_starts = SourceLineStarts::compute_from_source("x\n");
 
-        assert_eq!(
-            source_line_starts.get(),
-            &[BytePos::from_usize(0), BytePos::from_usize(2)]
-        );
-        assert_eq!(
-            source_line_starts.last_line_number(),
-            LineIndex::from_usize(1)
-        );
+        assert_eq!(source_line_starts.get(), &[BytePos::from_usize(0), BytePos::from_usize(2)]);
+        assert_eq!(source_line_starts.last_line_number(), LineIndex::from_usize(1));
     }
 
     #[test]
@@ -261,9 +242,6 @@ mod tests {
             BytePos::from_usize(20),
         ]);
 
-        assert_eq!(
-            source_line_starts.last_line_number(),
-            LineIndex::from_usize(2)
-        );
+        assert_eq!(source_line_starts.last_line_number(), LineIndex::from_usize(2));
     }
 }

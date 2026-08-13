@@ -26,11 +26,7 @@ impl<'src> HirMap<'src> {
 
     pub fn push(&mut self, item: HirItem<'src>) -> HirId {
         let id = HirId::from_usize(self.items.len());
-        debug_assert_eq!(
-            id,
-            item.id(),
-            "HirItem.id does not match its position in HirMap"
-        );
+        debug_assert_eq!(id, item.id(), "HirItem.id does not match its position in HirMap");
         self.items.push(item);
         id
     }
@@ -52,17 +48,11 @@ impl<'src> HirMap<'src> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (HirId, &HirItem<'src>)> {
-        self.items
-            .iter()
-            .enumerate()
-            .map(|(i, it)| (HirId::from_usize(i), it))
+        self.items.iter().enumerate().map(|(i, it)| (HirId::from_usize(i), it))
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (HirId, &mut HirItem<'src>)> {
-        self.items
-            .iter_mut()
-            .enumerate()
-            .map(|(i, it)| (HirId::from_usize(i), it))
+        self.items.iter_mut().enumerate().map(|(i, it)| (HirId::from_usize(i), it))
     }
 }
 
@@ -79,19 +69,14 @@ mod tests {
     use runec_source::source_map::SourceId;
     use runec_source::span::{Span, Spanned};
 
+    use super::HirMap;
     use crate::ids::HirId;
     use crate::item::{HirFunction, HirItem};
     use crate::statement::HirBlock;
     use crate::ty::HirType;
 
-    use super::HirMap;
-
     fn span() -> Span {
-        Span::new(
-            BytePos::from_usize(0),
-            BytePos::from_usize(0),
-            SourceId::from_usize(0),
-        )
+        Span::new(BytePos::from_usize(0), BytePos::from_usize(0), SourceId::from_usize(0))
     }
 
     fn function(id: HirId) -> HirItem<'static> {
@@ -100,11 +85,7 @@ mod tests {
             name: SpannedStr::new("main", span()),
             params: Box::new([]),
             ret_ty: Spanned::new(HirType::Unit, span()),
-            body: HirBlock {
-                stmts: Box::new([]),
-                tail: None,
-                span: span(),
-            },
+            body: HirBlock { stmts: Box::new([]), tail: None, span: span() },
             span: span(),
         })
     }
@@ -127,9 +108,6 @@ mod tests {
         };
         function.name.node = "renamed";
 
-        assert_eq!(
-            map.try_get(id).expect("function should exist").name().node,
-            "renamed"
-        );
+        assert_eq!(map.try_get(id).expect("function should exist").name().node, "renamed");
     }
 }
