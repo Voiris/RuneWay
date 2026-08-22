@@ -14,6 +14,20 @@ impl BytePos {
     pub const fn to_usize(&self) -> usize {
         self.0 as usize
     }
+
+    pub const fn checked_add(self, rhs: usize) -> Option<BytePos> {
+        match self.to_usize().checked_add(rhs) {
+            Some(value) if value <= Self::MAX => Some(BytePos(value as u32)),
+            _ => None,
+        }
+    }
+
+    pub const fn checked_sub(self, rhs: usize) -> Option<BytePos> {
+        match self.to_usize().checked_sub(rhs) {
+            Some(value) => Some(BytePos(value as u32)),
+            None => None,
+        }
+    }
 }
 
 impl Add for BytePos {
@@ -73,5 +87,15 @@ mod tests {
     #[should_panic(expected = "BytePos underflow")]
     fn subtraction_rejects_underflow() {
         let _ = BytePos::from_usize(0) - 1;
+    }
+
+    #[test]
+    fn checked_arithmetic_reports_bounds() {
+        let position = BytePos::from_usize(10);
+
+        assert_eq!(position.checked_add(5), Some(BytePos::from_usize(15)));
+        assert_eq!(position.checked_sub(5), Some(BytePos::from_usize(5)));
+        assert_eq!(BytePos::from_usize(BytePos::MAX).checked_add(1), None);
+        assert_eq!(BytePos::from_usize(0).checked_sub(1), None);
     }
 }
