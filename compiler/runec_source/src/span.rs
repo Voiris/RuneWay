@@ -22,6 +22,14 @@ impl Span {
     pub const fn range(&self) -> Range<usize> {
         self.lo.to_usize()..self.hi.to_usize()
     }
+
+    pub const fn len(&self) -> usize {
+        self.hi.to_usize() - self.lo.to_usize()
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        self.lo.to_usize() == self.hi.to_usize()
+    }
 }
 
 #[macro_export]
@@ -52,5 +60,24 @@ impl<T> Deref for Spanned<T> {
 
     fn deref(&self) -> &T {
         &self.node
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Span;
+    use crate::byte_pos::BytePos;
+    use crate::source_map::SourceId;
+
+    #[test]
+    fn span_reports_length_and_empty_state() {
+        let source_id = SourceId::from_usize(0);
+        let span = Span::new(BytePos::from_usize(3), BytePos::from_usize(8), source_id);
+        let empty = Span::new(BytePos::from_usize(5), BytePos::from_usize(5), source_id);
+
+        assert_eq!(span.len(), 5);
+        assert!(!span.is_empty());
+        assert_eq!(empty.len(), 0);
+        assert!(empty.is_empty());
     }
 }
