@@ -21,8 +21,10 @@ impl<T> GrowingVec<T> {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+}
 
-    pub fn from_vec(vec: Vec<T>) -> Self {
+impl<T> From<Vec<T>> for GrowingVec<T> {
+    fn from(vec: Vec<T>) -> Self {
         GrowingVec(vec)
     }
 }
@@ -30,5 +32,17 @@ impl<T> GrowingVec<T> {
 impl<T> Default for GrowingVec<T> {
     fn default() -> Self {
         GrowingVec(Vec::new())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GrowingVec;
+
+    #[test]
+    fn converts_from_vec() {
+        let values = GrowingVec::from(vec![1, 2, 3]);
+
+        assert_eq!(values.as_slice(), &[1, 2, 3]);
     }
 }
