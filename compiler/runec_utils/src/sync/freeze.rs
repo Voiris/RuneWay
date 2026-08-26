@@ -64,6 +64,10 @@ impl<T> FreezeLock<T> {
     pub fn get(&self) -> Option<&T> {
         if self.is_frozen() { Some(unsafe { &*self.data.get() }) } else { None }
     }
+
+    pub fn into_inner(self) -> T {
+        self.data.into_inner()
+    }
 }
 
 impl<T: Clone> Clone for FreezeLock<T> {
@@ -148,5 +152,12 @@ mod tests {
         assert_eq!(*write_guard.freeze(), 250);
 
         assert!(lock.write().is_none())
+    }
+
+    #[test]
+    fn into_inner_returns_owned_value() {
+        let lock = FreezeLock::new(String::from("value"));
+
+        assert_eq!(lock.into_inner(), "value");
     }
 }
