@@ -53,6 +53,14 @@ impl<T> Spanned<T> {
     pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Spanned<U> {
         Spanned::new(f(self.node), self.span)
     }
+
+    pub fn as_ref(&self) -> Spanned<&T> {
+        Spanned::new(&self.node, self.span)
+    }
+
+    pub fn as_mut(&mut self) -> Spanned<&mut T> {
+        Spanned::new(&mut self.node, self.span)
+    }
 }
 
 impl<T> Deref for Spanned<T> {
@@ -65,7 +73,7 @@ impl<T> Deref for Spanned<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::Span;
+    use super::{Span, Spanned};
     use crate::byte_pos::BytePos;
     use crate::source_map::SourceId;
 
@@ -79,5 +87,17 @@ mod tests {
         assert!(!span.is_empty());
         assert_eq!(empty.len(), 0);
         assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn spanned_borrows_preserve_span() {
+        let span =
+            Span::new(BytePos::from_usize(3), BytePos::from_usize(8), SourceId::from_usize(0));
+        let mut value = Spanned::new(String::from("value"), span);
+
+        assert_eq!(value.as_ref(), Spanned::new(&String::from("value"), span));
+        value.as_mut().node.push('!');
+
+        assert_eq!(value, Spanned::new(String::from("value!"), span));
     }
 }
