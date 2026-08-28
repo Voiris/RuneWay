@@ -65,6 +65,11 @@ impl SourceLineStarts {
         &self.0
     }
 
+    /// Returns the number of lines represented by the source.
+    pub fn line_count(&self) -> usize {
+        self.0.len()
+    }
+
     /// Finds the line corresponding to a given byte position.
     ///
     /// Returns a tuple `(LineIndex, BytePos)`:
@@ -231,6 +236,7 @@ mod tests {
         let source_line_starts = SourceLineStarts::compute_from_source("x\n");
 
         assert_eq!(source_line_starts.get(), &[BytePos::from_usize(0), BytePos::from_usize(2)]);
+        assert_eq!(source_line_starts.line_count(), 2);
         assert_eq!(source_line_starts.last_line_number(), LineIndex::from_usize(1));
     }
 
