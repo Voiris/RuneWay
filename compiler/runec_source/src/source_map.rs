@@ -137,6 +137,14 @@ impl SourceMap {
         Self { files: Vec::new() }
     }
 
+    pub fn len(&self) -> usize {
+        self.files.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+
     pub fn add_file(&mut self, source_file: Source) -> SourceId {
         let new_id = SourceId::from_usize(self.files.len());
         self.files.push(source_file);
@@ -151,7 +159,15 @@ impl SourceMap {
 #[cfg(test)]
 mod tests {
     use crate::byte_pos::BytePos;
-    use crate::source_map::{LineIndex, SourceId, SourceLineStarts};
+    use crate::source_map::{LineIndex, SourceId, SourceLineStarts, SourceMap};
+
+    #[test]
+    fn new_source_map_is_empty() {
+        let source_map = SourceMap::new();
+
+        assert!(source_map.is_empty());
+        assert_eq!(source_map.len(), 0);
+    }
 
     #[test]
     #[should_panic(expected = "SourceId overflow")]
