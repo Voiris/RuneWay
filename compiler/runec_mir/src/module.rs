@@ -24,6 +24,10 @@ impl<'src> MirModule<'src> {
         &self.constants[id.to_usize()]
     }
 
+    pub fn try_constant(&self, id: MirConstantId) -> Option<&MirConstant<'src>> {
+        self.constants.get(id.to_usize())
+    }
+
     pub fn push_function(&mut self, function: MirFunction<'src>) -> MirFunctionId {
         let id = MirFunctionId::from_usize(self.functions.len());
         self.functions.push(function);
@@ -32,6 +36,10 @@ impl<'src> MirModule<'src> {
 
     pub fn function(&self, id: MirFunctionId) -> &MirFunction<'src> {
         &self.functions[id.to_usize()]
+    }
+
+    pub fn try_function(&self, id: MirFunctionId) -> Option<&MirFunction<'src>> {
+        self.functions.get(id.to_usize())
     }
 }
 
@@ -46,6 +54,7 @@ mod tests {
     use crate::block::{MirBlock, MirRvalue, MirStmt, MirTerminator};
     use crate::constant::MirConstant;
     use crate::function::{MirCallee, MirFunction};
+    use crate::ids::{MirConstantId, MirFunctionId};
     use crate::module::MirModule;
     use crate::operand::{MirOperand, MirPlace};
     use crate::ty::MirTy;
@@ -87,5 +96,13 @@ mod tests {
         assert_eq!(module.function(main_id).name, "main");
         assert_eq!(module.function(main_id).blocks[0].stmts.len(), 2);
         assert_eq!(module.entry, Some(main_id));
+    }
+
+    #[test]
+    fn fallible_lookups_reject_unknown_ids() {
+        let module = MirModule::new();
+
+        assert!(module.try_constant(MirConstantId::from_usize(0)).is_none());
+        assert!(module.try_function(MirFunctionId::from_usize(0)).is_none());
     }
 }
