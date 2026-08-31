@@ -29,6 +29,12 @@ impl<T> From<Vec<T>> for GrowingVec<T> {
     }
 }
 
+impl<T> FromIterator<T> for GrowingVec<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        GrowingVec(iter.into_iter().collect())
+    }
+}
+
 impl<T> Default for GrowingVec<T> {
     fn default() -> Self {
         GrowingVec(Vec::new())
@@ -42,6 +48,13 @@ mod tests {
     #[test]
     fn converts_from_vec() {
         let values = GrowingVec::from(vec![1, 2, 3]);
+
+        assert_eq!(values.as_slice(), &[1, 2, 3]);
+    }
+
+    #[test]
+    fn collects_from_iterator() {
+        let values: GrowingVec<_> = (1..=3).collect();
 
         assert_eq!(values.as_slice(), &[1, 2, 3]);
     }
