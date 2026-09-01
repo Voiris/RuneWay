@@ -42,9 +42,11 @@ syn = { version = "3", features = ["full"] }
 runec_abi = { path = "compiler/runec_abi" }
 runec_ast = { path = "compiler/runec_ast" }
 runec_builtins = { path = "compiler/runec_builtins" }
+runec_codegen_cranelift = { path = "compiler/runec_codegen_cranelift" }
 runec_errors = { path = "compiler/runec_errors" }
 runec_hir = { path = "compiler/runec_hir" }
 runec_mir = { path = "compiler/runec_mir" }
+runec_parse = { path = "compiler/runec_parse" }
 runec_runtime = { path = "compiler/runec_runtime" }
 runec_semantic = { path = "compiler/runec_semantic" }
 runec_source = { path = "compiler/runec_source" }

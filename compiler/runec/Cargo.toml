@@ -8,4 +8,11 @@ homepage.workspace = true
 readme.workspace = true
 
 [dependencies]
+runec_codegen_cranelift = { workspace = true }
+runec_errors = { workspace = true }
+runec_hir = { workspace = true }
+runec_mir = { workspace = true }
+runec_parse = { workspace = true }
 runec_runtime = { workspace = true }
+runec_semantic = { workspace = true }
+runec_source = { workspace = true }

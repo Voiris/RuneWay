@@ -26,9 +26,14 @@ pub(super) fn compile_module<M: Module>(
 ) -> CodegenResult<CompiledModule> {
     let entry = mir.entry.ok_or_else(|| error(messages::MISSING_ENTRY, &[], diagnostic_span))?;
     let mut functions = HashMap::<HirId, FuncId>::new();
-    for function in &mir.functions {
+    for (index, function) in mir.functions.iter().enumerate() {
+        let symbol = if MirFunctionId::from_usize(index) == entry {
+            crate::ENTRY_SYMBOL
+        } else {
+            function.name
+        };
         let id = module
-            .declare_function(function.name, Linkage::Export, &signature_for(module, function)?)
+            .declare_function(symbol, Linkage::Export, &signature_for(module, function)?)
             .map_err(|error| backend(error, function.span))?;
         functions.insert(function.hir_id, id);
     }

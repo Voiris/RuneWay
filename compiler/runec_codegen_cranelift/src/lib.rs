@@ -10,3 +10,6 @@ pub use lowering::{
     LoweredRuntimeFunction,
 };
 pub use signature::{AbiType, FunctionSignature};
+
+/// Native symbol used by the platform entry-point wrapper.
+pub const ENTRY_SYMBOL: &str = "__runeway_main";
