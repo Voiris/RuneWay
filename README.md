@@ -2,9 +2,8 @@
 
 *RuneWay* is a programming language written in Rust, with syntax inspired by Rust, Python, and JavaScript.
 
-> RuneWay is under active development. The implemented compiler stages currently reach MIR
-> lowering and Cranelift-based JIT/AOT emission for a small supported language subset. The stages
-> are not yet connected through a usable `runec` CLI pipeline.
+> RuneWay is under active development. The `runec` CLI can compile the currently supported
+> language subset to a native executable or execute it through the Cranelift JIT.
 
 ## 🔧 Features (WIP)
 
@@ -62,7 +61,7 @@ source (.rnw)
 - [x] Runtime ABI declarations and native `print`/`println` symbols
 - [x] Basic MIR lowering for functions, locals, literals, calls, and returns
 - [x] Cranelift code generation with shared JIT and AOT lowering
-- [ ] `runec` CLI pipeline
+- [x] Basic `runec` CLI pipeline with binary output and JIT execution
 
 ### Current Compiler Scope
 
@@ -93,8 +92,7 @@ Semantic analysis currently provides:
 
 MIR and codegen support the subset represented by HIR: functions, locals, primitive literals,
 blocks, user and runtime calls, and returns. JIT and AOT share the same Cranelift IR generation.
-The stages are covered by unit tests, but they are not yet connected into a source-to-binary
-end-to-end CLI pipeline.
+The stages are connected by `runec` into source-to-binary and source-to-JIT pipelines.
 
 ### Compiler Crates
 
@@ -112,7 +110,7 @@ end-to-end CLI pipeline.
 - `runec_utils` — shared compiler utilities and macros.
 - `runec_test_utils` — source fixtures shared by compiler tests.
 - `runec_proc_macro_utils` — procedural macros used by compiler crates.
-- `runec` — future compiler CLI entry point.
+- `runec` — compiler CLI entry point and pipeline driver.
 
 ### 🪵 Built-ins
 
@@ -151,16 +149,25 @@ end-to-end CLI pipeline.
 
 ## Installation
 
-RuneWay does not provide a usable compiler binary yet. To build and test the current workspace:
+Build and test the workspace:
 
 ```shell
 cargo build --workspace
 cargo test --workspace
 ```
 
+Compile or JIT-run the example program:
+
+```shell
+cargo run -p runec -- example/hello_world.rnw -o hello
+cargo run -p runec -- example/hello_world.rnw --jit
+```
+
 ## 📖 Documentation
 
 The codebase and this README currently serve as the primary project documentation.
+
+- [`runec` command-line interface](docs/cli.md) — compiler CLI and compilation-unit model.
 
 <!--Temporary removed
 
