@@ -1,7 +1,29 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+#[cfg(debug_assertions)]
+pub const USAGE: &str =
+    "Usage: runec <ROOT> [-o <PATH>] [--emit binary] [--jit] [--benchmark] [-- <ARGS>...]";
+#[cfg(not(debug_assertions))]
 pub const USAGE: &str = "Usage: runec <ROOT> [-o <PATH>] [--emit binary] [--jit] [-- <ARGS>...]";
+
+#[cfg(debug_assertions)]
+pub const HELP: &str = concat!(
+    "RuneWay compiler\n\n",
+    "Usage: runec <ROOT> [-o <PATH>] [--emit binary] [--jit] [--benchmark] [-- <ARGS>...]\n\n",
+    "Arguments:\n",
+    "  <ROOT>           Root source file of the compilation unit\n",
+    "  [ARGS]...        Arguments passed to a JIT-executed program\n\n",
+    "Options:\n",
+    "  -o <PATH>          Write the executable to PATH\n",
+    "      --emit <KIND>  Select the output kind [possible value: binary]\n",
+    "      --jit          Compile and execute in memory without producing a file\n",
+    "  -b, --benchmark    Print compiler stage timings (debug builds only)\n",
+    "  -h, --help         Print help\n",
+    "  -V, --version      Print version\n",
+);
+
+#[cfg(not(debug_assertions))]
 pub const HELP: &str = concat!(
     "RuneWay compiler\n\n",
     "Usage: runec <ROOT> [-o <PATH>] [--emit binary] [--jit] [-- <ARGS>...]\n\n",
@@ -27,6 +49,7 @@ pub struct Cli {
     pub output: Option<PathBuf>,
     pub emit: Option<EmitKind>,
     pub jit: bool,
+    pub benchmark: bool,
     pub program_args: Vec<OsString>,
 }
 
@@ -44,6 +67,10 @@ impl Cli {
         let mut output = None;
         let mut emit = None;
         let mut jit = false;
+        #[cfg(debug_assertions)]
+        let mut benchmark = false;
+        #[cfg(not(debug_assertions))]
+        let benchmark = false;
         let mut program_args = Vec::new();
 
         while let Some(arg) = args.next() {
@@ -60,6 +87,13 @@ impl Cli {
                         return Err("option `--jit` may only be used once".into());
                     }
                     jit = true;
+                }
+                #[cfg(debug_assertions)]
+                Some("-b" | "--benchmark") => {
+                    if benchmark {
+                        return Err("option `--benchmark` may only be used once".into());
+                    }
+                    benchmark = true;
                 }
                 Some("-o") => {
                     if output.is_some() {
@@ -103,7 +137,7 @@ impl Cli {
             return Err("program arguments after `--` require `--jit`".into());
         }
 
-        Ok(ParseOutcome::Run(Self { root, output, emit, jit, program_args }))
+        Ok(ParseOutcome::Run(Self { root, output, emit, jit, benchmark, program_args }))
     }
 }
 
@@ -137,6 +171,7 @@ mod tests {
                 output: Some(PathBuf::from("app")),
                 emit: Some(EmitKind::Binary),
                 jit: false,
+                benchmark: false,
                 program_args: vec![],
             })
         );
@@ -157,5 +192,16 @@ mod tests {
     fn jit_conflicts_with_emit_and_output() {
         assert!(parse(&["main.rnw", "--jit", "--emit", "binary"]).is_err());
         assert!(parse(&["main.rnw", "--jit", "-o", "app"]).is_err());
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn parses_benchmark_aliases() {
+        for option in ["-b", "--benchmark"] {
+            let ParseOutcome::Run(cli) = parse(&["main.rnw", option]).unwrap() else {
+                panic!("expected runnable CLI");
+            };
+            assert!(cli.benchmark);
+        }
     }
 }

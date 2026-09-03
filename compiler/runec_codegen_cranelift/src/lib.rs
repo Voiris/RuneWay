@@ -4,7 +4,7 @@ pub mod lowering;
 pub mod signature;
 
 pub use diagnostics::CodegenResult;
-pub use emit::{AotBackend, JitBackend};
+pub use emit::{AotBackend, JitBackend, JitTimings};
 pub use lowering::{
     CodegenArtifact, CodegenOptions, CraneliftLowerer, EmitMode, LoweredFunction,
     LoweredRuntimeFunction,

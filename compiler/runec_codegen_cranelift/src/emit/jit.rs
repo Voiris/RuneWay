@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::settings;
 use cranelift_jit::{JITBuilder, JITModule};
@@ -5,7 +7,15 @@ use runec_mir::{MirModule, MirTy};
 use runec_source::span::Span;
 
 use crate::diagnostics::{backend, error, messages};
+use crate::lowering::CompiledModule;
 use crate::{CodegenOptions, CodegenResult, CraneliftLowerer};
+
+#[derive(Debug, Copy, Clone)]
+pub struct JitTimings {
+    pub codegen: Duration,
+    pub finalization: Duration,
+    pub execution: Duration,
+}
 
 /// Finalizes shared Cranelift IR in memory and invokes its entry point.
 pub struct JitBackend {
@@ -29,11 +39,41 @@ impl JitBackend {
     }
 
     pub fn run(&mut self, mir: &MirModule<'_>) -> CodegenResult<()> {
-        let compiled = CraneliftLowerer::new(CodegenOptions::jit()).compile(
+        let compiled = self.compile(mir)?;
+        let entry = self.finalize(mir, compiled)?;
+        Self::execute(entry);
+        Ok(())
+    }
+
+    pub fn run_benchmarked(&mut self, mir: &MirModule<'_>) -> CodegenResult<JitTimings> {
+        let started = Instant::now();
+        let compiled = self.compile(mir)?;
+        let codegen = started.elapsed();
+
+        let started = Instant::now();
+        let entry = self.finalize(mir, compiled)?;
+        let finalization = started.elapsed();
+
+        let started = Instant::now();
+        Self::execute(entry);
+        let execution = started.elapsed();
+
+        Ok(JitTimings { codegen, finalization, execution })
+    }
+
+    fn compile(&mut self, mir: &MirModule<'_>) -> CodegenResult<CompiledModule> {
+        CraneliftLowerer::new(CodegenOptions::jit()).compile(
             &mut self.module,
             mir,
             self.diagnostic_span,
-        )?;
+        )
+    }
+
+    fn finalize(
+        &mut self,
+        mir: &MirModule<'_>,
+        compiled: CompiledModule,
+    ) -> CodegenResult<unsafe extern "C" fn()> {
         self.module.finalize_definitions().map_err(|error| backend(error, self.diagnostic_span))?;
         let function = mir.function(compiled.entry);
         if !function.params.is_empty() || function.ret_ty != MirTy::Unit {
@@ -46,9 +86,11 @@ impl JitBackend {
         }
         let address = self.module.get_finalized_function(compiled.entry_func);
         // SAFETY: the entry signature is checked above and finalized by JITModule.
-        let entry: unsafe extern "C" fn() = unsafe { std::mem::transmute(address) };
+        Ok(unsafe { std::mem::transmute(address) })
+    }
+
+    fn execute(entry: unsafe extern "C" fn()) {
         unsafe { entry() };
-        Ok(())
     }
 }
 
@@ -110,5 +152,15 @@ mod tests {
             JitBackend::new([("__runeway_println", test_println as *const u8)], span()).unwrap();
         backend.run(&hello_module()).unwrap();
         assert!(CALLED.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn measures_jit_stages() {
+        CALLED.store(false, Ordering::SeqCst);
+        let mut backend =
+            JitBackend::new([("__runeway_println", test_println as *const u8)], span()).unwrap();
+        let timings = backend.run_benchmarked(&hello_module()).unwrap();
+        assert!(CALLED.load(Ordering::SeqCst));
+        assert!(timings.codegen + timings.finalization + timings.execution > Default::default());
     }
 }

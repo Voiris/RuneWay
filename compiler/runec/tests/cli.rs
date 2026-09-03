@@ -38,6 +38,53 @@ fn jit_rejects_output_options() {
     }
 }
 
+#[cfg(debug_assertions)]
+#[test]
+fn benchmark_reports_jit_stage_timings_to_stderr() {
+    let output =
+        Command::new(runec()).arg(hello_world()).arg("--jit").arg("--benchmark").output().unwrap();
+
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert_eq!(output.stdout, b"Hello, World!\n");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    for label in [
+        "[benchmark]",
+        "source loading",
+        "parsing",
+        "semantic analysis",
+        "MIR generation",
+        "codegen",
+        "JIT finalization",
+        "compilation",
+        "execution",
+        "total",
+    ] {
+        assert!(stderr.contains(label), "missing `{label}` in:\n{stderr}");
+    }
+}
+
+#[cfg(debug_assertions)]
+#[test]
+fn benchmark_reports_aot_compilation_without_execution() {
+    let temp = TempDir::new();
+    let executable = temp.path.join(format!("bench{}", std::env::consts::EXE_SUFFIX));
+    let output = Command::new(runec())
+        .arg(hello_world())
+        .arg("--benchmark")
+        .arg("-o")
+        .arg(executable)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(output.stdout.is_empty());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("linking"), "{stderr}");
+    assert!(stderr.contains("compilation"), "{stderr}");
+    assert!(!stderr.contains("execution"), "{stderr}");
+    assert!(!stderr.contains("total"), "{stderr}");
+}
+
 #[test]
 fn emits_a_standalone_binary() {
     let temp = TempDir::new();

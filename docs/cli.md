@@ -82,6 +82,38 @@ runec main.rnw --jit -o main
 runec main.rnw --jit --emit binary
 ```
 
+## Development benchmarks
+
+Debug builds provide `--benchmark` (`-b`) for measuring compiler stages:
+
+```console
+runec main.rnw --jit --benchmark
+```
+
+```text
+[benchmark]
+source loading       0.071 ms
+parsing              0.284 ms
+semantic analysis    0.193 ms
+MIR generation       0.126 ms
+codegen              1.417 ms
+JIT finalization     0.311 ms
+--------------------------------
+compilation          2.402 ms
+execution            0.018 ms
+total                2.420 ms
+```
+
+The report is written to standard error, leaving program output unchanged. With AOT, it reports
+compilation and linking only:
+
+```console
+runec main.rnw --benchmark -o main
+```
+
+Timings use a monotonic clock and are shown in milliseconds. The option is intended for optimizing
+`runec`, not RuneWay programs, and is unavailable in release builds.
+
 ## Responsibilities
 
 `runec` is deliberately limited to compiler responsibilities:

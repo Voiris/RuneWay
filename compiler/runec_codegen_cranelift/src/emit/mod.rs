@@ -2,4 +2,4 @@ mod aot;
 mod jit;
 
 pub use aot::AotBackend;
-pub use jit::JitBackend;
+pub use jit::{JitBackend, JitTimings};
