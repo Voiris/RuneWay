@@ -61,6 +61,10 @@ impl<T> Spanned<T> {
     pub fn as_mut(&mut self) -> Spanned<&mut T> {
         Spanned::new(&mut self.node, self.span)
     }
+
+    pub fn into_inner(self) -> T {
+        self.node
+    }
 }
 
 impl<T> Deref for Spanned<T> {
@@ -99,5 +103,15 @@ mod tests {
         value.as_mut().node.push('!');
 
         assert_eq!(value, Spanned::new(String::from("value!"), span));
+    }
+
+    #[test]
+    fn spanned_returns_inner_value() {
+        let value = Spanned::new(
+            String::from("value"),
+            Span::new(BytePos::from_usize(0), BytePos::from_usize(5), SourceId::from_usize(0)),
+        );
+
+        assert_eq!(value.into_inner(), "value");
     }
 }
