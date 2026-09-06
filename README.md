@@ -168,6 +168,7 @@ cargo run -p runec -- example/hello_world.rnw --jit
 The codebase and this README currently serve as the primary project documentation.
 
 - [`runec` command-line interface](docs/cli.md) — compiler CLI and compilation-unit model.
+- [Example programs](docs/examples.md) — supported syntax demonstrated by repository fixtures.
 
 <!--Temporary removed
 
