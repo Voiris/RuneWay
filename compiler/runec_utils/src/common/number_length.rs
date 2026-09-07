@@ -27,4 +27,9 @@ mod tests {
         assert_eq!(number_length(99), 2);
         assert_eq!(number_length(100), 3);
     }
+
+    #[test]
+    fn number_length_handles_usize_max() {
+        assert_eq!(number_length(usize::MAX), usize::MAX.to_string().len());
+    }
 }
