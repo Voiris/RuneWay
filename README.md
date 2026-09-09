@@ -170,6 +170,7 @@ The codebase and this README currently serve as the primary project documentatio
 - [`runec` command-line interface](docs/cli.md) — compiler CLI and compilation-unit model.
 - [Example programs](docs/examples.md) — supported syntax demonstrated by repository fixtures.
 - [Frontend pipeline](docs/frontend-pipeline.md) — compiler stages from tokens to type checking.
+- [Testing](docs/testing.md) — workspace checks and test organization guidelines.
 
 <!--Temporary removed
 
