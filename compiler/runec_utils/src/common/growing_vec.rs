@@ -58,4 +58,15 @@ mod tests {
 
         assert_eq!(values.as_slice(), &[1, 2, 3]);
     }
+
+    #[test]
+    fn tracks_push_and_length() {
+        let mut values = GrowingVec::default();
+
+        assert!(values.is_empty());
+        values.push(7);
+
+        assert_eq!(values.len(), 1);
+        assert_eq!(values.as_slice(), &[7]);
+    }
 }
