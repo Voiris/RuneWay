@@ -55,4 +55,9 @@ mod tests {
     fn preserves_empty_placeholder() {
         assert_eq!(message_format("empty {}", &[]), "empty {}");
     }
+
+    #[test]
+    fn replaces_repeated_placeholders() {
+        assert_eq!(message_format("{name} and {name}", &[("name", "value")]), "value and value");
+    }
 }
