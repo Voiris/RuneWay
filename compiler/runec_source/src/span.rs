@@ -114,4 +114,13 @@ mod tests {
 
         assert_eq!(value.into_inner(), "value");
     }
+
+    #[test]
+    fn span_exposes_byte_ranges() {
+        let span =
+            Span::new(BytePos::from_usize(2), BytePos::from_usize(6), SourceId::from_usize(0));
+
+        assert_eq!(span.to_range(), BytePos::from_usize(2)..BytePos::from_usize(6));
+        assert_eq!(span.range(), 2..6);
+    }
 }
