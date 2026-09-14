@@ -56,3 +56,14 @@ impl<'diag> Lint<'diag> {
         self.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::is_lint_known;
+
+    #[test]
+    fn recognizes_known_lint_names() {
+        assert!(is_lint_known("unknown_lint"));
+        assert!(!is_lint_known("missing_lint"));
+    }
+}
