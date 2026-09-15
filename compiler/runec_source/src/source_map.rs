@@ -182,6 +182,12 @@ mod tests {
     }
 
     #[test]
+    fn ids_round_trip_at_maximum_value() {
+        assert_eq!(SourceId::from_usize(SourceId::MAX).to_usize(), SourceId::MAX);
+        assert_eq!(LineIndex::from_usize(LineIndex::MAX).to_usize(), LineIndex::MAX);
+    }
+
+    #[test]
     fn test_line_search() {
         let source_line_starts = SourceLineStarts::new(vec![
             BytePos::from_usize(0),
