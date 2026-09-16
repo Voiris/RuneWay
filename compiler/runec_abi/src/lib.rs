@@ -49,7 +49,7 @@ pub fn runtime_function(id: RuntimeFunctionId) -> Option<&'static RuntimeFunctio
 
 #[cfg(test)]
 mod tests {
-    use super::{AbiType, RUNTIME_PRINTLN, runtime_function};
+    use super::{AbiType, RUNTIME_FUNCTIONS, RUNTIME_PRINTLN, RuntimeFunctionId, runtime_function};
 
     #[test]
     fn exposes_stable_runtime_declarations() {
@@ -57,5 +57,10 @@ mod tests {
         assert_eq!(declaration.symbol, "__runeway_println");
         assert_eq!(declaration.params, &[AbiType::Pointer, AbiType::Usize]);
         assert_eq!(declaration.ret, AbiType::Unit);
+    }
+
+    #[test]
+    fn rejects_unknown_runtime_function_ids() {
+        assert!(runtime_function(RuntimeFunctionId::from_index(RUNTIME_FUNCTIONS.len())).is_none());
     }
 }
