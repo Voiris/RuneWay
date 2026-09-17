@@ -136,8 +136,8 @@ mod tests {
     use runec_abi::{RUNTIME_PRINTLN, runtime_function};
 
     use super::{
-        BuiltinLowering, DISPLAY_CONTRACT, PRINTLN, PrimitiveType, builtin_decl, builtin_from_name,
-        primitive_implements,
+        BUILTINS, BuiltinId, BuiltinLowering, CONTRACTS, ContractId, DISPLAY_CONTRACT, PRINTLN,
+        PrimitiveType, builtin_decl, builtin_from_name, contract_decl, primitive_implements,
     };
 
     #[test]
@@ -159,5 +159,11 @@ mod tests {
             runtime_function(RUNTIME_PRINTLN).expect("runtime declaration").symbol,
             "__runeway_println"
         );
+    }
+
+    #[test]
+    fn rejects_unknown_declaration_ids() {
+        assert!(builtin_decl(BuiltinId::from_index(BUILTINS.len())).is_none());
+        assert!(contract_decl(ContractId::from_index(CONTRACTS.len())).is_none());
     }
 }
