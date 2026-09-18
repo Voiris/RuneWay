@@ -92,4 +92,9 @@ mod tests {
             assert!(resolve_symbol(declaration.symbol).is_some());
         }
     }
+
+    #[test]
+    fn rejects_unknown_runtime_symbols() {
+        assert!(resolve_symbol("__runeway_unknown").is_none());
+    }
 }
