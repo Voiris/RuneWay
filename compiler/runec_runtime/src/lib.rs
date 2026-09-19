@@ -80,9 +80,11 @@ unsafe fn bytes_from_abi<'a>(ptr: *const u8, len: usize) -> Option<&'a [u8]> {
 
 #[cfg(test)]
 mod tests {
+    use std::ptr;
+
     use runec_abi::RUNTIME_FUNCTIONS;
 
-    use super::{resolve_symbol, symbols};
+    use super::{bytes_from_abi, resolve_symbol, symbols};
 
     #[test]
     fn exports_every_declared_runtime_symbol() {
@@ -96,5 +98,16 @@ mod tests {
     #[test]
     fn rejects_unknown_runtime_symbols() {
         assert!(resolve_symbol("__runeway_unknown").is_none());
+    }
+
+    #[test]
+    fn accepts_null_pointer_only_for_empty_slices() {
+        // SAFETY: bytes_from_abi handles null pointers before attempting to
+        // create a slice.
+        let empty = unsafe { bytes_from_abi(ptr::null(), 0) };
+        let invalid = unsafe { bytes_from_abi(ptr::null(), 1) };
+
+        assert_eq!(empty, Some(&[][..]));
+        assert!(invalid.is_none());
     }
 }
