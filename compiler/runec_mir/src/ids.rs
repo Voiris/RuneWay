@@ -53,3 +53,18 @@ impl MirConstantId {
         self.0 as usize
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{MirBlockId, MirConstantId, MirFunctionId, MirLocalId};
+
+    #[test]
+    fn identifiers_round_trip_maximum_index() {
+        let index = u32::MAX as usize;
+
+        assert_eq!(MirFunctionId::from_usize(index).to_usize(), index);
+        assert_eq!(MirBlockId::from_usize(index).to_usize(), index);
+        assert_eq!(MirLocalId::from_usize(index).to_usize(), index);
+        assert_eq!(MirConstantId::from_usize(index).to_usize(), index);
+    }
+}
