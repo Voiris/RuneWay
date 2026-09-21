@@ -63,4 +63,11 @@ mod tests {
     fn rejects_unknown_runtime_function_ids() {
         assert!(runtime_function(RuntimeFunctionId::from_index(RUNTIME_FUNCTIONS.len())).is_none());
     }
+
+    #[test]
+    fn runtime_function_ids_round_trip_maximum_index() {
+        let index = u32::MAX as usize;
+
+        assert_eq!(RuntimeFunctionId::from_index(index).index(), index);
+    }
 }
