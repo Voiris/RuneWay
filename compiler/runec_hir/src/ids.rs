@@ -24,3 +24,16 @@ impl HirLocalId {
         self.0 as usize
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{HirId, HirLocalId};
+
+    #[test]
+    fn identifiers_round_trip_maximum_index() {
+        let index = u32::MAX as usize;
+
+        assert_eq!(HirId::from_usize(index).to_usize(), index);
+        assert_eq!(HirLocalId::from_usize(index).to_usize(), index);
+    }
+}
