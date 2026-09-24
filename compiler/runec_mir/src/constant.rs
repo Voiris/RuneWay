@@ -16,3 +16,20 @@ impl MirConstant<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+
+    use super::MirConstant;
+    use crate::ty::MirTy;
+
+    #[test]
+    fn reports_string_and_byte_types() {
+        let string = MirConstant::Str(Cow::Borrowed("value"));
+        let bytes = MirConstant::Bytes(Cow::Borrowed(b"value"));
+
+        assert_eq!(string.ty(), MirTy::Str);
+        assert_eq!(bytes.ty(), MirTy::Bytes);
+    }
+}
