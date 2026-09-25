@@ -110,4 +110,17 @@ mod tests {
 
         assert_eq!(map.try_get(id).expect("function should exist").name().node, "renamed");
     }
+
+    #[test]
+    fn iterates_items_with_assigned_ids() {
+        let mut map = HirMap::new();
+        let first = map.reserve_id();
+        map.push(function(first));
+        let second = map.reserve_id();
+        map.push(function(second));
+
+        let ids: Vec<_> = map.iter().map(|(id, _)| id).collect();
+
+        assert_eq!(ids, [first, second]);
+    }
 }
