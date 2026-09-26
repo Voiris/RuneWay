@@ -119,8 +119,8 @@ mod tests {
         let second = map.reserve_id();
         map.push(function(second));
 
-        let ids: Vec<_> = map.iter().map(|(id, _)| id).collect();
+        let ids: Vec<_> = map.iter().map(|(id, item)| (id, item.id())).collect();
 
-        assert_eq!(ids, [first, second]);
+        assert_eq!(ids, [(first, first), (second, second)]);
     }
 }
