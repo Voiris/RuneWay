@@ -123,4 +123,24 @@ mod tests {
 
         assert_eq!(ids, [(first, first), (second, second)]);
     }
+
+    #[test]
+    fn iterates_mutable_items_with_assigned_ids() {
+        let mut map = HirMap::new();
+        let first = map.reserve_id();
+        map.push(function(first));
+        let second = map.reserve_id();
+        map.push(function(second));
+
+        for (id, item) in map.iter_mut() {
+            assert_eq!(id, item.id());
+
+            let HirItem::Function(function) = item else {
+                panic!("expected function");
+            };
+            function.name.node = "renamed";
+        }
+
+        assert!(map.iter().all(|(_, item)| item.name().node == "renamed"));
+    }
 }
