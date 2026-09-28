@@ -104,3 +104,31 @@ pub enum PrimitiveValue<'src> {
     Char(char),
     String(Cow<'src, str>),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::IntSuffix;
+
+    #[test]
+    fn parses_integer_suffixes() {
+        let suffixes = [
+            ("u8", IntSuffix::U8),
+            ("u16", IntSuffix::U16),
+            ("u32", IntSuffix::U32),
+            ("u64", IntSuffix::U64),
+            ("u128", IntSuffix::U128),
+            ("i8", IntSuffix::I8),
+            ("i16", IntSuffix::I16),
+            ("i32", IntSuffix::I32),
+            ("i64", IntSuffix::I64),
+            ("i128", IntSuffix::I128),
+            ("f32", IntSuffix::F32),
+            ("f64", IntSuffix::F64),
+        ];
+
+        for (source, expected) in suffixes {
+            assert_eq!(IntSuffix::from_str(source), Some(expected));
+        }
+        assert_eq!(IntSuffix::from_str("usize"), None);
+    }
+}
