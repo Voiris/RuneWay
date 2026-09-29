@@ -107,7 +107,7 @@ pub enum PrimitiveValue<'src> {
 
 #[cfg(test)]
 mod tests {
-    use super::IntSuffix;
+    use super::{FloatSuffix, IntSuffix};
 
     #[test]
     fn parses_integer_suffixes() {
@@ -130,5 +130,12 @@ mod tests {
             assert_eq!(IntSuffix::from_str(source), Some(expected));
         }
         assert_eq!(IntSuffix::from_str("usize"), None);
+    }
+
+    #[test]
+    fn parses_float_suffixes() {
+        assert_eq!(FloatSuffix::from_str("f32"), Some(FloatSuffix::F32));
+        assert_eq!(FloatSuffix::from_str("f64"), Some(FloatSuffix::F64));
+        assert_eq!(FloatSuffix::from_str("i32"), None);
     }
 }
