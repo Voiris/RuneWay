@@ -27,3 +27,16 @@ pub enum MirImmediate {
     Float { value: f64, ty: MirFloatTy },
     Char(char),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::MirPlace;
+    use crate::ids::MirLocalId;
+
+    #[test]
+    fn constructs_place_for_local() {
+        let local = MirLocalId::from_usize(3);
+
+        assert_eq!(MirPlace::new(local).local, local);
+    }
+}
