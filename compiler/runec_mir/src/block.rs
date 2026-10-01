@@ -30,3 +30,16 @@ pub enum MirRvalue {
 pub enum MirTerminator {
     Return(Option<MirOperand>),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{MirBlock, MirTerminator};
+
+    #[test]
+    fn constructs_empty_block_with_terminator() {
+        let block = MirBlock::new(MirTerminator::Return(None));
+
+        assert!(block.stmts.is_empty());
+        assert_eq!(block.terminator, MirTerminator::Return(None));
+    }
+}
