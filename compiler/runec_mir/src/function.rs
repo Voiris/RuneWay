@@ -59,3 +59,35 @@ pub enum MirCallee {
     Function(HirId),
     Runtime(RuntimeFunctionId),
 }
+
+#[cfg(test)]
+mod tests {
+    use runec_hir::ids::HirId;
+    use runec_source::byte_pos::BytePos;
+    use runec_source::source_map::SourceId;
+    use runec_source::span::Span;
+
+    use super::{MirFunction, MirLocal};
+    use crate::ids::MirLocalId;
+    use crate::ty::MirTy;
+
+    #[test]
+    fn pushes_locals_with_consecutive_ids() {
+        let span =
+            Span::new(BytePos::from_usize(1), BytePos::from_usize(4), SourceId::from_usize(0));
+        let mut function = MirFunction::new(HirId::from_usize(0), "main", MirTy::Unit, span, span);
+
+        let first = function.push_local(Some("value"), MirTy::Bool, span);
+        let second = function.push_local(None, MirTy::Char, span);
+
+        assert_eq!(first, MirLocalId::from_usize(0));
+        assert_eq!(second, MirLocalId::from_usize(1));
+        assert_eq!(
+            function.locals,
+            [
+                MirLocal { name: Some("value"), ty: MirTy::Bool, span },
+                MirLocal { name: None, ty: MirTy::Char, span },
+            ]
+        );
+    }
+}
