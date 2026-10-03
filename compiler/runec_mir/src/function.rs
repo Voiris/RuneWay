@@ -68,7 +68,9 @@ mod tests {
     use runec_source::span::Span;
 
     use super::{MirFunction, MirLocal};
-    use crate::ids::MirLocalId;
+    use crate::block::{MirBlock, MirTerminator};
+    use crate::ids::{MirBlockId, MirLocalId};
+    use crate::operand::{MirImmediate, MirOperand};
     use crate::ty::MirTy;
 
     #[test]
@@ -87,6 +89,30 @@ mod tests {
             [
                 MirLocal { name: Some("value"), ty: MirTy::Bool, span },
                 MirLocal { name: None, ty: MirTy::Char, span },
+            ]
+        );
+    }
+
+    #[test]
+    fn pushes_blocks_with_consecutive_ids() {
+        let span =
+            Span::new(BytePos::from_usize(1), BytePos::from_usize(4), SourceId::from_usize(0));
+        let mut function = MirFunction::new(HirId::from_usize(0), "main", MirTy::Unit, span, span);
+
+        let first = function.push_block(MirBlock::new(MirTerminator::Return(None)));
+        let second = function.push_block(MirBlock::new(MirTerminator::Return(Some(
+            MirOperand::Immediate(MirImmediate::Unit),
+        ))));
+
+        assert_eq!(first, MirBlockId::from_usize(0));
+        assert_eq!(second, MirBlockId::from_usize(1));
+        assert_eq!(
+            function.blocks,
+            [
+                MirBlock::new(MirTerminator::Return(None)),
+                MirBlock::new(MirTerminator::Return(Some(MirOperand::Immediate(
+                    MirImmediate::Unit,
+                )))),
             ]
         );
     }
