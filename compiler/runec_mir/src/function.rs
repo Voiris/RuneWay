@@ -74,6 +74,27 @@ mod tests {
     use crate::ty::MirTy;
 
     #[test]
+    fn initializes_function_metadata_and_storage() {
+        let span =
+            Span::new(BytePos::from_usize(1), BytePos::from_usize(8), SourceId::from_usize(0));
+        let ret_span =
+            Span::new(BytePos::from_usize(5), BytePos::from_usize(8), SourceId::from_usize(0));
+        let hir_id = HirId::from_usize(2);
+
+        let function = MirFunction::new(hir_id, "main", MirTy::Bool, span, ret_span);
+
+        assert_eq!(function.hir_id, hir_id);
+        assert_eq!(function.name, "main");
+        assert_eq!(function.span, span);
+        assert_eq!(function.ret_ty, MirTy::Bool);
+        assert_eq!(function.ret_span, ret_span);
+        assert_eq!(function.entry, MirBlockId::from_usize(0));
+        assert!(function.params.is_empty());
+        assert!(function.locals.is_empty());
+        assert!(function.blocks.is_empty());
+    }
+
+    #[test]
     fn pushes_locals_with_consecutive_ids() {
         let span =
             Span::new(BytePos::from_usize(1), BytePos::from_usize(4), SourceId::from_usize(0));
