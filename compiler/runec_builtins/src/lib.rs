@@ -166,4 +166,12 @@ mod tests {
         assert!(builtin_decl(BuiltinId::from_index(BUILTINS.len())).is_none());
         assert!(contract_decl(ContractId::from_index(CONTRACTS.len())).is_none());
     }
+
+    #[test]
+    fn formats_known_and_unknown_contract_ids() {
+        assert_eq!(DISPLAY_CONTRACT.to_string(), "core::fmt::Display");
+
+        let unknown = ContractId::from_index(CONTRACTS.len());
+        assert_eq!(unknown.to_string(), "<unknown contract 1>");
+    }
 }
