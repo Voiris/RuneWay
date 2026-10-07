@@ -97,6 +97,22 @@ mod tests {
     }
 
     #[test]
+    fn tracks_size_and_next_id() {
+        let mut map = HirMap::new();
+
+        assert!(map.is_empty());
+        assert_eq!(map.len(), 0);
+        assert_eq!(map.reserve_id(), HirId::from_usize(0));
+
+        let first = map.reserve_id();
+        assert_eq!(map.push(function(first)), first);
+
+        assert!(!map.is_empty());
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.reserve_id(), HirId::from_usize(1));
+    }
+
+    #[test]
     fn try_get_mut_accesses_existing_item() {
         let mut map = HirMap::new();
         let id = map.reserve_id();
