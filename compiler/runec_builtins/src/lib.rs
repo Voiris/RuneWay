@@ -174,4 +174,12 @@ mod tests {
         let unknown = ContractId::from_index(CONTRACTS.len());
         assert_eq!(unknown.to_string(), "<unknown contract 1>");
     }
+
+    #[test]
+    fn declaration_ids_round_trip_maximum_index() {
+        let index = u32::MAX as usize;
+
+        assert_eq!(BuiltinId::from_index(index).index(), index);
+        assert_eq!(ContractId::from_index(index).index(), index);
+    }
 }
