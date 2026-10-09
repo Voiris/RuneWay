@@ -85,3 +85,16 @@ pub struct DiagHelp {
 impl DiagHelp {
     impl_message_new!();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DiagLabelKind;
+
+    #[test]
+    fn label_kinds_expose_markers_and_colors() {
+        assert_eq!(DiagLabelKind::Primary.marker(), '^');
+        assert_eq!(DiagLabelKind::Primary.color_code(), "\x1b[1;96m");
+        assert_eq!(DiagLabelKind::Secondary.marker(), '-');
+        assert_eq!(DiagLabelKind::Secondary.color_code(), "\x1b[1;93m");
+    }
+}
