@@ -27,3 +27,20 @@ pub const fn rbp(tok: &Token) -> u8 {
         _ => 0,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{lbp, rbp};
+    use crate::lexer::token::Token;
+
+    #[test]
+    fn reports_operator_binding_powers() {
+        assert!(lbp(&Token::Star) > lbp(&Token::Plus));
+        assert!(lbp(&Token::Plus) > lbp(&Token::OrOr));
+        assert_eq!(rbp(&Token::Bang), 150);
+        assert_eq!(lbp(&Token::PlusPlus), 160);
+        assert_eq!(rbp(&Token::PlusPlus), 160);
+        assert_eq!(lbp(&Token::OpenParen), 170);
+        assert_eq!(lbp(&Token::Eq), 0);
+    }
+}
