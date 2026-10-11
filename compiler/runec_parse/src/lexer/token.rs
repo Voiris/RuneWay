@@ -410,3 +410,26 @@ pub mod token_display {
 }
 
 pub type SpannedToken<'a> = Spanned<Token<'a>>;
+
+#[cfg(test)]
+mod tests {
+    use super::{Radix, Token};
+
+    #[test]
+    fn displays_representative_token_names() {
+        let tokens = [
+            (Token::Arrow, "->"),
+            (Token::Let, "let"),
+            (Token::Ident("value"), "identifier"),
+            (
+                Token::IntLiteral { digits: "42", radix: Radix::Decimal, suffix: None },
+                "int-literal",
+            ),
+            (Token::RawStringLiteral("text"), "string-literal"),
+        ];
+
+        for (token, expected) in tokens {
+            assert_eq!(token.display(), expected);
+        }
+    }
+}
