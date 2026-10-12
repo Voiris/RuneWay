@@ -448,7 +448,8 @@ mod messages;
 #[cfg(test)]
 mod tests {
     use runec_ast::SpannedStr;
-    use runec_builtins::PRINTLN;
+    use runec_ast::expression::{FloatSuffix, IntSuffix};
+    use runec_builtins::{PRINTLN, TypeBits};
     use runec_hir::expression::{HirExpr, HirLiteral};
     use runec_hir::ids::HirId;
     use runec_hir::item::{HirFunction, HirItem};
@@ -460,7 +461,7 @@ mod tests {
     use runec_source::source_map::SourceId;
     use runec_source::span::{Span, Spanned};
 
-    use super::{Ty, TypeChecker};
+    use super::{Ty, TypeChecker, ty_of_literal};
 
     const SRC: SourceId = SourceId::from_usize(0);
 
@@ -470,6 +471,32 @@ mod tests {
 
     fn s<T>(node: T) -> Spanned<T> {
         Spanned::new(node, sp(0, 0))
+    }
+
+    #[test]
+    fn maps_literal_variants_to_semantic_types() {
+        let literals = [
+            (
+                HirLiteral::Int { value: 1, suffix: None },
+                Ty::Int { signed: true, bits: TypeBits::B32 },
+            ),
+            (
+                HirLiteral::Int { value: 1, suffix: Some(IntSuffix::U64) },
+                Ty::Int { signed: false, bits: TypeBits::B64 },
+            ),
+            (HirLiteral::Float { value: 1.0, suffix: None }, Ty::Float { bits: TypeBits::B64 }),
+            (
+                HirLiteral::Float { value: 1.0, suffix: Some(FloatSuffix::F32) },
+                Ty::Float { bits: TypeBits::B32 },
+            ),
+            (HirLiteral::Bool(true), Ty::Bool),
+            (HirLiteral::Char('x'), Ty::Char),
+            (HirLiteral::Str("text".into()), Ty::Str),
+        ];
+
+        for (literal, expected) in literals {
+            assert_eq!(ty_of_literal(&literal), expected);
+        }
     }
 
     #[test]
