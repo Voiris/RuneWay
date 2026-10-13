@@ -88,7 +88,11 @@ impl DiagHelp {
 
 #[cfg(test)]
 mod tests {
-    use super::DiagLabelKind;
+    use runec_source::byte_pos::BytePos;
+    use runec_source::source_map::SourceId;
+    use runec_source::span::Span;
+
+    use super::{DiagLabel, DiagLabelKind};
 
     #[test]
     fn label_kinds_expose_markers_and_colors() {
@@ -96,5 +100,21 @@ mod tests {
         assert_eq!(DiagLabelKind::Primary.color_code(), "\x1b[1;96m");
         assert_eq!(DiagLabelKind::Secondary.marker(), '-');
         assert_eq!(DiagLabelKind::Secondary.color_code(), "\x1b[1;93m");
+    }
+
+    #[test]
+    fn label_constructors_preserve_span_and_format_message() {
+        let span =
+            Span::new(BytePos::from_usize(2), BytePos::from_usize(5), SourceId::from_usize(1));
+
+        let primary = DiagLabel::primary("unexpected {token}", &[("token", "name")], span);
+        assert_eq!(primary.message.as_deref(), Some("unexpected name"));
+        assert_eq!(primary.kind.marker(), '^');
+        assert_eq!(primary.span, span);
+
+        let secondary = DiagLabel::silent_secondary(span);
+        assert!(secondary.message.is_none());
+        assert_eq!(secondary.kind.marker(), '-');
+        assert_eq!(secondary.span, span);
     }
 }
