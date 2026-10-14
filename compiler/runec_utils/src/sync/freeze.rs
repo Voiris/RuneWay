@@ -160,4 +160,17 @@ mod tests {
 
         assert_eq!(lock.into_inner(), "value");
     }
+
+    #[test]
+    fn with_respects_initial_freeze_state() {
+        let mutable = FreezeLock::with(10, false);
+        assert!(!mutable.is_frozen());
+        assert!(mutable.get().is_none());
+        assert!(mutable.write().is_some());
+
+        let frozen = FreezeLock::with(20, true);
+        assert!(frozen.is_frozen());
+        assert_eq!(frozen.get(), Some(&20));
+        assert!(frozen.write().is_none());
+    }
 }
