@@ -128,6 +128,22 @@ mod tests {
     }
 
     #[test]
+    fn indexed_access_returns_and_updates_item() {
+        let mut map = HirMap::new();
+        let id = map.reserve_id();
+        map.push(function(id));
+
+        assert_eq!(map.get(id).id(), id);
+
+        let HirItem::Function(function) = map.get_mut(id) else {
+            panic!("expected function");
+        };
+        function.name.node = "updated";
+
+        assert_eq!(map.get(id).name().node, "updated");
+    }
+
+    #[test]
     fn iterates_items_with_assigned_ids() {
         let mut map = HirMap::new();
         let first = map.reserve_id();
