@@ -173,4 +173,17 @@ mod tests {
         assert_eq!(frozen.get(), Some(&20));
         assert!(frozen.write().is_none());
     }
+
+    #[test]
+    fn clone_preserves_value_and_freeze_state() {
+        let mutable_clone = FreezeLock::new(String::from("mutable")).clone();
+        assert!(!mutable_clone.is_frozen());
+        assert_eq!(&*mutable_clone.read(), "mutable");
+        assert!(mutable_clone.write().is_some());
+
+        let frozen_clone = FreezeLock::frozen(String::from("frozen")).clone();
+        assert!(frozen_clone.is_frozen());
+        assert_eq!(frozen_clone.get().map(String::as_str), Some("frozen"));
+        assert!(frozen_clone.write().is_none());
+    }
 }
