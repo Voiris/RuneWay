@@ -138,4 +138,15 @@ mod tests {
         assert_eq!(FloatSuffix::from_str("f64"), Some(FloatSuffix::F64));
         assert_eq!(FloatSuffix::from_str("i32"), None);
     }
+
+    #[test]
+    fn rejects_invalid_numeric_suffixes() {
+        for suffix in ["", "U8", "usize", "f128"] {
+            assert_eq!(IntSuffix::from_str(suffix), None);
+        }
+
+        for suffix in ["", "F32", "f128", "i64"] {
+            assert_eq!(FloatSuffix::from_str(suffix), None);
+        }
+    }
 }
