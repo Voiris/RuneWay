@@ -36,4 +36,16 @@ mod tests {
         assert_eq!(HirId::from_usize(index).to_usize(), index);
         assert_eq!(HirLocalId::from_usize(index).to_usize(), index);
     }
+
+    #[test]
+    #[should_panic(expected = "HirId overflow")]
+    fn hir_id_rejects_overflow() {
+        HirId::from_usize(u32::MAX as usize + 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "HirLocalId overflow")]
+    fn hir_local_id_rejects_overflow() {
+        HirLocalId::from_usize(u32::MAX as usize + 1);
+    }
 }
