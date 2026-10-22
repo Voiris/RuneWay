@@ -59,11 +59,22 @@ impl<'diag> Lint<'diag> {
 
 #[cfg(test)]
 mod tests {
-    use super::is_lint_known;
+    use super::{Lint, is_lint_known};
 
     #[test]
     fn recognizes_known_lint_names() {
         assert!(is_lint_known("unknown_lint"));
         assert!(!is_lint_known("missing_lint"));
+    }
+
+    #[test]
+    fn matches_lint_names() {
+        let lint = Lint::from_str("unused_value");
+
+        assert_eq!(lint.as_str(), "unused_value");
+        assert!(lint.is("unused_value"));
+        assert!(!lint.is("unknown_lint"));
+        assert!(lint.contains_in(&["unknown_lint", "unused_value"]));
+        assert!(!lint.contains_in(&["unknown_lint", "missing_lint"]));
     }
 }
