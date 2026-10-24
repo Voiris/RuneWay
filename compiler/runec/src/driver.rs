@@ -95,8 +95,9 @@ fn run_jit(
     program_args: &[OsString],
     benchmark: Option<BenchmarkTimings>,
 ) -> Result<(), DriverError> {
-    // The CLI owns these arguments already. The current entry ABI is `main() -> unit`;
-    // a future runtime argument API can expose them without changing the CLI contract.
+    // The CLI owns these arguments already. The current entry ABI is `main() ->
+    // unit`; a future runtime argument API can expose them without changing the
+    // CLI contract.
     let _ = program_args;
     let started = benchmark.as_ref().map(|_| Instant::now());
     let symbols = runec_runtime::symbols().map(|symbol| (symbol.name, symbol.address));
