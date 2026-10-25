@@ -86,7 +86,7 @@ impl JitBackend {
         }
         let address = self.module.get_finalized_function(compiled.entry_func);
         // SAFETY: the entry signature is checked above and finalized by JITModule.
-        Ok(unsafe { std::mem::transmute(address) })
+        Ok(unsafe { std::mem::transmute::<*const u8, unsafe extern "C" fn()>(address) })
     }
 
     fn execute(entry: unsafe extern "C" fn()) {
