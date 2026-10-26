@@ -125,6 +125,16 @@ impl<'src, 'diag> Parser<'src, 'diag> {
         )))
     }
 
+    fn unsupported_syntax(feature: &str, span: Span) -> InnerParseErr<'diag> {
+        InnerParseErr::with_skip(
+            Diagnostic::error(DiagMessage::new(
+                super::messages::UNSUPPORTED_SYNTAX,
+                &[("feature", feature)],
+            ))
+            .add_label(DiagLabel::silent_primary(span)),
+        )
+    }
+
     fn peek(&mut self) -> InnerParserResult<'diag, &SpannedToken<'src>> {
         // Keep this as a boolean to avoid overlapping borrows.
         if self.tokens.peek().is_none() {
@@ -396,7 +406,10 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                         ))
                     }
                 }
-                _ => todo!(),
+                _ => {
+                    // TODO: Replace this diagnostic with support for the remaining type syntax.
+                    Err(Self::unsupported_syntax("type annotation", token.span))
+                }
             }
         } else {
             Err(self.unexpected_eof())
@@ -422,9 +435,14 @@ impl<'src, 'diag> Parser<'src, 'diag> {
 
     fn parse_generic_type_annotation(
         &mut self,
-        _ty: SpannedTypeAnnotation<'src>,
+        ty: SpannedTypeAnnotation<'src>,
     ) -> InnerParserResult<'diag, SpannedTypeAnnotation<'src>> {
-        todo!()
+        let span = self
+            .tokens
+            .peek()
+            .map_or(ty.span, |token| Span::new(ty.span.lo, token.span.hi, self.source_id));
+        // TODO: Replace this diagnostic with generic type parsing support.
+        Err(Self::unsupported_syntax("generic type annotation", span))
     }
 
     pub(super) fn parse_type_annotation(
@@ -770,13 +788,16 @@ impl<'src, 'diag> Parser<'src, 'diag> {
                     )
                 }
                 Token::DColon => {
-                    todo!()
+                    // TODO: Replace this diagnostic with path expression parsing support.
+                    return Err(Self::unsupported_syntax("path expression", op_token.span));
                 }
                 Token::OpenBracket => {
-                    todo!()
+                    // TODO: Replace this diagnostic with index expression parsing support.
+                    return Err(Self::unsupported_syntax("index expression", op_token.span));
                 }
                 Token::OpenBrace => {
-                    todo!()
+                    // TODO: Replace this diagnostic with struct expression parsing support.
+                    return Err(Self::unsupported_syntax("struct expression", op_token.span));
                 }
                 Token::As => {
                     self.tokens.next();

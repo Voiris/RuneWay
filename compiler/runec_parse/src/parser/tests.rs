@@ -43,6 +43,26 @@ fn attribute_access_expr<'src>(source_id: SourceId) -> SpannedExpr<'src> {
 }
 
 #[test]
+fn unfinished_syntax_reports_diagnostics() {
+    let cases = [
+        "act main(value: true) {}",
+        "act main(value: Item<Other>) {}",
+        "value::item;",
+        "value[0];",
+        "Value {};",
+    ];
+
+    for source in cases {
+        let (source_map, source_id) = generate_source(source);
+        let tokens = lex_source(&source_map, source_id);
+        let result = Parser::new(tokens, source_id, &source_map).parse_full();
+
+        assert!(!result.diags.is_empty(), "expected a diagnostic for `{source}`");
+        assert!(result.diags[0].message.message.contains("not supported yet"));
+    }
+}
+
+#[test]
 fn act_parse_test() {
     let (source_map, source_id) = generate_source("act main() {}");
     let tokens = lex_source(&source_map, source_id);

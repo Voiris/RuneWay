@@ -15,5 +15,6 @@ define_messages! {
     UNSUPPORTED_SUFFIX => "unsupported suffix",
     SUPPORTED_SUFFIXES_INT => "supported suffixes: u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64",
     SUPPORTED_SUFFIXES_FLOAT => "supported float suffixes: f32, f64",
-    UNABLE_TO_PARSE_FLOAT_NUMBER => "unable to parse float number"
+    UNABLE_TO_PARSE_FLOAT_NUMBER => "unable to parse float number",
+    UNSUPPORTED_SYNTAX => "syntax is not supported yet: `{ feature }`"
 }
