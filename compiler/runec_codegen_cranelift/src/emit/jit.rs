@@ -90,6 +90,8 @@ impl JitBackend {
     }
 
     fn execute(entry: unsafe extern "C" fn()) {
+        // SAFETY: finalize verifies that entry has the supported main
+        // signature before converting and returning its address.
         unsafe { entry() };
     }
 }
@@ -119,6 +121,8 @@ mod tests {
 
     static CALLED: AtomicBool = AtomicBool::new(false);
     unsafe extern "C" fn test_println(ptr: *const u8, len: usize) {
+        // SAFETY: the generated call passes the pointer and length of the
+        // live string constant stored in hello_module.
         let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
         assert_eq!(bytes, b"Hello, World!");
         CALLED.store(true, Ordering::SeqCst);

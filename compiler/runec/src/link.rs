@@ -36,6 +36,7 @@ fn wrapper_source() -> String {
     format!(
         r#"use std::io::{{self, Write}};
 
+// SAFETY: the linked object defines this symbol with the generated main ABI.
 unsafe extern "C" {{
     #[link_name = "{ENTRY_SYMBOL}"]
     fn runeway_main();
@@ -43,6 +44,7 @@ unsafe extern "C" {{
 
 #[unsafe(no_mangle)]
 unsafe extern "C" fn __runeway_print(ptr: *const u8, len: usize) {{
+    // SAFETY: the generated program follows the shared runtime string ABI.
     let Some(bytes) = (unsafe {{ bytes_from_abi(ptr, len) }}) else {{
         return;
     }};
@@ -53,6 +55,7 @@ unsafe extern "C" fn __runeway_print(ptr: *const u8, len: usize) {{
 
 #[unsafe(no_mangle)]
 unsafe extern "C" fn __runeway_println(ptr: *const u8, len: usize) {{
+    // SAFETY: the generated program follows the shared runtime string ABI.
     let Some(bytes) = (unsafe {{ bytes_from_abi(ptr, len) }}) else {{
         return;
     }};
@@ -66,10 +69,12 @@ unsafe fn bytes_from_abi<'a>(ptr: *const u8, len: usize) -> Option<&'a [u8]> {{
     if ptr.is_null() {{
         return (len == 0).then_some(&[]);
     }}
+    // SAFETY: callers guarantee that ptr references len readable bytes.
     Some(unsafe {{ std::slice::from_raw_parts(ptr, len) }})
 }}
 
 fn main() {{
+    // SAFETY: runeway_main is emitted with the validated zero-argument entry ABI.
     unsafe {{ runeway_main() }};
 }}
 "#

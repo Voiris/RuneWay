@@ -50,6 +50,8 @@ pub struct SourceFileLoader;
 impl SourceFileLoader {
     pub fn load(&self, path: PathBuf) -> Result<Source, FileLoaderError> {
         let file = File::open(&path)?;
+        // SAFETY: the mapping is read-only and remains owned by Source::File
+        // for at least as long as any source text borrowed from it.
         let mmap = unsafe { Mmap::map(&file)? };
         let source = str::from_utf8(&mmap)?;
         Ok(Source::File { lines: SourceLineStarts::compute_from_source(source), path, mmap })

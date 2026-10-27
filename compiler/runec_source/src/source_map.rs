@@ -104,6 +104,8 @@ impl Source {
 
     pub fn src(&self) -> &str {
         match self {
+            // SAFETY: SourceFileLoader validates the immutable mapping as
+            // UTF-8 before constructing Source::File.
             Source::File { mmap, .. } => unsafe { str::from_utf8_unchecked(mmap) },
         }
     }

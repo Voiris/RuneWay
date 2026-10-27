@@ -34,6 +34,8 @@ impl<T> FreezeLock<T> {
 
     pub fn read(&self) -> FreezeReadGuard<'_, T> {
         let _lock_guard = self.lock.read().unwrap();
+        // SAFETY: UnsafeCell always contains a valid T, and the read guard
+        // prevents mutable access for the lifetime of the returned guard.
         FreezeReadGuard { _lock_guard, data: unsafe { NonNull::new_unchecked(self.data.get()) } }
     }
 
@@ -45,6 +47,8 @@ impl<T> FreezeLock<T> {
         } else {
             Some(FreezeWriteGuard {
                 _lock_guard,
+                // SAFETY: UnsafeCell always contains a valid T, and the write
+                // guard provides exclusive access for the returned guard.
                 data: unsafe { NonNull::new_unchecked(self.data.get()) },
                 frozen: &self.frozen,
                 marker: PhantomData,
@@ -58,11 +62,18 @@ impl<T> FreezeLock<T> {
             self.frozen.store(true, Ordering::Release);
         }
 
+        // SAFETY: setting frozen while holding the write lock prevents future
+        // mutable guards, so the value can be shared for the lock's lifetime.
         unsafe { &*self.data.get() }
     }
 
     pub fn get(&self) -> Option<&T> {
-        if self.is_frozen() { Some(unsafe { &*self.data.get() }) } else { None }
+        if self.is_frozen() {
+            // SAFETY: a frozen lock no longer permits mutable guards.
+            Some(unsafe { &*self.data.get() })
+        } else {
+            None
+        }
     }
 
     pub fn into_inner(self) -> T {
@@ -86,6 +97,8 @@ impl<'a, T: 'a> Deref for FreezeReadGuard<'a, T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
+        // SAFETY: data points into the lock protected by _lock_guard, which
+        // remains held for the lifetime of this guard.
         unsafe { &*self.data.as_ptr() }
     }
 }
@@ -102,6 +115,7 @@ impl<'a, T: 'a> Deref for FreezeWriteGuard<'a, T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
+        // SAFETY: data points into the lock exclusively held by _lock_guard.
         unsafe { &*self.data.as_ptr() }
     }
 }
@@ -109,6 +123,7 @@ impl<'a, T: 'a> Deref for FreezeWriteGuard<'a, T> {
 impl<'a, T: 'a> DerefMut for FreezeWriteGuard<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
+        // SAFETY: the write guard guarantees exclusive access to the value.
         unsafe { &mut *self.data.as_ptr() }
     }
 }
@@ -117,6 +132,8 @@ impl<'a, T: 'a> FreezeWriteGuard<'a, T> {
     pub fn freeze(self) -> &'a T {
         self.frozen.store(true, Ordering::Release);
 
+        // SAFETY: consuming the write guard after setting frozen prevents any
+        // future mutable access while the returned reference is alive.
         unsafe { &*self.data.as_ptr() }
     }
 }
