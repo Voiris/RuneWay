@@ -171,6 +171,7 @@ The codebase and this README currently serve as the primary project documentatio
 - [Example programs](docs/examples.md) — supported syntax demonstrated by repository fixtures.
 - [Frontend pipeline](docs/frontend-pipeline.md) — compiler stages from tokens to type checking.
 - [Testing](docs/testing.md) — workspace checks and test organization guidelines.
+- [Style guide](STYLE_GUIDE.md) — project conventions for compiler code and documentation.
 
 <!--Temporary removed
 
